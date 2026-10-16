@@ -1,6 +1,7 @@
 import React from "react";
 import { Composition } from "remotion";
 import { Card, CardProps } from "./Card";
+import { LogoAvatar, LogoLockup, LogoMark } from "./Logo";
 import { ReelProps, StickReel } from "./StickReel";
 
 // Sample timing for Remotion Studio (`npm run studio`). Real renders pass public/reels/<n>/props.json instead.
@@ -23,6 +24,9 @@ const CARD: CardProps = { title: "इस हफ्ते की 5 सीख", su
 
 export const RemotionRoot: React.FC = () => (
   <>
+  <Composition id="LogoAvatar" component={LogoAvatar} width={1080} height={1080} fps={30} durationInFrames={1} />
+  <Composition id="LogoLockup" component={LogoLockup} width={2400} height={800} fps={30} durationInFrames={1} defaultProps={{ dark: false, transparent: false }} />
+  <Composition id="LogoMark" component={LogoMark} width={1000} height={1000} fps={30} durationInFrames={1} />
   <Composition
     id="Card"
     component={Card}

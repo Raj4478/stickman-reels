@@ -37,19 +37,46 @@ def buttons(rows):
     return json.dumps({'inline_keyboard': [[{'text': t, 'callback_data': d} for t, d in row] for row in rows]}, ensure_ascii=False)
 
 
-def review_buttons(run, n):
-    """Under each Reel: post it, make it again (same lesson), or skip it. The bot (bot/src.js) handles the taps."""
-    if not run:
+COPY_LIMIT = 256  # Telegram's limit for the text a copy button holds
+
+
+def copy_row(copy):
+    """Buttons that copy the caption and the hashtags to the clipboard (Telegram does it; no bot needed)."""
+    row = []
+    if copy and 0 < len(copy['caption']) <= COPY_LIMIT:
+        row.append({'text': '📋 Copy caption', 'copy_text': {'text': copy['caption']}})
+    if copy and 0 < len(copy['hashtags']) <= COPY_LIMIT:
+        row.append({'text': '#️⃣ Copy hashtags', 'copy_text': {'text': copy['hashtags']}})
+    return row
+
+
+def review_buttons(run, n, copy=None, actions=True):
+    """Under each Reel: post it, make it again (same lesson) or skip it (the bot, bot/src.js, handles those taps),
+    and copy its caption and hashtags. `actions=False` (AUTO_POST) keeps only the copy buttons."""
+    rows = []
+    if run and actions:
+        rows += [[{'text': '✅ Post', 'callback_data': f'post:{run}:{n}'}, {'text': '🔁 Make again', 'callback_data': f'again:{run}:{n}'}],
+                 [{'text': '🗑 Skip', 'callback_data': f'skip:{run}:{n}'}]]
+    if copy_row(copy):
+        rows.append(copy_row(copy))
+    return json.dumps({'inline_keyboard': rows}, ensure_ascii=False) if rows else None
+
+
+def copy_message(copy):
+    """For a caption longer than a copy button holds: the caption and hashtags as tap-to-copy blocks."""
+    from html import escape
+    if not copy or len(copy['caption']) <= COPY_LIMIT:
         return None
-    return buttons([[('✅ Post', f'post:{run}:{n}'), ('🔁 Make again', f'again:{run}:{n}')], [('🗑 Skip', f'skip:{run}:{n}')]])
+    return ('📋 Tap a block to copy it\n\n<b>Caption</b>\n<pre>' + escape(copy['caption']) + '</pre>\n\n<b>Hashtags</b>\n<pre>'
+            + escape(copy['hashtags']) + '</pre>')
 
 
-def send_message(text, reply_markup=None):
+def send_message(text, reply_markup=None, html=False):
     token, chat = os.getenv('TELEGRAM_BOT_TOKEN', '').strip(), os.getenv('TELEGRAM_CHAT_ID', '').strip()
     if not token or not chat:
         print(text)
         return None
-    body = json.dumps({'chat_id': chat, 'text': text[:4000], 'disable_web_page_preview': True,
+    body = json.dumps({'chat_id': chat, 'text': text[:4000], 'disable_web_page_preview': True, **({'parse_mode': 'HTML'} if html else {}),
                        **({'reply_markup': json.loads(reply_markup)} if reply_markup else {})}).encode()
     request = urllib.request.Request(f'https://api.telegram.org/bot{token}/sendMessage', data=body,
                                      headers={'Content-Type': 'application/json'})

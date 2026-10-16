@@ -89,7 +89,7 @@ class ReportTest(unittest.TestCase):
 class ButtonsTest(unittest.TestCase):
     def test_buttons_match_the_bot(self):
         keys = json.loads(telegram.review_buttons('38859911824', '2'))['inline_keyboard']
-        data = [b['callback_data'] for row in keys for b in row]
+        data = [b['callback_data'] for row in keys for b in row if 'callback_data' in b]
         self.assertEqual(data, ['post:38859911824:2', 'again:38859911824:2', 'skip:38859911824:2'])
         pattern = re.search(r'/\^\((.+?)\)\$/', (ROOT / 'bot' / 'src.js').read_text(encoding='utf-8')).group(1)
         for d in data:

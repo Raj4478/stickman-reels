@@ -82,6 +82,18 @@ def detail(exc):
     return (reasons[0] if reasons else str(error.get('code', ''))), error.get('message', ''), error
 
 
+def hashtags(story):
+    """The Reel's hashtags plus the channel's own, without repeats, as one line."""
+    return ' '.join(dict.fromkeys((story.get('hashtags') or []) + ['#stickman', '#hindi']))
+
+
+def copy_texts(story):
+    """What you paste when posting by hand: the caption (title, text, question) and the hashtags, separately."""
+    part = f" (भाग {story['part']})" if story.get('part') else ''
+    caption = '\n\n'.join(x for x in (story['title'] + part, story.get('instagram_caption') or story['lesson'], story.get('ask', '')) if x)
+    return {'caption': caption, 'hashtags': hashtags(story)}
+
+
 def texts(story):
     """Caption, YouTube title, description and tags for a script."""
     tags = story.get('hashtags') or []
