@@ -10,6 +10,7 @@ Hindi life-lesson Reels for Instagram, acted out by a stick figure and filmed li
    - It plans the camera: a different shot for each beat (wide, close, extreme close, low or high angle, tilted, push-in, pull-out, pan, two-shot) and the transition into it (cut, whip pan, zoom, flash).
 3. **Voice:**
    - Gemini's speech model reads the story in a warm Hindi voice.
+   - **Dialogue:** 1–2 beats are spoken by the characters themselves. The narrator voices the hero's own words, and the other person (माँ, पापा, बॉस…) gets a fitting second voice. Their mouths move with the sound, and the subtitle shows who is speaking.
    - FFmpeg finds the pauses between lines.
    - Whisper (`small` model, given the script as a hint) times every word, so the subtitle highlight lands on the word being spoken.
 4. **Animation:** [Remotion](https://www.remotion.dev) renders a 1080×1920 Reel with:
@@ -17,10 +18,17 @@ Hindi life-lesson Reels for Instagram, acted out by a stick figure and filmed li
    - **The hero:** the same capped figure every time, named in the hook.
    - **26 actions:** for example walk in, think, idea, sad, cry, cheer, angry, run, scroll the phone, sleep and alarm, workout, work late, count money, fall and get up, carry a burden, climb, read, walk away, handshake, argue, hug, help up.
    - **Characters:** माँ, पापा, दोस्त, बॉस, पार्टनर, बच्चा and अजनबी, each with its own colour and accessory. They join two-person beats or watch and react.
-   - **Places:** home, office, street, night, park and classroom, drawn in layers that move at different speeds, so camera moves have depth.
+   - **Places:** home, office, street, night, park, classroom, kitchen, bus, hospital, sunset, rain, and day turning into night. They're drawn in layers that move at different speeds, so camera moves have depth.
+   - **Expressions:** surprised, heart eyes, crying, a big smile, sleepy, blushing, and talking mouths.
+   - **Captions:** each beat's keyword pops out on a marker swipe, with an optional sticker (🔥 ⭐ ✅ ❌ ⚡ ₹ ❤️ ⚠️ 💯 ❓, drawn as shapes).
    - **Camera:** handheld drift, a punch-in and shake on impacts, and a 3D tilt for low and high angles.
    - **Sound:** effects made in code (whoosh, pop, thud, ding, ta-da, alarm, heartbeat…) and a lo-fi music bed made for each Reel. The music sits under the voice and rises at the end.
-   - **The ending:** the lesson card, then the question and a follow button. The last frames dissolve into the opening, so the Reel loops.
+   - **The ending:**
+     - the lesson card, then the question;
+     - **Like · Subscribe · Follow · Share** buttons, tapped one by one by a cursor;
+     - a small "+ फ़ॉलो करें" nudge slides in halfway through;
+     - the last frames dissolve into the opening, so the Reel loops.
+   - **Quality check:** before sending, FFmpeg checks the length, the size and the sound. Gemini then looks at 4 frames for cut-off or overlapping text and badly framed figures. Any problem is listed in the Telegram caption.
 5. **Review:** each video and its cover image arrive in your Telegram chat with three buttons:
    - **✅ Post** sends it to Instagram and YouTube Shorts, and the links come back to the chat.
    - **🔁 Make again** writes a new story on the same lesson.
@@ -31,6 +39,16 @@ Hindi life-lesson Reels for Instagram, acted out by a stick figure and filmed li
    - the last 7 days of views, likes, comments, saves and shares on both platforms;
    - the three best Reels;
    - a tip on what to make more of.
+
+## When Gemini fails (free backups)
+
+| Step | Backups, in order |
+| --- | --- |
+| Story (text) | 3 Gemini keys × 2 models → **Groq** (`GROQ_API_KEY`, free) → **OpenRouter** free models (`OPENROUTER_API_KEY`, free) |
+| Voice | 3 Gemini keys × 2 speech models → free **Microsoft Edge** Hindi neural voices (Madhur and Swara, pitch-shifted per character; no key needed) |
+| Quality check | Gemini; when it fails the visual check is skipped, but the length and sound checks still run |
+
+Every backup used is named in the Telegram caption. Both backup keys are free: [console.groq.com](https://console.groq.com/keys) and [openrouter.ai/keys](https://openrouter.ai/keys).
 
 ## Make Reels
 
@@ -56,6 +74,7 @@ A Reel takes about 6–8 minutes, including installing everything.
 | Secret | What |
 | --- | --- |
 | `GEMINI_API_KEY` | Free key from [Google AI Studio](https://aistudio.google.com/apikey). Optional `GEMINI_API_KEY_2` and `GEMINI_API_KEY_3` add more free daily quota. |
+| `GROQ_API_KEY`, `OPENROUTER_API_KEY` | Optional free text backups for when Gemini fails |
 | `TELEGRAM_BOT_TOKEN` | Bot token |
 | `TELEGRAM_CHAT_ID` | Your chat with the bot |
 

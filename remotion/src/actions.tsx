@@ -2,7 +2,7 @@ import React from "react";
 import { Easing, interpolate } from "remotion";
 import { Burst, COL, Dust, FONT, SpeedLines, ease } from "./engine/fx";
 import { At, Book, Box, Bulb, Clock, Coin, Heart, Mountain, Phone, Plant, RainCloud, Stairs, Stool, Thought, Trophy } from "./engine/props";
-import { Accessory, Joints, Key, P, Pose, SMOOTH, STAND, addPose, idle, runCycle, walkCycle } from "./engine/stick";
+import { Accessory, FaceName, Joints, Key, P, Pose, SMOOTH, STAND, addPose, idle, runCycle, walkCycle } from "./engine/stick";
 
 // The stage: a 1080x1920 world, ground line at GROUND, the hero at scale S with the hip at HIP.
 export const W = 1080;
@@ -13,7 +13,7 @@ export const HIP = STAND.y;
 export const CX = STAND.x;
 export const hipFor = (scale: number) => GROUND - 92.5 * scale;
 
-export type Face = "eyes" | "happy" | "sad" | "angry";
+export type Face = FaceName;
 export type Sfx = [number, string, number?]; // [frame in the beat, sfx/<name>.wav, volume]
 
 // Who the other person is: colour, accessory, size and the Hindi label shown above the head
@@ -193,7 +193,7 @@ export const act = (action: string, f: number, dur: number, other?: Cast): Act =
       return {
         keys: [{ f: 0, p: {} }, { f: 8, p: P.think }, { f: at, p: P.think }, { f: at + 5, p: { ra1: 165, ra2: -10, la1: -30, la2: 10, head: -8 } }],
         mod: breathe(),
-        face: f < at ? "eyes" : "happy",
+        face: f < at ? "eyes" : f < at + 12 ? "surprised" : "big_smile",
         hold: (j) => (
           <At x={j.headC[0]} y={j.headC[1] - 200}>
             <Bulb t={ease(f, at, at + 10)} f={f} />
@@ -221,7 +221,7 @@ export const act = (action: string, f: number, dur: number, other?: Cast): Act =
       return {
         keys: [{ f: 0, p: {} }, { f: 10, p: { y: sitY, ll1: 125, ll2: -150, rl1: 135, rl2: -150, lean: 25, head: 30, la1: 120, la2: 40, ra1: 130, ra2: 40 }, e: SMOOTH }],
         mod: (t, p) => (t > 12 ? addPose(p, { y: Math.sin(t * 0.9) * 3, head: Math.sin(t * 0.9) * 2 }) : p),
-        face: "sad",
+        face: "cry",
         hold: (j) => (f > 12 ? <Tears f={f} x={j.headC[0] + 10} y={j.headC[1] + 6} /> : null),
         hits: [],
         sfx: [[6, "sad", 0.5]],
@@ -238,7 +238,7 @@ export const act = (action: string, f: number, dur: number, other?: Cast): Act =
           { f: 18, p: { y: HIP, ...LEGS }, e: Easing.in(Easing.quad) },
         ],
         mod: (t, p) => (t > 22 ? addPose(p, { la1: Math.sin(t * 0.3) * 12, ra1: -Math.sin(t * 0.3) * 12, y: -Math.abs(Math.sin(t * 0.3)) * 10 }) : p),
-        face: "happy",
+        face: "big_smile",
         over: (
           <>
             <Dust x={CX} y={GROUND} at={18} f={f} />
@@ -283,7 +283,7 @@ export const act = (action: string, f: number, dur: number, other?: Cast): Act =
           { f: 11, p: { y: HIP }, e: Easing.in(Easing.quad) },
         ],
         mod: (t, p) => (t > 14 ? addPose(p, { x: Math.sin(t * 2.1) * 3 }) : p),
-        face: "eyes",
+        face: "surprised",
         hold: (j) => (
           <At x={j.headC[0] + 90} y={j.headC[1] - 90} r={12}>
             <Mark text="!" t={ease(f, 5, 12)} />
@@ -366,7 +366,7 @@ export const act = (action: string, f: number, dur: number, other?: Cast): Act =
           { f: up + 18, p: P.armsUp },
         ],
         mod: (t, p) => (t > up + 18 ? addPose(p, { la1: Math.sin(t * 0.25) * 8, ra1: -Math.sin(t * 0.25) * 8 }) : t < ring ? addPose(p, { y: Math.sin(t * 0.15) * 3 }) : p),
-        face: f < up ? "sad" : "happy",
+        face: f < ring ? "sleepy" : f < up ? "surprised" : "big_smile",
         under: <Bed x={bedX} top={top} />,
         hold: (j) => (f < ring ? <Zzz f={f} x={j.headC[0] + 30} y={j.headC[1] - 50} /> : null),
         over: (
@@ -623,13 +623,13 @@ export const act = (action: string, f: number, dur: number, other?: Cast): Act =
         keys,
         mod: (t, p) => addPose(p, { x: Math.sin(t * 1.4) * 2 }),
         face: "angry",
-        hold: (j) => (loud(true) ? <At x={j.headC[0] + 60} y={j.headC[1] - 200} r={-8}><Shout t={1} text="!!" /></At> : null),
+        hold: (j) => (loud(true) ? <At x={j.headC[0] + 40} y={j.headC[1] - 280} r={-8}><Shout t={1} text="!!" /></At> : null),
         second: {
           keys: theirs,
           mod: (t, p) => addPose(p, { x: Math.sin(t * 1.3) * 2 }),
           face: "angry",
           facing: -1,
-          hold: (j) => (loud(false) ? <At x={j.headC[0] - 60} y={j.headC[1] - 200} r={8}><Shout t={1} text="#@!" flip /></At> : null),
+          hold: (j) => (loud(false) ? <At x={j.headC[0] - 40} y={j.headC[1] - 280} r={8}><Shout t={1} text="#@!" flip /></At> : null),
         },
         hits: turns,
         sfx: turns.map((k) => [k, "angry", 0.45] as Sfx),
@@ -644,11 +644,11 @@ export const act = (action: string, f: number, dur: number, other?: Cast): Act =
       return {
         keys: [{ f: 0, p: { x: 280 } }, { f: w, p: { x: 470 }, e: linear }, { f: w + 6, p: hug }],
         mod: (t, p) => (t < w ? addPose(p, walkCycle(t, 0.3)) : addPose(p, { y: Math.sin(t * 0.2) * 2 })),
-        face: "happy",
+        face: f < w ? "happy" : "love",
         second: {
           keys: [{ f: 0, p: { x: 800, y: hipFor(o.scale) } }, { f: w, p: { x: 600 }, e: linear }, { f: w + 6, p: hug }],
           mod: (t, p) => (t < w ? addPose(p, walkCycle(t, 0.3)) : p),
-          face: "happy",
+          face: f < w ? "happy" : "love",
           facing: -1,
         },
         over: (
@@ -681,7 +681,7 @@ export const act = (action: string, f: number, dur: number, other?: Cast): Act =
             { f: at + 12, p: { ...CROUCH, y: hipFor(o.scale) + 30 * o.scale, rot: 0, x: CX + 120 }, e: SMOOTH },
             { f: at + 24, p: { y: hipFor(o.scale), lean: 0, ...LEGS, ...ARMS } },
           ],
-          face: f < at + 12 ? "sad" : "happy",
+          face: f < at + 12 ? "sad" : "blush",
           facing: -1,
           mod: (t, p) => (t > at + 24 ? addPose(p, idle(t, 2)) : p),
         },
@@ -701,7 +701,7 @@ export const act = (action: string, f: number, dur: number, other?: Cast): Act =
 export const watcher = (x: number, mood: string | undefined): Figure => ({
   keys: [{ f: 0, p: { x } }, { f: 10, p: mood === "sad" ? P.sad : mood === "happy" ? { ...P.cheer, la1: -120, ra1: 120 } : mood === "tense" ? P.shock : P.think }],
   mod: breathe(3),
-  face: mood === "sad" ? "sad" : mood === "happy" ? "happy" : mood === "tense" ? "eyes" : "eyes",
+  face: mood === "sad" ? "sad" : mood === "happy" ? "big_smile" : mood === "tense" ? "surprised" : "eyes",
   facing: x > CX ? -1 : 1,
 });
 

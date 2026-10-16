@@ -16,14 +16,19 @@ import os
 import sys
 from pathlib import Path
 
-from . import build, publish, report, script, sounds, telegram
+from . import build, publish, quality, report, script, sounds, telegram
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def caption(story, record):
+def caption(story, record, folder=None):
     part = f" (भाग {story['part']})" if story.get('part') else ''
     lines = [story['title'] + part, '', story.get('instagram_caption') or story['lesson'], '', ' '.join(story.get('hashtags', []))]
+    check = quality.note(folder) if folder else ''
+    if check:
+        lines += ['', check]
+    if record.get('backups'):
+        lines += ['', 'Backup used: ' + ', '.join(b['service'] for b in record['backups'])]
     if record.get('narration') == 'failed':
         lines += ['', '(Preview without narration: ' + record.get('reason', '')[:150] + ')']
     return '\n'.join(lines).strip()
@@ -81,6 +86,9 @@ def main(argv=None):
     post.add_argument('video', type=Path)
     post.add_argument('--platforms', default='', help='comma-separated: instagram,youtube (default: all set up)')
     commands.add_parser('report', help='send the weekly numbers to Telegram')
+    qc = commands.add_parser('check', help='quality-check a rendered Reel (length, sound, text and framing)')
+    qc.add_argument('folder', type=Path)
+    qc.add_argument('video', type=Path)
     topic = commands.add_parser('topic', help="print a Reel's lesson")
     topic.add_argument('folder', type=Path)
     commands.add_parser('sounds', help='regenerate the sound effects in remotion/public/sfx')
@@ -96,6 +104,8 @@ def main(argv=None):
         story = json.loads((args.folder / 'script.json').read_text(encoding='utf-8'))
         telegram.send_message(publish.summary(story, receipt))
         return 1 if any(r.get('status') == 'failed' for r in receipt['platforms'].values()) else 0
+    elif args.command == 'check':
+        quality.check(args.folder, args.video)
     elif args.command == 'report':
         telegram.send_message(report.weekly())
     elif args.command == 'topic':
@@ -107,7 +117,7 @@ def main(argv=None):
         if args.cover and args.cover.exists():
             telegram.send_file('sendPhoto', 'photo', args.cover, 'image/jpeg', f"Cover: {story['title']}")
         keys = telegram.review_buttons(os.getenv('GITHUB_RUN_ID', ''), args.folder.name)
-        telegram.send_file('sendVideo', 'video', args.video, 'video/mp4', caption(story, record),
+        telegram.send_file('sendVideo', 'video', args.video, 'video/mp4', caption(story, record, args.folder),
                            {'reply_markup': keys} if keys and os.getenv('AUTO_POST', '').strip() != 'true' else None)
     return 0
 

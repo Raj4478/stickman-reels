@@ -77,6 +77,8 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
           GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           GEMINI_TTS_MODEL: ${{ vars.GEMINI_TTS_MODEL }}
           REEL_VOICE: ${{ vars.REEL_VOICE }}
@@ -115,6 +117,13 @@ jobs:
             npx remotion render src/index.ts StickReel "out/reel-$n.mp4" --props="public/reels/$n/props.json" --crf=23
             npx remotion still src/index.ts StickReel "../out/$n/cover.jpg" --props="public/reels/$n/props.json" --frame=20 --image-format=jpeg
           done
+      - name: Quality check
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
+          GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+        run: |
+          for n in $(cat out/reels.txt); do python -m reel check "out/$n" "remotion/out/reel-$n.mp4" || true; done
       - name: Send them to Telegram
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
