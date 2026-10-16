@@ -21,7 +21,9 @@ import os
 import sys
 from pathlib import Path
 
-from . import build, carousel, growth, publish, quality, report, script, sounds, telegram
+# build and sounds need numpy (installed only where Reels are made); they load in the commands that use them,
+# so posting, the report, the queue and the sign-in checks run on a plain Python.
+from . import carousel, growth, publish, quality, report, script, telegram
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -59,6 +61,7 @@ def make(args):
     made = []
     for n, story in enumerate(stories(args), 1):
         out = args.out / str(n)
+        from . import build
         props, record = build.build(story, out, args.public, narrate=not args.silent, music=not args.no_music,
                                     prefix=f'reels/{n}/')
         if not args.sample:
@@ -171,6 +174,7 @@ def main(argv=None):
         args.count = max(1, min(args.count, 5))
         make(args)
     elif args.command == 'sounds':
+        from . import sounds
         print(sounds.write_effects(ROOT / 'remotion' / 'public' / 'sfx'))
     elif args.command == 'publish':
         at = None if args.now or growth.post_now() else growth.next_time(growth.best_slot())
