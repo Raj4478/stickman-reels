@@ -54,6 +54,10 @@ async function cloudflareCheck() {
     `account settings ${account}, Workers scripts ${scripts}, Workers KV ${kv}`);
   if (accountToken && !userToken && !scripts) return 'this is an account-owned token for the right account, but it has no Workers Scripts permission: edit the token and add Workers Scripts: Edit and Workers KV Storage: Edit.';
   if (accountToken && !userToken) return 'this is an account-owned token for the right account; it can read Workers but not the workers.dev subdomain: add Workers Scripts: Edit (and Account Settings: Read).';
+  if (scripts) {
+    const missing = ['Workers Scripts: Edit', ...(account ? [] : ['Account Settings: Read']), ...(kv ? [] : ['Workers KV Storage: Edit'])];
+    return `the token reaches this account but is missing permissions. Edit the token in Cloudflare (My Profile → API Tokens → Edit; the value stays the same) and make sure it has: ${missing.join(', ')}.`;
+  }
   if (!active) return 'CLOUDFLARE_API_TOKEN is not an active API token (copy it again, whole, or create a new one from the "Edit Cloudflare Workers" template).';
   if (visible === false) return `the token cannot see CLOUDFLARE_ACCOUNT_ID. It can see ${count} account(s): make sure the secret is the Account ID (Workers & Pages, right side; not a Zone ID) and that the token's Account Resources include that account.`;
   return 'the token is active but lacks Workers permissions for this account: create it from the "Edit Cloudflare Workers" template with Account Resources = your account.';
