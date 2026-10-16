@@ -220,9 +220,14 @@ def main(argv=None):
         record = json.loads(record_path.read_text(encoding='utf-8')) if record_path.exists() else {}
         if args.cover and args.cover.exists():
             telegram.send_file('sendPhoto', 'photo', args.cover, 'image/jpeg', f"Cover: {story['title']}")
-        keys = telegram.review_buttons(os.getenv('GITHUB_RUN_ID', ''), args.folder.name)
+        copy = publish.copy_texts(story)
+        keys = telegram.review_buttons(os.getenv('GITHUB_RUN_ID', ''), args.folder.name, copy,
+                                       actions=os.getenv('AUTO_POST', '').strip() != 'true')
         telegram.send_file('sendVideo', 'video', args.video, 'video/mp4', caption(story, record, args.folder),
-                           {'reply_markup': keys} if keys and os.getenv('AUTO_POST', '').strip() != 'true' else None)
+                           {'reply_markup': keys} if keys else None)
+        long_caption = telegram.copy_message(copy)
+        if long_caption:
+            telegram.send_message(long_caption, html=True)
     return 0
 
 
