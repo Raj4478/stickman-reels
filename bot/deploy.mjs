@@ -35,19 +35,25 @@ const headers = { Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}` };
 
 // Explain a Cloudflare refusal plainly (never printing a secret): is the token active, and can it see this account?
 async function cloudflareCheck() {
-  let active = false;
-  for (const endpoint of ['user/tokens/verify', `accounts/${env.CLOUDFLARE_ACCOUNT_ID}/tokens/verify`]) {
-    try {
-      if ((await call(`https://api.cloudflare.com/client/v4/${endpoint}`, { headers }))?.status === 'active') { active = true; break; }
-    } catch {}
-  }
+  const can = async (path) => { try { await call(`https://api.cloudflare.com/client/v4/${path}`, { headers }); return true; } catch { return false; } };
+  // a user token verifies at user/tokens/verify; an account-owned token only at accounts/<its account>/tokens/verify
+  const userToken = await can('user/tokens/verify');
+  const accountToken = await can(`accounts/${env.CLOUDFLARE_ACCOUNT_ID}/tokens/verify`);
+  const active = userToken || accountToken;
   let visible = null, count = 0;
   try {
     const accounts = await call('https://api.cloudflare.com/client/v4/accounts?per_page=50', { headers });
     count = accounts?.length || 0;
     visible = accounts?.some((a) => a.id === env.CLOUDFLARE_ACCOUNT_ID) ?? null;
   } catch {}
-  console.log(`Cloudflare token active: ${active}; accounts it can see: ${count}; CLOUDFLARE_ACCOUNT_ID among them: ${visible}`);
+  const account = await can(`accounts/${env.CLOUDFLARE_ACCOUNT_ID}`);
+  const scripts = await can(`accounts/${env.CLOUDFLARE_ACCOUNT_ID}/workers/scripts`);
+  const kv = await can(`accounts/${env.CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces?per_page=1`);
+  console.log(`Cloudflare token active: ${active} (user token: ${userToken}, account-owned token for this account: ${accountToken}); ` +
+    `accounts it can see: ${count}; CLOUDFLARE_ACCOUNT_ID among them: ${visible}; on that account it can read: ` +
+    `account settings ${account}, Workers scripts ${scripts}, Workers KV ${kv}`);
+  if (accountToken && !userToken && !scripts) return 'this is an account-owned token for the right account, but it has no Workers Scripts permission: edit the token and add Workers Scripts: Edit and Workers KV Storage: Edit.';
+  if (accountToken && !userToken) return 'this is an account-owned token for the right account; it can read Workers but not the workers.dev subdomain: add Workers Scripts: Edit (and Account Settings: Read).';
   if (!active) return 'CLOUDFLARE_API_TOKEN is not an active API token (copy it again, whole, or create a new one from the "Edit Cloudflare Workers" template).';
   if (visible === false) return `the token cannot see CLOUDFLARE_ACCOUNT_ID. It can see ${count} account(s): make sure the secret is the Account ID (Workers & Pages, right side; not a Zone ID) and that the token's Account Resources include that account.`;
   return 'the token is active but lacks Workers permissions for this account: create it from the "Edit Cloudflare Workers" template with Account Resources = your account.';
