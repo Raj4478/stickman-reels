@@ -40,19 +40,20 @@ def buttons(rows):
 COPY_LIMIT = 256  # Telegram's limit for the text a copy button holds
 
 
+def copy_all(copy):
+    """The caption and its hashtags as one paste: caption, a blank line, then the hashtags."""
+    return '\n\n'.join(x for x in (copy['caption'], copy['hashtags']) if x) if copy else ''
+
+
 def copy_row(copy):
-    """Buttons that copy the caption and the hashtags to the clipboard (Telegram does it; no bot needed)."""
-    row = []
-    if copy and 0 < len(copy['caption']) <= COPY_LIMIT:
-        row.append({'text': '📋 Copy caption', 'copy_text': {'text': copy['caption']}})
-    if copy and 0 < len(copy['hashtags']) <= COPY_LIMIT:
-        row.append({'text': '#️⃣ Copy hashtags', 'copy_text': {'text': copy['hashtags']}})
-    return row
+    """One button that copies the caption and the hashtags together (Telegram does it; no bot needed)."""
+    text = copy_all(copy)
+    return [{'text': '📋 Copy caption + hashtags', 'copy_text': {'text': text}}] if 0 < len(text) <= COPY_LIMIT else []
 
 
 def review_buttons(run, n, copy=None, actions=True):
     """Under each Reel: post it, make it again (same lesson) or skip it (the bot, bot/src.js, handles those taps),
-    and copy its caption and hashtags. `actions=False` (AUTO_POST) keeps only the copy buttons."""
+    and copy its caption with hashtags. `actions=False` (AUTO_POST) keeps only the copy button."""
     rows = []
     if run and actions:
         rows += [[{'text': '✅ Post', 'callback_data': f'post:{run}:{n}'}, {'text': '🔁 Make again', 'callback_data': f'again:{run}:{n}'}],
@@ -63,12 +64,12 @@ def review_buttons(run, n, copy=None, actions=True):
 
 
 def copy_message(copy):
-    """For a caption longer than a copy button holds: the caption and hashtags as tap-to-copy blocks."""
+    """For a caption longer than a copy button holds: the caption and hashtags as one tap-to-copy block."""
     from html import escape
-    if not copy or len(copy['caption']) <= COPY_LIMIT:
+    text = copy_all(copy)
+    if len(text) <= COPY_LIMIT:
         return None
-    return ('📋 Tap a block to copy it\n\n<b>Caption</b>\n<pre>' + escape(copy['caption']) + '</pre>\n\n<b>Hashtags</b>\n<pre>'
-            + escape(copy['hashtags']) + '</pre>')
+    return '📋 Tap the block to copy the caption + hashtags\n\n<pre>' + escape(text) + '</pre>'
 
 
 def send_message(text, reply_markup=None, html=False):

@@ -21,24 +21,25 @@ class CopyButtonsTest(unittest.TestCase):
         self.assertTrue(copy['hashtags'].startswith('#hindikahani #lifelessons #seekhsketch'))
         self.assertEqual(copy['hashtags'].count('#lifelessons'), 1)  # no repeats
 
-    def test_buttons_under_a_reel(self):
-        keys = rows(telegram.review_buttons('99', '2', publish.copy_texts(STORY)))
-        self.assertEqual([b['text'] for b in keys[-1]], ['📋 Copy caption', '#️⃣ Copy hashtags'])
-        self.assertEqual(keys[-1][1]['copy_text']['text'], publish.copy_texts(STORY)['hashtags'])
+    def test_one_button_copies_caption_and_hashtags(self):
+        copy = publish.copy_texts(STORY)
+        keys = rows(telegram.review_buttons('99', '2', copy))
+        self.assertEqual([b['text'] for b in keys[-1]], ['📋 Copy caption + hashtags'])
+        self.assertEqual(keys[-1][0]['copy_text']['text'], copy['caption'] + '\n\n' + copy['hashtags'])
         self.assertEqual(keys[0][0]['callback_data'], 'post:99:2')
 
     def test_auto_post_keeps_only_copy(self):
         keys = rows(telegram.review_buttons('99', '1', publish.copy_texts(STORY), actions=False))
         self.assertEqual(len(keys), 1)
-        self.assertTrue(all('copy_text' in b for b in keys[0]))
+        self.assertEqual(len(keys[0]), 1)
+        self.assertIn('copy_text', keys[0][0])
 
-    def test_long_caption_gets_a_tap_to_copy_message(self):
-        copy = {'caption': 'शब्द ' * 80, 'hashtags': '#a #b'}
-        keys = rows(telegram.review_buttons('99', '1', copy))
-        self.assertEqual([b['text'] for b in keys[-1]], ['#️⃣ Copy hashtags'])  # too long for a button
+    def test_long_caption_gets_one_tap_to_copy_block(self):
+        copy = {'caption': 'शब्द ' * 50, 'hashtags': '#a #b'}
+        self.assertIsNone(telegram.review_buttons('', '1', copy))  # too long for a button, no other buttons
         message = telegram.copy_message(copy)
-        self.assertIn('<pre>', message)
-        self.assertIn('#a #b', message)
+        self.assertEqual(message.count('<pre>'), 1)
+        self.assertIn('\n\n#a #b</pre>', message)
         self.assertIsNone(telegram.copy_message(publish.copy_texts(STORY)))  # short captions need no extra message
 
     def test_html_is_escaped(self):
