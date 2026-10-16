@@ -1,5 +1,5 @@
 name: Make a Reel
-run-name: "Stickman Reel: ${{ inputs.topic || (github.event_name == 'schedule' && 'daily') || 'random topic' }}${{ inputs.series && ' (2-part series)' || '' }}"
+run-name: "Stickman Reel: ${{ inputs.topic || (inputs.remake_of && format('again {0}', inputs.remake_of)) || (github.event_name == 'schedule' && 'daily') || 'random topic' }}${{ inputs.series && ' (2-part series)' || '' }}"
 # Writes Hindi life-lesson stories with Gemini (free tier: a writer pass, then a director pass for hooks and
 # camera shots), records the narration, times every word with Whisper, renders the stick-figure Reels with
 # Remotion and sends each video and its cover to Telegram for review. Nothing is posted to Instagram yet.
@@ -21,6 +21,10 @@ on:
         required: false
         type: boolean
         default: false
+      remake_of:
+        description: 'Make again: "<run id>:<reel>" of an earlier Reel (same lesson, new story)'
+        required: false
+        type: string
       sample:
         description: Render examples/sample.json without Gemini (to test the template)
         required: false
@@ -30,6 +34,7 @@ on:
     - cron: '30 3 * * *'   # 09:00 IST; runs only when the DAILY_REEL repository variable is "true"
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: make-reel
   cancel-in-progress: false
@@ -80,7 +85,15 @@ jobs:
           COUNT: ${{ inputs.count || '1' }}
           SERIES: ${{ inputs.series }}
           SAMPLE: ${{ inputs.sample }}
+          REMAKE_OF: ${{ inputs.remake_of }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          if [ -n "$REMAKE_OF" ]; then
+            [[ "$REMAKE_OF" =~ ^[0-9]+:[0-9]+$ ]] || { echo 'remake_of must look like 123456:1'; exit 1; }
+            gh run download "${REMAKE_OF%%:*}" --repo "$GITHUB_REPOSITORY" --name "reel-${REMAKE_OF%%:*}" --dir earlier
+            TOPIC=$(python -m reel topic "earlier/out/${REMAKE_OF##*:}")
+            echo "Making again: $TOPIC"
+          fi
           if [ "$SAMPLE" = "true" ]; then
             python -m reel make --sample examples/sample.json
           elif [ "$SERIES" = "true" ]; then
@@ -106,10 +119,29 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          AUTO_POST: ${{ vars.AUTO_POST }}
         run: |
           for n in $(cat out/reels.txt); do
             python -m reel send "out/$n" "remotion/out/reel-$n.mp4" --cover "out/$n/cover.jpg"
           done
+      # With the AUTO_POST variable set to "true" the Reels are posted straight away (no ✅ Post tap needed).
+      - name: Post them (AUTO_POST)
+        if: vars.AUTO_POST == 'true' && inputs.sample != true
+        env:
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE_PRIVACY: ${{ vars.YOUTUBE_PRIVACY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          status=0
+          for n in $(cat out/reels.txt); do
+            python -m reel publish "out/$n" "remotion/out/reel-$n.mp4" || status=1
+          done
+          exit $status
       - uses: actions/upload-artifact@v7
         if: always()
         with:

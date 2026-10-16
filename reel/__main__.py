@@ -2,6 +2,9 @@
 
     python -m reel make [--topic "..."] [--count 3 | --series] [--sample examples/sample.json] [--silent]
     python -m reel send out/1 remotion/out/reel-1.mp4 [--cover out/1/cover.jpg]
+    python -m reel publish out/1 remotion/out/reel-1.mp4 [--platforms instagram,youtube]
+    python -m reel report        (weekly numbers to Telegram)
+    python -m reel topic out/1   (prints the lesson of a Reel, for "Make again")
     python -m reel sounds        (rewrites remotion/public/sfx/*.wav)
 
 `make` writes each Reel to out/<n>/ and its media to remotion/public/reels/<n>/, and lists the numbers in
@@ -9,10 +12,11 @@ out/reels.txt for the render step.
 """
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
-from . import build, script, sounds, telegram
+from . import build, publish, report, script, sounds, telegram
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -72,6 +76,13 @@ def main(argv=None):
     send.add_argument('folder', type=Path, help='the Reel folder, e.g. out/1')
     send.add_argument('video', type=Path)
     send.add_argument('--cover', type=Path)
+    post = commands.add_parser('publish', help='post a rendered Reel to Instagram and YouTube (whichever is set up)')
+    post.add_argument('folder', type=Path)
+    post.add_argument('video', type=Path)
+    post.add_argument('--platforms', default='', help='comma-separated: instagram,youtube (default: all set up)')
+    commands.add_parser('report', help='send the weekly numbers to Telegram')
+    topic = commands.add_parser('topic', help="print a Reel's lesson")
+    topic.add_argument('folder', type=Path)
     commands.add_parser('sounds', help='regenerate the sound effects in remotion/public/sfx')
     args = parser.parse_args(argv)
 
@@ -80,13 +91,24 @@ def main(argv=None):
         make(args)
     elif args.command == 'sounds':
         print(sounds.write_effects(ROOT / 'remotion' / 'public' / 'sfx'))
+    elif args.command == 'publish':
+        receipt = publish.publish(args.folder, args.video, [p for p in args.platforms.split(',') if p] or None)
+        story = json.loads((args.folder / 'script.json').read_text(encoding='utf-8'))
+        telegram.send_message(publish.summary(story, receipt))
+        return 1 if any(r.get('status') == 'failed' for r in receipt['platforms'].values()) else 0
+    elif args.command == 'report':
+        telegram.send_message(report.weekly())
+    elif args.command == 'topic':
+        print(json.loads((args.folder / 'script.json').read_text(encoding='utf-8'))['topic'])
     else:
         story = json.loads((args.folder / 'script.json').read_text(encoding='utf-8'))
         record_path = args.folder / 'voice-record.json'
         record = json.loads(record_path.read_text(encoding='utf-8')) if record_path.exists() else {}
         if args.cover and args.cover.exists():
             telegram.send_file('sendPhoto', 'photo', args.cover, 'image/jpeg', f"Cover: {story['title']}")
-        telegram.send_file('sendVideo', 'video', args.video, 'video/mp4', caption(story, record))
+        keys = telegram.review_buttons(os.getenv('GITHUB_RUN_ID', ''), args.folder.name)
+        telegram.send_file('sendVideo', 'video', args.video, 'video/mp4', caption(story, record),
+                           {'reply_markup': keys} if keys and os.getenv('AUTO_POST', '').strip() != 'true' else None)
     return 0
 
 

@@ -21,10 +21,25 @@ Hindi life-lesson Reels for Instagram, acted out by a stick figure and filmed li
    - **Camera:** handheld drift, a punch-in and shake on impacts, and a 3D tilt for low and high angles.
    - **Sound:** effects made in code (whoosh, pop, thud, ding, ta-da, alarm, heartbeat…) and a lo-fi music bed made for each Reel. The music sits under the voice and rises at the end.
    - **The ending:** the lesson card, then the question and a follow button. The last frames dissolve into the opening, so the Reel loops.
-5. **Review:** each video and its cover image arrive in your Telegram chat. Nothing is posted yet.
+5. **Review:** each video and its cover image arrive in your Telegram chat with three buttons:
+   - **✅ Post** sends it to Instagram and YouTube Shorts, and the links come back to the chat.
+   - **🔁 Make again** writes a new story on the same lesson.
+   - **🗑 Skip** discards it.
+
+   With the `AUTO_POST` variable set to `true`, Reels are posted without waiting for a tap.
+6. **Weekly report:** every Monday at 09:00 IST (or on `/report`) you get:
+   - the last 7 days of views, likes, comments, saves and shares on both platforms;
+   - the three best Reels;
+   - a tip on what to make more of.
 
 ## Make Reels
 
+- **From Telegram:**
+  - Send any life lesson (e.g. "गुस्से में फैसले मत लो") and the bot makes a Reel about it.
+  - `/reel` picks a fresh lesson.
+  - `/batch 3` makes three Reels at once.
+  - `/series दोस्ती` makes a two-part story.
+  - `/status` shows what's running, and `/report` sends this week's numbers.
 - **From GitHub:** go to Actions → **Make a Reel** → Run workflow.
   - Type a lesson, or leave it empty for a fresh random line of [`topics.txt`](topics.txt). The last 25 topics are skipped.
   - **count** makes up to 5 Reels on different topics in one run.
@@ -44,12 +59,28 @@ A Reel takes about 6–8 minutes, including installing everything.
 | `TELEGRAM_BOT_TOKEN` | Bot token |
 | `TELEGRAM_CHAT_ID` | Your chat with the bot |
 
+**Telegram bot** (the stickman bot, separate from the infographic one): add these secrets, then run Actions → **Deploy bot** once. After that it redeploys by itself whenever `bot/` changes.
+
+| Secret | What |
+| --- | --- |
+| `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | The same values as in the infographic repository. The token needs *Workers Scripts: Edit*. |
+| `GH_DISPATCH_TOKEN` | A fine-grained GitHub token. Set *Repository access* to stickman-reels and *Actions* to Read and write. The bot uses it to start the workflows. |
+
+**Posting** (each platform switches on when its secrets are added):
+
+| Secret | What |
+| --- | --- |
+| `INSTAGRAM_ACCESS_TOKEN` | A long-lived token for the new Instagram Professional account (it lasts 60 days). Optionally also add `INSTAGRAM_USER_ID`. |
+| `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN` | Run `python tools/youtube_auth.py --save-to-github` on your PC and sign in with the **stickman channel's** Google account. Using the same Google Cloud OAuth client as the infographic page is fine. |
+
 **Variables** (all optional):
 
 | Variable | What |
 | --- | --- |
 | `REEL_HANDLE` | The channel handle shown on the Reel, e.g. `@stick.seekh` |
 | `DAILY_REEL` | `true` makes a Reel every day at 09:00 IST |
+| `AUTO_POST` | `true` posts every Reel without waiting for ✅ Post |
+| `YOUTUBE_PRIVACY` | `public` (default), `unlisted` or `private` |
 | `REEL_VOICE` | Gemini voice name (default `Achird`; try `Sulafat`, `Charon`, `Kore`) |
 | `GEMINI_MODEL`, `GEMINI_TTS_MODEL` | Override the text or speech model |
 
@@ -77,6 +108,10 @@ python -m unittest discover -s tests -t .
 | `reel/voice.py` | Hindi narration, line timing (pauses) and word timing (Whisper) |
 | `reel/sounds.py` | Sound effects and the music bed, made in code |
 | `reel/build.py` | Writes each Reel's `props.json`: segments, word times, music |
+| `reel/publish.py` | Instagram (resumable upload) and YouTube Shorts posting, with a receipt so nothing is posted twice |
+| `reel/report.py` | The weekly numbers |
+| `bot/` | The Telegram bot (Cloudflare Worker): turns messages and button taps into workflow runs |
+| `tools/youtube_auth.py` | One-time YouTube sign-in that saves the secrets |
 | `remotion/src/StickReel.tsx` | The Reel: hook, captions, subtitles, lesson and follow cards, sound, loop |
 | `remotion/src/director.ts` | Camera shots, handheld drift, punch-ins, 3D tilt, transitions |
 | `remotion/src/actions.tsx` | The 26 actions, the characters and the props |

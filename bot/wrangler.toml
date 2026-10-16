@@ -1,0 +1,10 @@
+name = "stickman-reels-bot"
+main = "src.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[vars]
+GITHUB_REPO = "Raj4478/stickman-reels"
+
+[observability]
+enabled = false
