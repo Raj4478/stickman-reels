@@ -104,7 +104,17 @@ if (!ready) throw new Error('The deployed bot did not answer with its new secret
 
 const tg = (method, body) => call(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
   method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-await tg('setWebhook', { url: url + '/webhook', secret_token: secret, allowed_updates: ['message', 'callback_query'], max_connections: 2 });
+// A brand-new workers.dev address can take a few minutes to reach Telegram's DNS: keep trying for up to 5 minutes.
+for (let attempt = 1; ; attempt++) {
+  try {
+    await tg('setWebhook', { url: url + '/webhook', secret_token: secret, allowed_updates: ['message', 'callback_query'], max_connections: 2 });
+    break;
+  } catch (error) {
+    if (!/resolve host|name resolution/i.test(error.message) || attempt >= 15) throw error;
+    console.log(`Telegram cannot see the new address yet (try ${attempt}); waiting 20 s`);
+    await sleep(20000);
+  }
+}
 await tg('setMyCommands', { commands: [
   { command: 'reel', description: 'Make a Reel (add a lesson, or leave empty for a fresh one)' },
   { command: 'batch', description: 'Make several Reels at once, e.g. /batch 3' },
