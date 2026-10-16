@@ -28,7 +28,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def caption(story, record, folder=None):
     part = f" (भाग {story['part']})" if story.get('part') else ''
-    lines = [story['title'] + part, '', story.get('instagram_caption') or story['lesson'], '', ' '.join(story.get('hashtags', []))]
+    special = [f"🎉 {story['occasion_name']} special"] if story.get('occasion_name') else []
+    lines = special + [story['title'] + part, '', story.get('instagram_caption') or story['lesson'], '', ' '.join(story.get('hashtags', []))]
     check = quality.note(folder) if folder else ''
     if check:
         lines += ['', check]
@@ -67,6 +68,32 @@ def make(args):
               f"{props['duration']:.1f}s, narration: {record.get('voice', record.get('narration'))}, "
               f"words: {record.get('word_timing', '-')}, directed: {story.get('directed', '-')}")
     (args.out / 'reels.txt').write_text('\n'.join(made) + '\n', encoding='utf-8')
+
+
+YOUTUBE_FIX = ('Fix it once:\n1. console.cloud.google.com/auth/audience → Publish app (status "In production"); '
+               'in "Testing" Google ends the sign-in every 7 days.\n2. On your PC, in the stickman-reels folder: '
+               'python tools/youtube_auth.py --save-to-github (sign in with the stickman channel\'s Google account).')
+
+
+def youtube_check():
+    """Daily: make sure YouTube posting still works. Exit 2 when a renewed token was written for the workflow to save."""
+    if 'youtube' not in publish.configured():
+        print('YouTube is not connected yet.')
+        return 0
+    result = publish.youtube_check()
+    print({k: v for k, v in result.items() if k != 'new_refresh_token'})
+    if not result['ok']:
+        telegram.send_message(f"⚠️ YouTube posting is not working: {result['problem']}\n\n{YOUTUBE_FIX}")
+        return 1
+    days = result.get('expires_days')
+    if days is not None and days <= 3:
+        telegram.send_message(f'⏳ The YouTube sign-in ends in {days} day(s) because the Google app is still in "Testing".\n\n{YOUTUBE_FIX}')
+    if result.get('new_refresh_token'):
+        token = result['new_refresh_token']
+        print(f'::add-mask::{token}')
+        Path(os.getenv('TOKEN_FILE', 'yt-token.txt')).write_text(token, encoding='utf-8')
+        return 2
+    return 0
 
 
 def compile_week(args):
@@ -130,6 +157,7 @@ def main(argv=None):
     ideas = commands.add_parser('ideas', help='send next-lesson ideas from comments and trends to Telegram')
     ideas.add_argument('--out', type=Path, default=ROOT / 'out' / 'ideas.json')
     commands.add_parser('refresh-token', help='renew the Instagram token')
+    commands.add_parser('youtube-check', help='check the YouTube sign-in; save a renewed token; warn before it ends')
     commands.add_parser('report', help='send the weekly numbers to Telegram')
     qc = commands.add_parser('check', help='quality-check a rendered Reel (length, sound, text and framing)')
     qc.add_argument('folder', type=Path)
@@ -169,6 +197,8 @@ def main(argv=None):
         run = os.getenv('GITHUB_RUN_ID', '')
         rows = [[(str(n), f'idea:{run}:{n - 1}') for n in range(1, len(found['ideas']) + 1)]] if run and found['ideas'] else None
         telegram.send_message(growth.ideas_message(found), telegram.buttons(rows) if rows else None)
+    elif args.command == 'youtube-check':
+        return youtube_check()
     elif args.command == 'refresh-token':
         token, days = growth.refresh_token()
         print(f'::add-mask::{token}')

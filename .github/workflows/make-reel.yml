@@ -95,6 +95,7 @@ jobs:
           SAMPLE: ${{ inputs.sample }}
           REMAKE_OF: ${{ inputs.remake_of }}
           IDEA_OF: ${{ inputs.idea_of }}
+          OCCASIONS: ${{ vars.OCCASIONS }}
           HOOK_TEST: ${{ vars.HOOK_TEST }}
           GH_TOKEN: ${{ github.token }}
         run: |

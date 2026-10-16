@@ -221,6 +221,10 @@ def ideas_message(found):
     if found.get('replies'):
         lines.append('\n💬 Replies you could post (copy and paste):')
         lines += [f"• \"{r.get('comment', '')[:80]}\"\n  ↳ {r.get('reply', '')}" for r in found['replies']]
+    from . import occasions
+    soon = occasions.coming_up()
+    if soon:
+        lines.append('\n' + soon + ' (Reels for these are made automatically a few days ahead)')
     lines += [f"ℹ️ {n}" for n in found.get('notes', [])]
     lines.append('\nTap a number to make that Reel.')
     return '\n'.join(lines)

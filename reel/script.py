@@ -236,7 +236,12 @@ def history():
 
 
 def remember(script):
-    items = history() + [{'topic': script['topic'], 'title': script['title'], 'name': script.get('name', '')}]
+    import datetime as dt
+    entry = {'topic': script['topic'], 'title': script['title'], 'name': script.get('name', ''),
+             'made': dt.date.today().isoformat()}
+    if script.get('occasion'):
+        entry['occasion'] = script['occasion']
+    items = history() + [entry]
     history_path().write_text(json.dumps(items[-200:], ensure_ascii=False, indent=1), encoding='utf-8')
 
 
@@ -358,15 +363,16 @@ def series_note(part, previous):
 
 
 def write(topic=None, part='', previous=None):
-    from . import growth
-    topic = (topic or '').strip() or pick_topic()
+    from . import growth, occasions
+    occasion = None if (topic or '').strip() or part == '2/2' else occasions.due(history=history())
+    topic = (topic or '').strip() or (occasion['lesson'] if occasion else pick_topic())
     recent = [h.get('title') for h in history()[-15:] if h.get('title')]
     prompt = WRITER.format(
         topic=topic, beats=random.choice((4, 5)), hook_rules=HOOK_RULES, two=', '.join(TWO_PERSON),
         actions=catalog(ACTIONS), cast=catalog(CAST), props=catalog(PROPS), places=catalog(PLACES), shots=catalog(SHOTS),
         series=series_note(part, previous), speakers=catalog(SPEAKERS), stickers=', '.join(STICKERS),
         avoid='\n'.join(x for x in (f'- Do not repeat these recent titles or their angle: {", ".join(recent)}' if recent else '',
-                                    growth.lessons_learned()) if x))
+                                    growth.lessons_learned(), occasions.note(occasion) if occasion else '') if x))
     last = None
     for _ in range(2):
         draft, model = gemini.json_call(prompt, SCHEMA)
@@ -389,5 +395,7 @@ def write(topic=None, part='', previous=None):
         script['model'] = model
         script['topic'] = script['topic'] or topic
         script['part'] = part
+        if occasion:
+            script['occasion'], script['occasion_name'] = occasion['tag'], occasion['name']
         return script
     raise ValueError(f'Gemini could not write a usable script: {last}')

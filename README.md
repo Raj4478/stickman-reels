@@ -50,6 +50,7 @@ Hindi life-lesson Reels for Instagram, acted out by a stick figure and filmed li
 | **Carousel** | 5 portrait slides from every Reel (the hook, three beats and the lesson) are posted as an Instagram carousel, which earns the most saves. The images are hosted for 2 days by the bot's Worker (Workers KV, free). | `CAROUSEL=true` |
 | **Weekly compilation** | Every Sunday at 19:00 IST, the week's posted Reels are joined into "इस हफ्ते की N सीख" with an intro, an outro and YouTube chapters. It arrives in Telegram with a ✅ Post to YouTube button. | needs 3+ posted Reels |
 | **Facebook Reels** | Each Reel is also posted to your Facebook Page. | `FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_TOKEN` |
+| **Festivals and special days** | A plain `/reel` or the daily Reel checks the calendar first. 0–3 days before Diwali, Holi, Raksha Bandhan, Dussehra, New Year, Mother's Day, Father's Day, Friendship Day, Teachers' Day, Children's Day and more, the Reel's lesson is tied to the occasion: family and values, never religious content. In board-exam and results season, one Reel a week. The caption says "🎉 दिवाली special". Moving festival dates are listed in `reel/occasions.py` for 2026–2027. | `OCCASIONS=off` turns it off |
 | **Ideas from comments and trends** | Every Monday, and on `/ideas`, Gemini reads your Reels' comments plus what India searches on YouTube and Google. It suggests 5 new lessons, each with a Make button, plus reply drafts for you to copy. Plain `/reel` uses these ideas first. | always on |
 | **Instagram token** | Renewed on the 1st and 15th of each month and saved back as the secret, so posting never stops. | `GH_DISPATCH_TOKEN` needs *Secrets: Read and write* |
 
@@ -105,7 +106,7 @@ A Reel takes about 6–8 minutes, including installing everything.
 | --- | --- |
 | `INSTAGRAM_ACCESS_TOKEN` | A long-lived token for the new Instagram Professional account. It lasts 60 days and is renewed automatically. Optionally also add `INSTAGRAM_USER_ID`. |
 | `FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_TOKEN` | Optional: the Facebook Page linked to the Instagram account, and a Page access token with *pages_manage_posts* |
-| `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN` | Run `python tools/youtube_auth.py --save-to-github` on your PC and sign in with the **stickman channel's** Google account. Using the same Google Cloud OAuth client as the infographic page is fine. |
+| `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN` | Follow [docs/youtube-setup.md](docs/youtube-setup.md): set up the Google Cloud app, then run `python tools/youtube_auth.py --save-to-github` and sign in with the **stickman channel's** account. **Check YouTube sign-in** runs every morning. It saves a renewed token back automatically, and warns you in Telegram before the sign-in ends or if it stops working. |
 
 **Variables** (all optional):
 
@@ -148,6 +149,7 @@ python -m unittest discover -s tests -t .
 | `reel/publish.py` | Instagram (resumable upload) and YouTube Shorts posting, with a receipt so nothing is posted twice |
 | `reel/report.py` | The weekly numbers |
 | `reel/growth.py` | Best posting time, learning from scores, ideas from comments and trends, Instagram token renewal |
+| `reel/occasions.py` | Festivals, special days and seasons, and which one is due |
 | `reel/carousel.py` | Carousel slides and the weekly compilation |
 | `reel/media.py` | 2-day public links for carousel images (Workers KV, served by the bot) |
 | `bot/` | The Telegram bot (Cloudflare Worker): turns messages and button taps into workflow runs |
