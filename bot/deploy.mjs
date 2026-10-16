@@ -32,7 +32,43 @@ function wrangler(args, input) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const headers = { Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}` };
-const subdomain = await call(`https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/workers/subdomain`, { headers });
+
+// Explain a Cloudflare refusal plainly (never printing a secret): is the token active, and can it see this account?
+async function cloudflareCheck() {
+  const can = async (path) => { try { await call(`https://api.cloudflare.com/client/v4/${path}`, { headers }); return true; } catch { return false; } };
+  // a user token verifies at user/tokens/verify; an account-owned token only at accounts/<its account>/tokens/verify
+  const userToken = await can('user/tokens/verify');
+  const accountToken = await can(`accounts/${env.CLOUDFLARE_ACCOUNT_ID}/tokens/verify`);
+  const active = userToken || accountToken;
+  let visible = null, count = 0;
+  try {
+    const accounts = await call('https://api.cloudflare.com/client/v4/accounts?per_page=50', { headers });
+    count = accounts?.length || 0;
+    visible = accounts?.some((a) => a.id === env.CLOUDFLARE_ACCOUNT_ID) ?? null;
+  } catch {}
+  const account = await can(`accounts/${env.CLOUDFLARE_ACCOUNT_ID}`);
+  const scripts = await can(`accounts/${env.CLOUDFLARE_ACCOUNT_ID}/workers/scripts`);
+  const kv = await can(`accounts/${env.CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces?per_page=1`);
+  console.log(`Cloudflare token active: ${active} (user token: ${userToken}, account-owned token for this account: ${accountToken}); ` +
+    `accounts it can see: ${count}; CLOUDFLARE_ACCOUNT_ID among them: ${visible}; on that account it can read: ` +
+    `account settings ${account}, Workers scripts ${scripts}, Workers KV ${kv}`);
+  if (accountToken && !userToken && !scripts) return 'this is an account-owned token for the right account, but it has no Workers Scripts permission: edit the token and add Workers Scripts: Edit and Workers KV Storage: Edit.';
+  if (accountToken && !userToken) return 'this is an account-owned token for the right account; it can read Workers but not the workers.dev subdomain: add Workers Scripts: Edit (and Account Settings: Read).';
+  if (scripts) {
+    const missing = ['Workers Scripts: Edit', ...(account ? [] : ['Account Settings: Read']), ...(kv ? [] : ['Workers KV Storage: Edit'])];
+    return `the token reaches this account but is missing permissions. Edit the token in Cloudflare (My Profile → API Tokens → Edit; the value stays the same) and make sure it has: ${missing.join(', ')}.`;
+  }
+  if (!active) return 'CLOUDFLARE_API_TOKEN is not an active API token (copy it again, whole, or create a new one from the "Edit Cloudflare Workers" template).';
+  if (visible === false) return `the token cannot see CLOUDFLARE_ACCOUNT_ID. It can see ${count} account(s): make sure the secret is the Account ID (Workers & Pages, right side; not a Zone ID) and that the token's Account Resources include that account.`;
+  return 'the token is active but lacks Workers permissions for this account: create it from the "Edit Cloudflare Workers" template with Account Resources = your account.';
+}
+
+let subdomain;
+try {
+  subdomain = await call(`https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/workers/subdomain`, { headers });
+} catch {
+  throw new Error(`Cloudflare refused the Workers account check: ${await cloudflareCheck()}`);
+}
 if (!subdomain?.subdomain) throw new Error('Enable a workers.dev subdomain in Cloudflare Workers & Pages first');
 
 // The GitHub token must be able to start this repository's workflows, or every button would fail later.
@@ -68,7 +104,17 @@ if (!ready) throw new Error('The deployed bot did not answer with its new secret
 
 const tg = (method, body) => call(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
   method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-await tg('setWebhook', { url: url + '/webhook', secret_token: secret, allowed_updates: ['message', 'callback_query'], max_connections: 2 });
+// A brand-new workers.dev address can take a few minutes to reach Telegram's DNS: keep trying for up to 5 minutes.
+for (let attempt = 1; ; attempt++) {
+  try {
+    await tg('setWebhook', { url: url + '/webhook', secret_token: secret, allowed_updates: ['message', 'callback_query'], max_connections: 2 });
+    break;
+  } catch (error) {
+    if (!/resolve host|name resolution/i.test(error.message) || attempt >= 15) throw error;
+    console.log(`Telegram cannot see the new address yet (try ${attempt}); waiting 20 s`);
+    await sleep(20000);
+  }
+}
 await tg('setMyCommands', { commands: [
   { command: 'reel', description: 'Make a Reel (add a lesson, or leave empty for a fresh one)' },
   { command: 'batch', description: 'Make several Reels at once, e.g. /batch 3' },
