@@ -5,7 +5,7 @@ import os
 import shutil
 
 from . import script as scripts
-from . import sounds, voice
+from . import gemini, sounds, voice
 
 LEAD = 0.3      # silence before the narration starts
 TAIL = 2.2      # the end card stays on screen after the last word
@@ -51,11 +51,15 @@ def build(script, out, public, narrate=True, music=True, prefix=''):
     public.mkdir(parents=True, exist_ok=True)
     (out / 'script.json').write_text(json.dumps(script, ensure_ascii=False, indent=2), encoding='utf-8')
     lines = scripts.spoken_lines(script)
-    record, audio, heard = {'narration': 'none'}, None, None
+    record, audio, heard, mouth = {'narration': 'none'}, None, None, []
     if narrate:
         try:
-            record = voice.synthesize(lines, out)
-            starts, speech_end = voice.line_times(out / 'voice.wav', lines)
+            record = voice.synthesize(scripts.spoken_turns(script), out, script.get('other_voice', 'friend'))
+            if record.get('starts'):  # the Edge backup knows exactly where each line starts
+                starts, speech_end = record.pop('starts'), record.pop('speech_end')
+            else:
+                starts, speech_end = voice.line_times(out / 'voice.wav', lines)
+            mouth = voice.mouth_curve(out / 'voice.wav')
             shutil.copyfile(out / 'voice.wav', public / 'voice.wav')
             audio = f'{prefix}voice.wav'
         except Exception as exc:  # the Reel still renders (silent) so the visuals can be checked
@@ -73,12 +77,19 @@ def build(script, out, public, narrate=True, music=True, prefix=''):
         (public / 'voice.wav').unlink(missing_ok=True)
     words = voice.word_times(lines, starts, speech_end, heard)
     props = {'audio': audio, 'music': None, 'lead': LEAD, 'handle': os.getenv('REEL_HANDLE', '').strip(),
-             'segments': segments(script, starts, speech_end, words)}
+             'mouth': mouth, 'segments': segments(script, starts, speech_end, words)}
     props['duration'] = props['segments'][-1]['end']
     if music:
         sounds.write_music(public / 'music.wav', props['duration'], script.get('music', 'warm'), script['title'])
         props['music'] = f'{prefix}music.wav'
     for folder in (out, public):
         (folder / 'props.json').write_text(json.dumps(props, ensure_ascii=False, indent=2), encoding='utf-8')
-    (out / 'voice-record.json').write_text(json.dumps(record, indent=2), encoding='utf-8')
+    if os.getenv('HOOK_TEST', '').strip().lower() == 'true' and script.get('title_b'):
+        # the same Reel with the other on-screen hook, for an Instagram trial Reel (reel/publish.py)
+        variant = json.loads(json.dumps(props))
+        variant['segments'][0]['title'] = script['title_b']
+        (public / 'props-b.json').write_text(json.dumps(variant, ensure_ascii=False, indent=2), encoding='utf-8')
+    if gemini.USED:
+        record['backups'] = list(gemini.USED)
+    (out / 'voice-record.json').write_text(json.dumps(record, indent=2, ensure_ascii=False), encoding='utf-8')
     return props, record

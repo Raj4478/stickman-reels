@@ -1,5 +1,5 @@
 name: Make a Reel
-run-name: "Stickman Reel: ${{ inputs.topic || (github.event_name == 'schedule' && 'daily') || 'random topic' }}${{ inputs.series && ' (2-part series)' || '' }}"
+run-name: "Stickman Reel: ${{ inputs.topic || (inputs.remake_of && format('again {0}', inputs.remake_of)) || (github.event_name == 'schedule' && 'daily') || 'random topic' }}${{ inputs.series && ' (2-part series)' || '' }}"
 # Writes Hindi life-lesson stories with Gemini (free tier: a writer pass, then a director pass for hooks and
 # camera shots), records the narration, times every word with Whisper, renders the stick-figure Reels with
 # Remotion and sends each video and its cover to Telegram for review. Nothing is posted to Instagram yet.
@@ -21,6 +21,14 @@ on:
         required: false
         type: boolean
         default: false
+      remake_of:
+        description: 'Make again: "<run id>:<reel>" of an earlier Reel (same lesson, new story)'
+        required: false
+        type: string
+      idea_of:
+        description: 'An idea from the weekly ideas: "<run id>:<index>"'
+        required: false
+        type: string
       sample:
         description: Render examples/sample.json without Gemini (to test the template)
         required: false
@@ -30,6 +38,7 @@ on:
     - cron: '30 3 * * *'   # 09:00 IST; runs only when the DAILY_REEL repository variable is "true"
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: make-reel
   cancel-in-progress: false
@@ -59,7 +68,9 @@ jobs:
       - name: Restore the topic history
         uses: actions/cache/restore@v4
         with:
-          path: history.json
+          path: |
+            history.json
+            ideas.json
           key: reel-history-${{ github.run_id }}
           restore-keys: reel-history-
       - name: Install
@@ -72,6 +83,8 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
           GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           GEMINI_TTS_MODEL: ${{ vars.GEMINI_TTS_MODEL }}
           REEL_VOICE: ${{ vars.REEL_VOICE }}
@@ -80,7 +93,23 @@ jobs:
           COUNT: ${{ inputs.count || '1' }}
           SERIES: ${{ inputs.series }}
           SAMPLE: ${{ inputs.sample }}
+          REMAKE_OF: ${{ inputs.remake_of }}
+          IDEA_OF: ${{ inputs.idea_of }}
+          HOOK_TEST: ${{ vars.HOOK_TEST }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          if [ -n "$REMAKE_OF" ]; then
+            [[ "$REMAKE_OF" =~ ^[0-9]+:[0-9]+$ ]] || { echo 'remake_of must look like 123456:1'; exit 1; }
+            gh run download "${REMAKE_OF%%:*}" --repo "$GITHUB_REPOSITORY" --name "reel-${REMAKE_OF%%:*}" --dir earlier
+            TOPIC=$(python -m reel topic "earlier/out/${REMAKE_OF##*:}")
+            echo "Making again: $TOPIC"
+          fi
+          if [ -n "$IDEA_OF" ]; then
+            [[ "$IDEA_OF" =~ ^[0-9]+:[0-9]+$ ]] || { echo 'idea_of must look like 123456:0'; exit 1; }
+            gh run download "${IDEA_OF%%:*}" --repo "$GITHUB_REPOSITORY" --name "ideas-${IDEA_OF%%:*}" --dir earlier-ideas
+            TOPIC=$(python -c "import json,sys; print(json.load(open('earlier-ideas/ideas.json', encoding='utf-8'))['ideas'][int(sys.argv[1])]['topic'])" "${IDEA_OF##*:}")
+            echo "Making idea: $TOPIC"
+          fi
           if [ "$SAMPLE" = "true" ]; then
             python -m reel make --sample examples/sample.json
           elif [ "$SERIES" = "true" ]; then
@@ -93,7 +122,9 @@ jobs:
         if: always() && hashFiles('history.json') != ''
         uses: actions/cache/save@v4
         with:
-          path: history.json
+          path: |
+            history.json
+            ideas.json
           key: reel-history-${{ github.run_id }}
       - name: Render with Remotion
         working-directory: remotion
@@ -101,15 +132,55 @@ jobs:
           for n in $(cat ../out/reels.txt); do
             npx remotion render src/index.ts StickReel "out/reel-$n.mp4" --props="public/reels/$n/props.json" --crf=23
             npx remotion still src/index.ts StickReel "../out/$n/cover.jpg" --props="public/reels/$n/props.json" --frame=20 --image-format=jpeg
+            # HOOK_TEST: the same Reel with the second on-screen hook, posted as an Instagram trial Reel
+            if [ -f "public/reels/$n/props-b.json" ]; then
+              npx remotion render src/index.ts StickReel "out/reel-$n-b.mp4" --props="public/reels/$n/props-b.json" --crf=23
+            fi
           done
+          # carousel slides (5 portrait images) for each Reel
+          cd .. && for n in $(cat out/reels.txt); do python -m reel slides "out/$n" "remotion/out/reel-$n.mp4"; done
+      - name: Quality check
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
+          GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+        run: |
+          for n in $(cat out/reels.txt); do python -m reel check "out/$n" "remotion/out/reel-$n.mp4" || true; done
       - name: Send them to Telegram
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          AUTO_POST: ${{ vars.AUTO_POST }}
         run: |
           for n in $(cat out/reels.txt); do
             python -m reel send "out/$n" "remotion/out/reel-$n.mp4" --cover "out/$n/cover.jpg"
           done
+      # With the AUTO_POST variable set to "true" the Reels are posted straight away (no ✅ Post tap needed).
+      - name: Post them (AUTO_POST)
+        if: vars.AUTO_POST == 'true' && inputs.sample != true
+        env:
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE_PRIVACY: ${{ vars.YOUTUBE_PRIVACY }}
+          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+          FACEBOOK_PAGE_TOKEN: ${{ secrets.FACEBOOK_PAGE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CAROUSEL: ${{ vars.CAROUSEL }}
+          HOOK_TEST: ${{ vars.HOOK_TEST }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          # AUTO_POST posts at once (the best-time queue needs the Post button's workflow)
+          status=0
+          for n in $(cat out/reels.txt); do
+            extra=(); [ -f "remotion/out/reel-$n-b.mp4" ] && extra+=(--video-b "remotion/out/reel-$n-b.mp4")
+            python -m reel publish "out/$n" "remotion/out/reel-$n.mp4" --now "${extra[@]}" || status=1
+          done
+          exit $status
       - uses: actions/upload-artifact@v7
         if: always()
         with:

@@ -30,3 +30,28 @@ def send_file(method, field, path, content_type, caption, extra=None):
 
 def send_video(path, caption):
     return send_file('sendVideo', 'video', path, 'video/mp4', caption) is not None
+
+
+def buttons(rows):
+    """reply_markup form value for an inline keyboard: rows of (label, callback data)."""
+    return json.dumps({'inline_keyboard': [[{'text': t, 'callback_data': d} for t, d in row] for row in rows]}, ensure_ascii=False)
+
+
+def review_buttons(run, n):
+    """Under each Reel: post it, make it again (same lesson), or skip it. The bot (bot/src.js) handles the taps."""
+    if not run:
+        return None
+    return buttons([[('✅ Post', f'post:{run}:{n}'), ('🔁 Make again', f'again:{run}:{n}')], [('🗑 Skip', f'skip:{run}:{n}')]])
+
+
+def send_message(text, reply_markup=None):
+    token, chat = os.getenv('TELEGRAM_BOT_TOKEN', '').strip(), os.getenv('TELEGRAM_CHAT_ID', '').strip()
+    if not token or not chat:
+        print(text)
+        return None
+    body = json.dumps({'chat_id': chat, 'text': text[:4000], 'disable_web_page_preview': True,
+                       **({'reply_markup': json.loads(reply_markup)} if reply_markup else {})}).encode()
+    request = urllib.request.Request(f'https://api.telegram.org/bot{token}/sendMessage', data=body,
+                                     headers={'Content-Type': 'application/json'})
+    with urllib.request.urlopen(request, timeout=60) as response:
+        return json.load(response).get('ok')

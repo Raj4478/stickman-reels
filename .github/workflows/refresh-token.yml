@@ -1,0 +1,43 @@
+name: Renew Instagram token
+# Instagram's long-lived token lasts 60 days. On the 1st and 15th of each month this renews it and saves the new
+# token as the INSTAGRAM_ACCESS_TOKEN secret, so posting never stops. Saving a secret needs GH_DISPATCH_TOKEN to
+# also have "Secrets: Read and write" on this repository.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 1,15 * *'
+permissions:
+  contents: read
+jobs:
+  renew:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Renew and save
+        env:
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TOKEN_FILE: ${{ runner.temp }}/ig-token
+        run: |
+          [ -n "$INSTAGRAM_ACCESS_TOKEN" ] || { echo 'Instagram is not connected yet.'; exit 0; }
+          if ! python -m reel refresh-token > renew.log 2>&1; then
+            tail -1 renew.log
+            python -c "from reel import telegram; telegram.send_message('⚠️ The Instagram token could not be renewed. ' + open('renew.log').read().strip().splitlines()[-1][:300])"
+            exit 1
+          fi
+          grep -v '::add-mask::' renew.log || true
+          if gh secret set INSTAGRAM_ACCESS_TOKEN --repo "$GITHUB_REPOSITORY" < "$TOKEN_FILE"; then
+            python -c "from reel import telegram; telegram.send_message('🔑 Instagram token renewed for another 60 days.')"
+          else
+            python -c "from reel import telegram; telegram.send_message('⚠️ Instagram gave a new token but it could not be saved: give GH_DISPATCH_TOKEN Secrets: Read and write on stickman-reels.')"
+            exit 1
+          fi
+          rm -f "$TOKEN_FILE"

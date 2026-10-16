@@ -127,8 +127,55 @@ export const solve = (p: Pose, s = 1, facing = 1): Joints => {
 };
 
 export type Accessory = "tie" | "scarf" | "tophat" | "crown" | "cap" | "glasses" | "none";
+// Expressions (added for Stickman Reels): surprised, love (heart eyes), cry, big_smile, sleepy, blush
+export type FaceName = "none" | "eyes" | "angry" | "sad" | "happy" | "surprised" | "love" | "cry" | "big_smile" | "sleepy" | "blush";
 
 const pts = (...a: [number, number][]) => a.map((v) => v.join(",")).join(" ");
+
+// The face, drawn in head space (x forward, y down; the head is a dark disc, so features are white)
+const Face: React.FC<{ face: FaceName; s: number; mouth: number }> = ({ face, s, mouth }) => {
+  const line = { stroke: "#fff", strokeWidth: 3 * s, strokeLinecap: "round" as const, fill: "none" };
+  const eye = (cx: number) => {
+    if (face === "sleepy") return <path key={cx} d={`M${(cx - 3.5) * s},${-3 * s} Q${cx * s},${-0.5 * s} ${(cx + 3.5) * s},${-3 * s}`} {...line} strokeWidth={2.4 * s} />;
+    if (face === "love") return <path key={cx} d={`M${cx * s},${1 * s} l${-4 * s},${-4 * s} a${2.2 * s},${2.2 * s} 0 0 1 ${4 * s},${-2.6 * s} a${2.2 * s},${2.2 * s} 0 0 1 ${4 * s},${2.6 * s} Z`} fill="#ff6b8a" />;
+    if (face === "big_smile") return <path key={cx} d={`M${(cx - 3.5) * s},${-2 * s} Q${cx * s},${-7 * s} ${(cx + 3.5) * s},${-2 * s}`} {...line} strokeWidth={2.6 * s} />;
+    const big = face === "surprised";
+    return <ellipse key={cx} cx={cx * s} cy={-3 * s} rx={(big ? 4.2 : 3.2) * s} ry={(big ? 5.6 : 4.6) * s} fill="#fff" />;
+  };
+  const talking = mouth > 0.05;
+  return (
+    <>
+      {eye(7)}
+      {eye(15)}
+      {face === "angry" && <path d={`M${3 * s},${-11 * s} L${19 * s},${-7 * s}`} {...line} />}
+      {(face === "sad" || face === "cry") && <path d={`M${3 * s},${-8 * s} L${19 * s},${-12 * s}`} {...line} />}
+      {face === "surprised" && <path d={`M${3 * s},${-13 * s} Q${11 * s},${-17 * s} ${19 * s},${-13 * s}`} {...line} strokeWidth={2.4 * s} />}
+      {face === "blush" && (
+        <>
+          <ellipse cx={4 * s} cy={5 * s} rx={3.5 * s} ry={2 * s} fill="#ff8fa3" opacity={0.85} />
+          <ellipse cx={18 * s} cy={5 * s} rx={3.5 * s} ry={2 * s} fill="#ff8fa3" opacity={0.85} />
+        </>
+      )}
+      {face === "cry" && (
+        <>
+          <path d={`M${7 * s},${2 * s} L${7 * s},${14 * s}`} stroke="#7fc8ff" strokeWidth={3 * s} strokeLinecap="round" />
+          <path d={`M${15 * s},${2 * s} L${15 * s},${12 * s}`} stroke="#7fc8ff" strokeWidth={3 * s} strokeLinecap="round" />
+        </>
+      )}
+      {talking ? (
+        <ellipse cx={11 * s} cy={8 * s} rx={(3.2 + mouth * 1.5) * s} ry={(0.8 + mouth * 4.2) * s} fill="#fff" />
+      ) : face === "surprised" ? (
+        <ellipse cx={11 * s} cy={9 * s} rx={2.6 * s} ry={3.4 * s} fill="#fff" />
+      ) : face === "big_smile" || face === "love" ? (
+        <path d={`M${5 * s},${6 * s} Q${11 * s},${15 * s} ${17 * s},${6 * s} Z`} fill="#fff" />
+      ) : face === "happy" || face === "blush" ? (
+        <path d={`M${6 * s},${7 * s} Q${11 * s},${12 * s} ${16 * s},${7 * s}`} {...line} strokeWidth={2.6 * s} />
+      ) : face === "sad" || face === "cry" ? (
+        <path d={`M${6 * s},${10 * s} Q${11 * s},${6 * s} ${16 * s},${10 * s}`} {...line} strokeWidth={2.6 * s} />
+      ) : null}
+    </>
+  );
+};
 
 export const Figure: React.FC<{
   pose: Pose;
@@ -137,13 +184,14 @@ export const Figure: React.FC<{
   facing?: number;
   accessory?: Accessory;
   opacity?: number;
-  face?: "none" | "eyes" | "angry" | "sad" | "happy";
+  face?: FaceName;
+  mouth?: number; // 0..1: talking, from the narration loudness (replaces the drawn mouth while > 0)
   label?: string;
   labelColor?: string;
   draw?: number; // 0..1: the figure is progressively "drawn" (pencil stroke)
   children?: (j: Joints) => React.ReactNode;
   behind?: (j: Joints) => React.ReactNode;
-}> = ({ pose, color, scale = 1, facing = 1, accessory = "none", opacity = 1, face = "none", label, labelColor, draw = 1, children, behind }) => {
+}> = ({ pose, color, scale = 1, facing = 1, accessory = "none", opacity = 1, face = "none", mouth = 0, label, labelColor, draw = 1, children, behind }) => {
   const j = solve(pose, scale, facing);
   const w = 12 * scale;
   const st = {
@@ -192,21 +240,7 @@ export const Figure: React.FC<{
         <circle cx={hx} cy={hy} r={R - w / 2} {...st} fill={dHead >= 1 ? color : "none"} {...dash(dHead)} />
       )}
       <g transform={`translate(${hx} ${hy}) rotate(${ang}) scale(${facing} 1)`}>
-        {face !== "none" && draw >= 1 && (
-          <>
-            <ellipse cx={7 * scale} cy={-3 * scale} rx={3.2 * scale} ry={4.6 * scale} fill="#fff" />
-            <ellipse cx={15 * scale} cy={-3 * scale} rx={3.2 * scale} ry={4.6 * scale} fill="#fff" />
-            {face === "angry" && (
-              <path d={`M${3 * scale},${-11 * scale} L${19 * scale},${-7 * scale}`} stroke="#fff" strokeWidth={3 * scale} strokeLinecap="round" />
-            )}
-            {face === "sad" && (
-              <path d={`M${3 * scale},${-8 * scale} L${19 * scale},${-12 * scale}`} stroke="#fff" strokeWidth={3 * scale} strokeLinecap="round" />
-            )}
-            {face === "happy" && (
-              <path d={`M${6 * scale},${7 * scale} Q${11 * scale},${12 * scale} ${16 * scale},${7 * scale}`} stroke="#fff" strokeWidth={2.6 * scale} fill="none" strokeLinecap="round" />
-            )}
-          </>
-        )}
+        {face !== "none" && draw >= 1 && <Face face={face} s={scale} mouth={mouth} />}
         {accessory === "scarf" && (
           <>
             {/* headscarf: cap on the head plus cloth falling behind the neck */}
@@ -363,7 +397,8 @@ export const Actor: React.FC<{
   scale?: number;
   facing?: number | ((f: number) => number);
   accessory?: Accessory;
-  face?: "none" | "eyes" | "angry" | "sad" | "happy";
+  face?: FaceName;
+  mouth?: number; // 0..1: talking, from the narration loudness (replaces the drawn mouth while > 0)
   label?: string;
   mod?: (f: number, p: Pose) => Pose;
   trails?: boolean;
@@ -371,7 +406,7 @@ export const Actor: React.FC<{
   draw?: number;
   children?: (j: Joints) => React.ReactNode;
   behind?: (j: Joints) => React.ReactNode;
-}> = ({ f, keys, color, base, scale = 1, facing = 1, accessory, face = "eyes", label, mod, trails = true, opacity = 1, draw, children, behind }) => {
+}> = ({ f, keys, color, base, scale = 1, facing = 1, accessory, face = "eyes", mouth = 0, label, mod, trails = true, opacity = 1, draw, children, behind }) => {
   const b = { ...STAND, ...base };
   const get = (t: number) => {
     const p = poseAt(t, keys, b);
@@ -401,6 +436,7 @@ export const Actor: React.FC<{
         facing={fc(f)}
         accessory={accessory}
         face={face}
+        mouth={mouth}
         label={label}
         opacity={opacity}
         draw={draw}

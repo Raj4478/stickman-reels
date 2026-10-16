@@ -1,5 +1,5 @@
 import React from "react";
-import { random } from "remotion";
+import { interpolate, interpolateColors, random } from "remotion";
 import { COL } from "./engine/fx";
 import { GROUND } from "./actions";
 
@@ -25,7 +25,34 @@ const Window: React.FC<{ x: number; y: number; w: number; h: number; sky?: strin
   </g>
 );
 
-export const place = (name: string | undefined, f: number): Place => {
+const Rain: React.FC<{ f: number; heavy?: boolean }> = ({ f, heavy }) => (
+  <g opacity={0.7}>
+    {Array.from({ length: heavy ? 90 : 60 }).map((_, i) => {
+      const x = L + random(`rx${i}`) * (R - L);
+      const y = ((random(`ry${i}`) * 1500 + f * 46) % 1500) + 60;
+      return <line key={i} x1={x} y1={y} x2={x - 14} y2={y + 46} stroke="#9fc3e6" strokeWidth={4} strokeLinecap="round" />;
+    })}
+  </g>
+);
+
+const Skyline: React.FC<{ color: string; lit: number }> = ({ color, lit }) => (
+  <g>
+    {Array.from({ length: 11 }).map((_, i) => {
+      const x = L + i * 180;
+      const h = 220 + random(`sk${i}`) * 240;
+      return (
+        <g key={i}>
+          <rect x={x} y={GROUND - h} width={160} height={h} fill={color} />
+          {Array.from({ length: Math.floor(h / 70) }).map((_, r) => (
+            <rect key={r} x={x + 30 + (r % 2) * 60} y={GROUND - h + 30 + r * 70} width={34} height={30} fill="#ffe7a3" opacity={lit * (random(`lw${i}${r}`) > 0.35 ? 1 : 0.2)} />
+          ))}
+        </g>
+      );
+    })}
+  </g>
+);
+
+export const place = (name: string | undefined, f: number, dur = 120): Place => {
   switch (name) {
     case "home":
       return {
@@ -174,6 +201,140 @@ export const place = (name: string | undefined, f: number): Place => {
         ),
         mid: <Floor color="#cfb995" />,
       };
+    case "kitchen":
+      return {
+        floor: "#d7c4a3",
+        far: (
+          <g>
+            <rect x={L} y={0} width={R - L} height={GROUND} fill="#fdf1e0" />
+            {Array.from({ length: 16 }).map((_, i) => (
+              <rect key={i} x={L + i * 120} y={GROUND - 330} width={118} height={78} fill={i % 2 ? "#e9f4f1" : "#d8ece7"} />
+            ))}
+            {[-300, 1040].map((x) => (
+              <g key={x}>
+                <rect x={x} y={GROUND - 250} width={300} height={250} fill="#c98b52" {...K} />
+                <rect x={x} y={GROUND - 262} width={300} height={18} fill="#8a6a4f" {...K} strokeWidth={4} />
+                <line x1={x + 150} y1={GROUND - 240} x2={x + 150} y2={GROUND} {...K} strokeWidth={4} />
+              </g>
+            ))}
+            <rect x={1080} y={GROUND - 300} width={140} height={40} rx={8} fill="#555" {...K} strokeWidth={4} />
+            <path d={`M1110,${GROUND - 310} q10,-30 0,-60 M1170,${GROUND - 310} q10,-30 0,-60`} stroke="#ccc" strokeWidth={6} fill="none" opacity={0.6 + Math.sin(f * 0.2) * 0.3} />
+            <rect x={-240} y={760} width={220} height={20} fill="#8a6a4f" />
+            {[0, 1, 2].map((i) => <rect key={i} x={-230 + i * 70} y={700} width={46} height={60} rx={6} fill={["#e5322d", "#f2c12e", "#2fa84f"][i]} {...K} strokeWidth={4} />)}
+          </g>
+        ),
+        mid: <Floor color="#d7c4a3" />,
+      };
+    case "bus":
+      return {
+        floor: "#7b7f86",
+        far: (
+          <g>
+            <rect x={L} y={0} width={R - L} height={GROUND} fill="#f0c94c" />
+            <g transform={`translate(${-(f * 14) % 600} 0)`}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <g key={i}>
+                  <rect x={L + i * 600} y={760} width={520} height={300} rx={20} fill="#cfe8ff" {...K} />
+                  <rect x={L + i * 600 + 60} y={900 - random(`bb${i}`) * 60} width={140} height={160 + random(`bb${i}`) * 60} fill="#9fb4cc" />
+                  <circle cx={L + i * 600 + 380} cy={880} r={50} fill="#7cc36b" />
+                </g>
+              ))}
+            </g>
+            <rect x={L} y={700} width={R - L} height={60} fill="#e2b93a" />
+          </g>
+        ),
+        mid: (
+          <g>
+            <Floor color="#7b7f86" />
+            <line x1={L} y1={640} x2={R} y2={640} {...K} strokeWidth={12} />
+            {[-120, 220, 860, 1200].map((x) => <path key={x} d={`M${x},640 l0,60 a24,24 0 1 0 1,0`} fill="none" {...K} strokeWidth={6} />)}
+            <rect x={1060} y={GROUND - 170} width={300} height={40} rx={10} fill="#3c6fb6" {...K} strokeWidth={5} />
+            <rect x={1300} y={GROUND - 300} width={50} height={170} rx={10} fill="#3c6fb6" {...K} strokeWidth={5} />
+          </g>
+        ),
+      };
+    case "hospital":
+      return {
+        floor: "#d9e3e6",
+        far: (
+          <g>
+            <rect x={L} y={0} width={R - L} height={GROUND} fill="#eef6f7" />
+            <rect x={L} y={GROUND - 120} width={R - L} height={120} fill="#cfe2e6" />
+            <rect x={860} y={780} width={180} height={180} rx={14} fill="#fff" {...K} />
+            <rect x={930} y={810} width={40} height={120} fill={COL.red} />
+            <rect x={890} y={850} width={120} height={40} fill={COL.red} />
+            <polyline points={`-300,820 -250,820 -230,${780 + Math.sin(f * 0.5) * 6} -210,860 -190,800 -170,820 -100,820`} fill="none" stroke={COL.green} strokeWidth={6} />
+            <rect x={-320} y={740} width={240} height={160} rx={10} fill="none" {...K} strokeWidth={5} />
+          </g>
+        ),
+        mid: (
+          <g>
+            <Floor color="#d9e3e6" />
+            <rect x={1080} y={GROUND - 120} width={360} height={60} rx={10} fill="#fff" {...K} strokeWidth={5} />
+            <line x1={1110} y1={GROUND - 60} x2={1110} y2={GROUND} {...K} strokeWidth={8} />
+            <line x1={1410} y1={GROUND - 60} x2={1410} y2={GROUND} {...K} strokeWidth={8} />
+            <line x1={1040} y1={GROUND} x2={1040} y2={GROUND - 420} {...K} strokeWidth={8} />
+            <path d={`M1040,${GROUND - 420} l60,0`} {...K} strokeWidth={6} />
+            <rect x={1080} y={GROUND - 420} width={40} height={70} rx={10} fill="#bfe3ff" {...K} strokeWidth={4} />
+          </g>
+        ),
+      };
+    case "sunset":
+      return {
+        floor: "#c9875c",
+        far: (
+          <g>
+            <defs>
+              <linearGradient id="sunsetSky" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="#ffd59e" />
+                <stop offset="0.6" stopColor="#ff9a62" />
+                <stop offset="1" stopColor="#e8607a" />
+              </linearGradient>
+            </defs>
+            <rect x={L} y={0} width={R - L} height={GROUND} fill="url(#sunsetSky)" />
+            <circle cx={820} cy={GROUND - 120 + Math.min(40, f * 0.3)} r={150} fill="#fff1b8" opacity={0.95} />
+            <Skyline color="#8a4f63" lit={0.4} />
+          </g>
+        ),
+        mid: <Floor color="#c9875c" />,
+      };
+    case "rain":
+      return {
+        floor: "#5f6670",
+        far: (
+          <g>
+            <rect x={L} y={0} width={R - L} height={GROUND} fill="#b6c2cf" />
+            <Skyline color="#7d8896" lit={0.5} />
+          </g>
+        ),
+        mid: (
+          <g>
+            <Floor color="#5f6670" />
+            {Array.from({ length: 8 }).map((_, i) => (
+              <ellipse key={i} cx={L + i * 240 + 60} cy={GROUND + 90 + (i % 3) * 60} rx={60 + 20 * Math.sin(f * 0.2 + i)} ry={10} fill="none" stroke="#9fc3e6" strokeWidth={3} opacity={0.6} />
+            ))}
+            <Rain f={f} heavy />
+          </g>
+        ),
+      };
+    case "day_to_night": {
+      // the sky darkens across the beat, the sun sets and windows light up: time passing
+      const t = interpolate(f, [0, Math.max(10, dur - 10)], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+      return {
+        dark: t > 0.55,
+        glow: t > 0.55,
+        floor: interpolateColors(t, [0, 1], ["#9ccc65", "#2d3557"]),
+        far: (
+          <g>
+            <rect x={L} y={0} width={R - L} height={GROUND} fill={interpolateColors(t, [0, 0.5, 1], ["#bfe6ff", "#ff9a62", "#1b2347"])} />
+            <circle cx={880} cy={760 + t * 600} r={80} fill="#fff3a6" opacity={1 - t} />
+            <circle cx={200} cy={900 - t * 180} r={60} fill="#fdf3c4" opacity={Math.max(0, t * 2 - 1)} />
+            <Skyline color={interpolateColors(t, [0, 1], ["#a7b4c8", "#202744"])} lit={Math.max(0, t * 2 - 0.8)} />
+          </g>
+        ),
+        mid: <Floor color={interpolateColors(t, [0, 1], ["#9ccc65", "#2d3557"])} />,
+      };
+    }
     default:
       return { floor: "transparent", far: null, mid: null };
   }

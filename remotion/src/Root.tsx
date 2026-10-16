@@ -1,5 +1,6 @@
 import React from "react";
 import { Composition } from "remotion";
+import { Card, CardProps } from "./Card";
 import { ReelProps, StickReel } from "./StickReel";
 
 // Sample timing for Remotion Studio (`npm run studio`). Real renders pass public/reels/<n>/props.json instead.
@@ -18,7 +19,19 @@ const DEMO: ReelProps = {
   ],
 };
 
+const CARD: CardProps = { title: "इस हफ्ते की 5 सीख", subtitle: "छोटी कहानियाँ, बड़ी सीख" };
+
 export const RemotionRoot: React.FC = () => (
+  <>
+  <Composition
+    id="Card"
+    component={Card}
+    width={1080}
+    height={1920}
+    fps={30}
+    durationInFrames={105}
+    defaultProps={CARD}
+  />
   <Composition
     id="StickReel"
     component={StickReel}
@@ -29,4 +42,5 @@ export const RemotionRoot: React.FC = () => (
     defaultProps={DEMO}
     calculateMetadata={({ props }) => ({ durationInFrames: Math.ceil(props.duration * 30) })}
   />
+  </>
 );

@@ -1,0 +1,115 @@
+name: Post a Reel
+run-name: "Post Reel ${{ inputs.reel }} of run ${{ inputs.source_run }}"
+# Posts one finished Reel (from a Make a Reel run), started by the bot's ✅ Post button:
+#   Instagram Reel, YouTube Short and Facebook Reel (each when its secrets are set), the carousel (CAROUSEL=true)
+#   and the second-hook trial Reel (HOOK_TEST=true).
+# With POST_AT_PEAK=true it goes out at the learned best time: YouTube and Facebook schedule it themselves;
+# Instagram is uploaded now and published by "Post queued Reels" at that time.
+# A receipt artifact per Reel makes sure the same Reel is never posted twice, even if Post is tapped again.
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Make a Reel run ID
+        required: true
+        type: string
+      reel:
+        description: Which Reel of that run (1, 2, ...)
+        required: true
+        default: '1'
+        type: string
+      platforms:
+        description: Only these (instagram,youtube,facebook,carousel,instagram_trial); empty = all set up
+        required: false
+        type: string
+      now:
+        description: Post now, even when POST_AT_PEAK would wait for the best time
+        required: false
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: publish-${{ inputs.source_run }}-${{ inputs.reel }}
+  cancel-in-progress: false
+jobs:
+  post:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Restore the topic history (for the best time)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            history.json
+            ideas.json
+          key: reel-history-${{ github.run_id }}
+          restore-keys: reel-history-
+      - name: Download the Reel
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.source_run }}
+          REEL: ${{ inputs.reel }}
+        run: |
+          [[ "$SOURCE_RUN" =~ ^[0-9]+$ && "$REEL" =~ ^[0-9]+$ ]] || { echo 'Run ID and Reel number must be numbers'; exit 1; }
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name "reel-$SOURCE_RUN" --dir src
+          # An earlier post of this Reel left its receipt as an artifact: carry it over so nothing is posted twice.
+          if gh run list --repo "$GITHUB_REPOSITORY" --workflow publish.yml --status completed --limit 50 --json databaseId,displayTitle \
+               --jq ".[] | select(.displayTitle == \"Post Reel $REEL of run $SOURCE_RUN\") | .databaseId" > earlier.txt && [ -s earlier.txt ]; then
+            for id in $(cat earlier.txt); do gh run download "$id" --repo "$GITHUB_REPOSITORY" --name "posted-$SOURCE_RUN-$REEL" --dir "src/out/$REEL" 2>/dev/null && break; done
+          fi
+          ls "src/out/$REEL"
+      - name: Post
+        env:
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE_PRIVACY: ${{ vars.YOUTUBE_PRIVACY }}
+          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+          FACEBOOK_PAGE_TOKEN: ${{ secrets.FACEBOOK_PAGE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CAROUSEL: ${{ vars.CAROUSEL }}
+          HOOK_TEST: ${{ vars.HOOK_TEST }}
+          POST_AT_PEAK: ${{ vars.POST_AT_PEAK }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          REEL: ${{ inputs.reel }}
+          PLATFORMS: ${{ inputs.platforms }}
+          NOW: ${{ inputs.now }}
+        run: |
+          extra=()
+          [ -f "src/remotion/out/reel-$REEL-b.mp4" ] && extra+=(--video-b "src/remotion/out/reel-$REEL-b.mp4")
+          [ "$NOW" = "true" ] && extra+=(--now)
+          python -m reel publish "src/out/$REEL" "src/remotion/out/reel-$REEL.mp4" --platforms "$PLATFORMS" "${extra[@]}"
+      - name: Keep the Instagram upload for its time
+        id: queue
+        if: always()
+        run: |
+          if python -c "import json,sys; r=json.load(open('src/out/$REEL/publish.json')); sys.exit(0 if any(p.get('status')=='queued' for p in r['platforms'].values()) else 1)" 2>/dev/null; then
+            mkdir -p queued && cp "src/out/$REEL/publish.json" "src/out/$REEL/script.json" queued/ && echo "waiting=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          REEL: ${{ inputs.reel }}
+      - uses: actions/upload-artifact@v7
+        if: steps.queue.outputs.waiting == 'true'
+        with:
+          name: queued-${{ inputs.source_run }}-${{ inputs.reel }}
+          path: queued/
+          retention-days: 2
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: posted-${{ inputs.source_run }}-${{ inputs.reel }}
+          path: src/out/${{ inputs.reel }}/publish.json
+          if-no-files-found: ignore
+          retention-days: 90

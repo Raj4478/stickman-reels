@@ -1,0 +1,75 @@
+name: Weekly report
+# Every Monday 09:00 IST: last week's views, likes, saves, shares and comments on Instagram and YouTube, the
+# best Reels and a tip (/report), then 5 next lessons from viewers' comments and what India is searching for,
+# each with a Make button (/ideas). The scores teach the writer and the best-time picker (topic history cache).
+on:
+  workflow_dispatch:
+    inputs:
+      part:
+        description: report, ideas, or both (empty)
+        required: false
+        type: string
+  schedule:
+    - cron: '30 3 * * 1'
+permissions:
+  contents: read
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Restore the topic history
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            history.json
+            ideas.json
+          key: reel-history-${{ github.run_id }}
+          restore-keys: reel-history-
+      - name: Send the report
+        if: inputs.part != 'ideas'
+        env:
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m reel report
+      - name: Send next-lesson ideas
+        if: inputs.part != 'report'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
+          GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m reel ideas --out out/ideas.json
+      - name: Save the topic history
+        if: always() && hashFiles('history.json', 'ideas.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            history.json
+            ideas.json
+          key: reel-history-${{ github.run_id }}
+      - uses: actions/upload-artifact@v7
+        if: always() && hashFiles('out/ideas.json') != ''
+        with:
+          name: ideas-${{ github.run_id }}
+          path: out/ideas.json
+          retention-days: 30

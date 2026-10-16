@@ -1,13 +1,18 @@
-"""Gemini calls (free tier): JSON text for the script and speech for the Hindi narration.
+"""Gemini calls (free tier): JSON text for the script, speech for the Hindi narration and a look at frames.
 
 Keys come from GEMINI_API_KEY, GEMINI_API_KEY_2 and GEMINI_API_KEY_3. When a key's daily quota is used
-up (HTTP 429) the next key is tried, then the next model. Keys are never printed or written to disk.
+up (HTTP 429) the next key is tried, then the next model. When every Gemini key and model fails, text falls
+back to free backups if their keys are set: Groq (GROQ_API_KEY) then OpenRouter's free models
+(OPENROUTER_API_KEY). Speech falls back to free Microsoft Edge voices in reel/voice.py. Every backup used is
+recorded in USED and shown in Telegram. Keys are never printed or written to disk.
 """
+import base64
 import json
 import os
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 KEY_VARIABLES = ('GEMINI_API_KEY', 'GEMINI_API_KEY_2', 'GEMINI_API_KEY_3')
 TEXT_MODELS = ('gemini-3.8-flash', 'gemini-3.5-flash-lite')
@@ -15,8 +20,23 @@ SPEECH_MODELS = ('gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts')
 URL = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent'
 
 
+# Free backups for text, tried in order after Gemini: (name, key variable, URL, default models).
+# GROQ_MODEL / OPENROUTER_MODEL put another model first.
+BACKUPS = (
+    ('Groq', 'GROQ_API_KEY', 'https://api.groq.com/openai/v1/chat/completions', ('llama-3.3-70b-versatile', 'openai/gpt-oss-120b')),
+    ('OpenRouter', 'OPENROUTER_API_KEY', 'https://openrouter.ai/api/v1/chat/completions',
+     ('meta-llama/llama-3.3-70b-instruct:free', 'deepseek/deepseek-chat-v3.1:free')),
+)
+USED = []  # backups this run used: {'service', 'reason'}
+
+
 class GeminiError(RuntimeError):
     pass
+
+
+def note(service, reason):
+    USED.append({'service': service, 'reason': str(reason)[:200]})
+    print(f'::warning::Backup used: {service} ({reason})')
 
 
 def keys():
@@ -73,21 +93,71 @@ def parts(response):
 
 
 def json_call(prompt, schema, temperature=1.0):
+    """JSON answer to `prompt` following `schema`: Gemini first, then the free text backups."""
     body = {'contents': [{'parts': [{'text': prompt}]}],
             'generationConfig': {'temperature': temperature, 'responseMimeType': 'application/json',
                                  'responseJsonSchema': schema}}
-    response, model = call('text', body)
-    text = ''.join(p.get('text', '') for p in parts(response))
     try:
-        return json.loads(text), model
-    except json.JSONDecodeError:
-        raise GeminiError(f'{model} returned text that is not JSON.') from None
+        response, model = call('text', body)
+        text = ''.join(p.get('text', '') for p in parts(response))
+        try:
+            return json.loads(text), model
+        except json.JSONDecodeError:
+            raise GeminiError(f'{model} returned text that is not JSON.') from None
+    except (GeminiError, urllib.error.URLError, TimeoutError) as exc:
+        return backup_json(prompt, schema, temperature, exc)
 
 
-def speech_call(prompt, voice):
+def loose_json(text):
+    """The JSON object inside a model's answer (some wrap it in code fences or a sentence)."""
+    text = text.strip()
+    start, end = text.find('{'), text.rfind('}')
+    return json.loads(text[start:end + 1] if start >= 0 and end > start else text)
+
+
+def backup_json(prompt, schema, temperature, reason):
+    instruction = (prompt + '\n\nAnswer with ONE JSON object only (no prose, no code fences) that matches this JSON '
+                   'schema exactly; use only the enum values it lists:\n' + json.dumps(schema, ensure_ascii=False))
+    last = reason
+    for name, variable, url, defaults in BACKUPS:
+        key = os.getenv(variable, '').strip()
+        if not key:
+            continue
+        override = os.getenv(variable.replace('API_KEY', 'MODEL'), '').strip()
+        for model in dict.fromkeys([m for m in (override, *defaults) if m]):
+            body = {'model': model, 'temperature': min(temperature, 1.0), 'response_format': {'type': 'json_object'},
+                    'messages': [{'role': 'user', 'content': instruction}]}
+            request = urllib.request.Request(url, data=json.dumps(body).encode(), headers={
+                'Authorization': f'Bearer {key}', 'Content-Type': 'application/json', 'User-Agent': 'stickman-reels'})
+            try:
+                with urllib.request.urlopen(request, timeout=180) as response:
+                    answer = json.load(response)
+                result = loose_json(answer['choices'][0]['message']['content'])
+            except (urllib.error.URLError, TimeoutError, KeyError, IndexError, ValueError) as exc:
+                last = f'{name} {model}: {getattr(exc, "code", exc)}'
+                continue
+            note(f'{name} ({model})', f'Gemini text failed: {reason}')
+            return result, f'{name.lower()}:{model}'
+    raise GeminiError(f'Gemini and every text backup failed ({last}). Add GROQ_API_KEY or OPENROUTER_API_KEY for free backups.')
+
+
+def vision_json(prompt, images, schema):
+    """JSON answer about some JPEG frames (Gemini only; callers treat a failure as "not checked")."""
+    image_parts = [{'inlineData': {'mimeType': 'image/jpeg', 'data': base64.b64encode(Path(i).read_bytes()).decode()}}
+                   for i in images]
+    body = {'contents': [{'parts': [*image_parts, {'text': prompt}]}],
+            'generationConfig': {'temperature': 0.2, 'responseMimeType': 'application/json', 'responseJsonSchema': schema}}
+    response, model = call('text', body)
+    return json.loads(''.join(p.get('text', '') for p in parts(response))), model
+
+
+def speech_call(prompt, voice, speakers=None):
+    """Audio for `prompt`: one `voice`, or {speaker name: voice} (at most two) for a dialogue."""
+    config = ({'multiSpeakerVoiceConfig': {'speakerVoiceConfigs': [
+        {'speaker': name, 'voiceConfig': {'prebuiltVoiceConfig': {'voiceName': v}}} for name, v in speakers.items()]}}
+        if speakers else {'voiceConfig': {'prebuiltVoiceConfig': {'voiceName': voice}}})
     body = {'contents': [{'parts': [{'text': prompt}]}],
-            'generationConfig': {'responseModalities': ['AUDIO'],
-                                 'speechConfig': {'voiceConfig': {'prebuiltVoiceConfig': {'voiceName': voice}}}}}
+            'generationConfig': {'responseModalities': ['AUDIO'], 'speechConfig': config}}
     response, model = call('speech', body)
     audio = next((p['inlineData'] for p in parts(response) if 'inlineData' in p), None)
     if not audio:

@@ -2,6 +2,14 @@
 
     python -m reel make [--topic "..."] [--count 3 | --series] [--sample examples/sample.json] [--silent]
     python -m reel send out/1 remotion/out/reel-1.mp4 [--cover out/1/cover.jpg]
+    python -m reel publish out/1 remotion/out/reel-1.mp4 [--platforms instagram,youtube]
+    python -m reel publish-queued out/1   (posts Instagram uploads waiting for the best time)
+    python -m reel report        (weekly numbers to Telegram)
+    python -m reel ideas         (next lessons from comments and trends, with Make buttons)
+    python -m reel slides out/1 remotion/out/reel-1.mp4   (carousel slides)
+    python -m reel compile reels.json out/week.mp4        (the weekly compilation)
+    python -m reel refresh-token (renews the Instagram token; prints it for the workflow to save)
+    python -m reel topic out/1   (prints the lesson of a Reel, for "Make again")
     python -m reel sounds        (rewrites remotion/public/sfx/*.wav)
 
 `make` writes each Reel to out/<n>/ and its media to remotion/public/reels/<n>/, and lists the numbers in
@@ -9,17 +17,23 @@ out/reels.txt for the render step.
 """
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
-from . import build, script, sounds, telegram
+from . import build, carousel, growth, publish, quality, report, script, sounds, telegram
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def caption(story, record):
+def caption(story, record, folder=None):
     part = f" (भाग {story['part']})" if story.get('part') else ''
     lines = [story['title'] + part, '', story.get('instagram_caption') or story['lesson'], '', ' '.join(story.get('hashtags', []))]
+    check = quality.note(folder) if folder else ''
+    if check:
+        lines += ['', check]
+    if record.get('backups'):
+        lines += ['', 'Backup used: ' + ', '.join(b['service'] for b in record['backups'])]
     if record.get('narration') == 'failed':
         lines += ['', '(Preview without narration: ' + record.get('reason', '')[:150] + ')']
     return '\n'.join(lines).strip()
@@ -55,6 +69,31 @@ def make(args):
     (args.out / 'reels.txt').write_text('\n'.join(made) + '\n', encoding='utf-8')
 
 
+def compile_week(args):
+    """Join the week's Reels between the intro and outro cards; upload to YouTube with --post."""
+    if args.reuse:
+        title, _, text = args.out.with_suffix('.txt').read_text(encoding='utf-8').partition('\n\n')
+        result = publish.youtube_upload(args.out, {'title': title, 'lesson': '', 'hashtags': ['#hindi', '#lifelessons', '#stickman']},
+                                        {}, title=title, description=text, shorts=False)
+        telegram.send_message(f"📺 Weekly compilation on YouTube: {result['url']}" + (f"\n{result['note']}" if result.get('note') else ''))
+        return 0
+    plan = json.loads(args.list.read_text(encoding='utf-8'))
+    stories = [json.loads((Path(r['folder']) / 'script.json').read_text(encoding='utf-8')) for r in plan['reels']]
+    clips = [plan['intro'], *(r['video'] for r in plan['reels']), plan['outro']]
+    carousel.join(clips, args.out)
+    marks = carousel.chapters(carousel.duration(plan['intro']), [(s['title'], carousel.duration(r['video']))
+                                                                  for s, r in zip(stories, plan['reels'])])
+    text = carousel.description(marks, [s['lesson'] for s in stories])
+    title = f'इस हफ्ते की {len(stories)} सीख | Hindi Life Lessons | Stickman Stories'
+    args.out.with_suffix('.txt').write_text(title + '\n\n' + text, encoding='utf-8')
+    print(title, f'{carousel.duration(args.out):.0f}s')
+    if args.post:
+        story = {'title': title, 'lesson': '', 'hashtags': ['#hindi', '#lifelessons', '#stickman', '#motivation']}
+        result = publish.youtube_upload(args.out, story, {}, title=title, description=text, shorts=False)
+        telegram.send_message(f"📺 Weekly compilation on YouTube: {result['url']}" + (f"\n{result['note']}" if result.get('note') else ''))
+    return 0
+
+
 def main(argv=None):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')  # Hindi titles on a Windows console
     parser = argparse.ArgumentParser(prog='reel')
@@ -72,6 +111,31 @@ def main(argv=None):
     send.add_argument('folder', type=Path, help='the Reel folder, e.g. out/1')
     send.add_argument('video', type=Path)
     send.add_argument('--cover', type=Path)
+    post = commands.add_parser('publish', help='post a rendered Reel to Instagram and YouTube (whichever is set up)')
+    post.add_argument('folder', type=Path)
+    post.add_argument('video', type=Path)
+    post.add_argument('--platforms', default='', help='comma-separated: instagram,youtube,facebook,carousel,instagram_trial')
+    post.add_argument('--video-b', type=Path, help='the second-hook version, for the Instagram trial Reel')
+    post.add_argument('--now', action='store_true', help='post now even when POST_AT_PEAK would wait for the best time')
+    queued = commands.add_parser('publish-queued', help='publish Instagram uploads whose time has come')
+    queued.add_argument('folder', type=Path)
+    slides = commands.add_parser('slides', help='cut carousel slides from a rendered Reel')
+    slides.add_argument('folder', type=Path)
+    slides.add_argument('video', type=Path)
+    comp = commands.add_parser('compile', help='join Reels into the weekly compilation')
+    comp.add_argument('list', type=Path, help='JSON: {"intro": path, "outro": path, "reels": [{"video", "folder"}]}')
+    comp.add_argument('out', type=Path)
+    comp.add_argument('--post', action='store_true', help='upload it to YouTube')
+    comp.add_argument('--reuse', action='store_true', help='upload an already joined video (its .txt has the title and chapters)')
+    ideas = commands.add_parser('ideas', help='send next-lesson ideas from comments and trends to Telegram')
+    ideas.add_argument('--out', type=Path, default=ROOT / 'out' / 'ideas.json')
+    commands.add_parser('refresh-token', help='renew the Instagram token')
+    commands.add_parser('report', help='send the weekly numbers to Telegram')
+    qc = commands.add_parser('check', help='quality-check a rendered Reel (length, sound, text and framing)')
+    qc.add_argument('folder', type=Path)
+    qc.add_argument('video', type=Path)
+    topic = commands.add_parser('topic', help="print a Reel's lesson")
+    topic.add_argument('folder', type=Path)
     commands.add_parser('sounds', help='regenerate the sound effects in remotion/public/sfx')
     args = parser.parse_args(argv)
 
@@ -80,13 +144,51 @@ def main(argv=None):
         make(args)
     elif args.command == 'sounds':
         print(sounds.write_effects(ROOT / 'remotion' / 'public' / 'sfx'))
+    elif args.command == 'publish':
+        at = None if args.now or growth.post_now() else growth.next_time(growth.best_slot())
+        receipt = publish.publish(args.folder, args.video, [p for p in args.platforms.split(',') if p] or None,
+                                  video_b=args.video_b, publish_at=at)
+        story = json.loads((args.folder / 'script.json').read_text(encoding='utf-8'))
+        telegram.send_message(publish.summary(story, receipt))
+        return 1 if any(r.get('status') == 'failed' for r in receipt['platforms'].values()) else 0
+    elif args.command == 'publish-queued':
+        receipt, done = publish.publish_queued(args.folder)
+        if done:
+            story = json.loads((args.folder / 'script.json').read_text(encoding='utf-8'))
+            telegram.send_message(publish.summary(story, receipt))
+        print('still waiting' if publish.waiting(receipt) else 'done')
+    elif args.command == 'slides':
+        print([str(x) for x in carousel.slides(args.folder, args.video)])
+    elif args.command == 'compile':
+        return compile_week(args)
+    elif args.command == 'ideas':
+        found = growth.ideas()
+        growth.remember_ideas(found)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(found, ensure_ascii=False, indent=2), encoding='utf-8')
+        run = os.getenv('GITHUB_RUN_ID', '')
+        rows = [[(str(n), f'idea:{run}:{n - 1}') for n in range(1, len(found['ideas']) + 1)]] if run and found['ideas'] else None
+        telegram.send_message(growth.ideas_message(found), telegram.buttons(rows) if rows else None)
+    elif args.command == 'refresh-token':
+        token, days = growth.refresh_token()
+        print(f'::add-mask::{token}')
+        Path(os.getenv('TOKEN_FILE', 'token.txt')).write_text(token, encoding='utf-8')
+        print(f'Instagram token renewed for {days} days')
+    elif args.command == 'check':
+        quality.check(args.folder, args.video)
+    elif args.command == 'report':
+        telegram.send_message(report.weekly())
+    elif args.command == 'topic':
+        print(json.loads((args.folder / 'script.json').read_text(encoding='utf-8'))['topic'])
     else:
         story = json.loads((args.folder / 'script.json').read_text(encoding='utf-8'))
         record_path = args.folder / 'voice-record.json'
         record = json.loads(record_path.read_text(encoding='utf-8')) if record_path.exists() else {}
         if args.cover and args.cover.exists():
             telegram.send_file('sendPhoto', 'photo', args.cover, 'image/jpeg', f"Cover: {story['title']}")
-        telegram.send_file('sendVideo', 'video', args.video, 'video/mp4', caption(story, record))
+        keys = telegram.review_buttons(os.getenv('GITHUB_RUN_ID', ''), args.folder.name)
+        telegram.send_file('sendVideo', 'video', args.video, 'video/mp4', caption(story, record, args.folder),
+                           {'reply_markup': keys} if keys and os.getenv('AUTO_POST', '').strip() != 'true' else None)
     return 0
 
 

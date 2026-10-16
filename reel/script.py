@@ -76,7 +76,19 @@ PLACES = {
     'night': 'night sky with the moon and stars',
     'park': 'a park with trees and a bench',
     'classroom': 'a classroom with a blackboard',
+    'kitchen': 'a home kitchen with a stove and shelves',
+    'bus': 'inside a city bus with windows and a hand rail',
+    'hospital': 'a hospital room with a bed and a drip stand',
+    'sunset': 'outdoors at sunset, orange sky (endings, hope, reflection)',
+    'rain': 'a street in the rain (sadness, struggle)',
+    'day_to_night': 'outdoors while day turns into night (time passing, long hours)',
 }
+SPEAKERS = {
+    'narrator': 'the storyteller narrates (most beats)',
+    'hero': 'the hero says his own words, in first person, as dialogue',
+    'other': 'the person in `with` says their words to the hero, as dialogue',
+}
+STICKERS = ('none', 'fire', 'star', 'check', 'cross', 'lightning', 'money', 'heart', 'warning', 'hundred', 'question')
 SHOTS = {
     'wide': 'wide establishing shot, whole scene visible',
     'medium': 'medium shot, the figure fills the frame',
@@ -93,7 +105,7 @@ SHOTS = {
 TRANSITIONS = ('cut', 'whip', 'zoom', 'flash')
 MOODS = ('calm', 'happy', 'sad', 'tense')
 MUSIC = ('warm', 'tense')
-LIMITS = {'title': 40, 'hook': 110, 'line': 150, 'caption': 40, 'lesson': 110, 'ask': 110, 'name': 16}
+LIMITS = {'title': 40, 'title_b': 40, 'hook': 110, 'line': 150, 'caption': 40, 'lesson': 110, 'ask': 110, 'name': 16}
 DEVANAGARI = re.compile(r'[ऀ-ॿ]')
 
 BEAT = {
@@ -108,8 +120,11 @@ BEAT = {
         'place': {'type': 'string', 'enum': list(PLACES)},
         'shot': {'type': 'string', 'enum': list(SHOTS)},
         'transition': {'type': 'string', 'enum': list(TRANSITIONS)},
+        'speaker': {'type': 'string', 'enum': list(SPEAKERS)},
+        'keyword': {'type': 'string', 'description': 'The one word of the caption to animate (copied exactly), or ""'},
+        'sticker': {'type': 'string', 'enum': list(STICKERS)},
     },
-    'required': ['line', 'caption', 'action', 'prop', 'mood', 'with', 'place', 'shot', 'transition'],
+    'required': ['line', 'caption', 'action', 'prop', 'mood', 'with', 'place', 'shot', 'transition', 'speaker', 'keyword', 'sticker'],
 }
 SCHEMA = {
     'type': 'object',
@@ -120,6 +135,7 @@ SCHEMA = {
                   'description': 'Hindi spoken opening line options, at most 14 words each'},
         'hook': {'type': 'string', 'description': 'The chosen Hindi spoken opening line'},
         'title': {'type': 'string', 'description': 'Hindi on-screen hook text shown from the first frame, at most 5 words'},
+        'title_b': {'type': 'string', 'description': 'A second on-screen hook text with a different angle, at most 5 words (for an A/B test)'},
         'hook_action': {'type': 'string', 'enum': list(ACTIONS), 'description': 'The most dramatic action of the story, shown during the hook'},
         'scenes': {'type': 'array', 'minItems': 4, 'maxItems': 6, 'items': BEAT},
         'lesson': {'type': 'string', 'description': 'Hindi spoken and on-screen takeaway, at most 12 words'},
@@ -161,6 +177,13 @@ Write one tiny story (30-40 seconds when spoken) about an ordinary Indian person
 {places}
   mood sets the colours. The story must move from a problem to a turning point to a better place, and use at
   least 3 different actions.
+- speaker: make 1-2 beats DIALOGUE so it feels like a real story: the hero says his own words (speaker "hero",
+  first person, e.g. "बस पाँच मिनट और...") or the person in `with` speaks to him (speaker "other", e.g. पापा:
+  "बेटा, तुम्हारे सपनों का क्या हुआ?"). Write dialogue as the spoken words only (no "उसने कहा"). Only ONE other
+  person may speak in the whole Reel. All other beats: "narrator".
+{speakers}
+- keyword: the single most important word of the caption (copied exactly); sticker: a small icon that
+  punches up the beat ("none" most of the time): {stickers}.
 - shot and transition: plan them like a film director (see the list below); the director pass will refine them.
 {shots}
   transition into this beat: cut (default), whip (fast pan for energy or time jumps), zoom (into a realisation),
@@ -181,7 +204,8 @@ Draft script:
 
 Do all of this:
 1. Hook: judge the three hooks against the rules below, then write the final `hook` (you may sharpen the best one)
-   and a punchy `title`.
+   and a punchy `title`, plus `title_b`: a second on-screen title with a clearly different angle (for example a
+   number vs a question), so both can be tested.
 {hook_rules}
 2. Actions: every beat's action must visibly SHOW its line. Fix any mismatch using only these actions:
 {actions}
@@ -194,6 +218,9 @@ Do all of this:
    Shots: {shot_names}
 4. Places: keep a believable continuity (the same place for beats that happen together), from: {place_names}.
 5. Tighten every spoken line (at most 20 words) so it sounds natural when read aloud; keep the story's meaning.
+   Keep 1-2 dialogue beats (speaker hero, or speaker other with `with` set; only ONE other person speaks in the
+   Reel); dialogue is the spoken words only, in character. Pick each caption's `keyword` (copied exactly) and
+   a sticker only where it adds punch.
 6. Keep the lesson, ask, caption and hashtags unless they are weak; never add Roman script to spoken lines."""
 
 
@@ -213,10 +240,21 @@ def remember(script):
     history_path().write_text(json.dumps(items[-200:], ensure_ascii=False, indent=1), encoding='utf-8')
 
 
+def saved_ideas():
+    """Lessons suggested by comments and trends (reel/growth.py), newest last."""
+    try:
+        return json.loads(history_path().with_name('ideas.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+
+
 def pick_topic(path=ROOT / 'topics.txt'):
-    """A random topic, avoiding the last 25 used."""
+    """A fresh idea from comments and trends when there is one, else a random topic; never the last 25 used."""
     topics = [t.strip() for t in path.read_text(encoding='utf-8').splitlines() if t.strip() and not t.startswith('#')]
     recent = {h.get('topic', '').strip().lower() for h in history()[-25:]}
+    fresh_ideas = [t for t in reversed(saved_ideas()) if t.strip().lower() not in recent]
+    if fresh_ideas:
+        return fresh_ideas[0]
     fresh = [t for t in topics if t.lower() not in recent]
     return random.choice(fresh or topics)
 
@@ -240,7 +278,7 @@ def clean(raw):
     script['topic'] = short(raw.get('topic'), 80)
     if not DEVANAGARI.search(script['name']):
         script['name'] = ''
-    scenes, last_shot = [], None
+    scenes, last_shot, voice_of = [], None, None
     for beat in (raw.get('scenes') or [])[:6]:
         line = short(beat.get('line'), LIMITS['line'])
         if not DEVANAGARI.search(line):
@@ -255,8 +293,19 @@ def clean(raw):
         if shot == last_shot:
             shot = 'medium' if shot != 'medium' else 'wide'
         last_shot = shot
+        caption = short(beat.get('caption'), LIMITS['caption']) or line[:LIMITS['caption']]
+        speaker = pick(beat.get('speaker'), SPEAKERS, 'narrator')
+        if speaker == 'other' and cast == 'none':
+            speaker = 'narrator'
+        if speaker == 'other' and voice_of is None:
+            voice_of = cast
+        elif speaker == 'other' and cast != voice_of:
+            speaker = 'narrator'  # one other voice per Reel (the speech model has two speakers)
+        keyword = str(beat.get('keyword') or '').strip()
         scenes.append({
-            'line': line, 'caption': short(beat.get('caption'), LIMITS['caption']) or line[:LIMITS['caption']],
+            'line': line, 'caption': caption,
+            'speaker': speaker, 'keyword': keyword if keyword and keyword in caption else '',
+            'sticker': pick(beat.get('sticker'), STICKERS, 'none'),
             'action': action, 'prop': pick(beat.get('prop'), PROPS, 'none'), 'mood': pick(beat.get('mood'), MOODS, 'calm'),
             'with': cast, 'place': pick(beat.get('place'), PLACES, 'plain'), 'shot': shot,
             'transition': pick(beat.get('transition'), TRANSITIONS, 'cut'),
@@ -269,10 +318,13 @@ def clean(raw):
         if not DEVANAGARI.search(script[key]):
             raise ValueError(f'the {key} is not in Hindi: {script[key]!r}')
     script['scenes'] = scenes
+    if not DEVANAGARI.search(script.get('title_b', '')) or script.get('title_b') == script['title']:
+        script['title_b'] = ''
     script['hook_action'] = pick(raw.get('hook_action'), ACTIONS, max(scenes, key=lambda s: s['mood'] == 'tense')['action'])
     if script['hook_action'] in TWO_PERSON:
         script['hook_with'] = next((s['with'] for s in scenes if s['action'] == script['hook_action']), 'friend')
     script['music'] = pick(raw.get('music'), MUSIC, 'warm')
+    script['other_voice'] = voice_of or next((b['with'] for b in scenes if b['with'] != 'none'), 'friend')
     script['part'] = str(raw.get('part') or '')
     script['instagram_caption'] = str(raw.get('instagram_caption') or '').strip()[:1500]
     tags = [re.sub(r'[^\wऀ-ॿ]', '', str(t)) for t in raw.get('hashtags') or []]
@@ -281,8 +333,14 @@ def clean(raw):
 
 
 def spoken_lines(script):
-    """What the narrator says, in order: hook, every beat, the lesson, then the question."""
+    """What is said, in order: hook, every beat, the lesson, then the question."""
     return [script['hook'], *(s['line'] for s in script['scenes']), script['lesson'], script['ask']]
+
+
+def spoken_turns(script):
+    """(speaker, line) for every spoken line: the hook, lesson and question are always the narrator."""
+    return [('narrator', script['hook']), *((s.get('speaker', 'narrator'), s['line']) for s in script['scenes']),
+            ('narrator', script['lesson']), ('narrator', script['ask'])]
 
 
 def catalog(items):
@@ -300,13 +358,15 @@ def series_note(part, previous):
 
 
 def write(topic=None, part='', previous=None):
+    from . import growth
     topic = (topic or '').strip() or pick_topic()
     recent = [h.get('title') for h in history()[-15:] if h.get('title')]
     prompt = WRITER.format(
         topic=topic, beats=random.choice((4, 5)), hook_rules=HOOK_RULES, two=', '.join(TWO_PERSON),
         actions=catalog(ACTIONS), cast=catalog(CAST), props=catalog(PROPS), places=catalog(PLACES), shots=catalog(SHOTS),
-        series=series_note(part, previous),
-        avoid=f'- Do not repeat these recent titles or their angle: {", ".join(recent)}' if recent else '')
+        series=series_note(part, previous), speakers=catalog(SPEAKERS), stickers=', '.join(STICKERS),
+        avoid='\n'.join(x for x in (f'- Do not repeat these recent titles or their angle: {", ".join(recent)}' if recent else '',
+                                    growth.lessons_learned()) if x))
     last = None
     for _ in range(2):
         draft, model = gemini.json_call(prompt, SCHEMA)
