@@ -54,15 +54,22 @@ Hindi life-lesson Reels for Instagram, acted out by a stick figure and filmed li
 | **Ideas from comments and trends** | Every Monday, and on `/ideas`, Gemini reads your Reels' comments plus what India searches on YouTube and Google. It suggests 5 new lessons, each with a Make button, plus reply drafts for you to copy. Plain `/reel` uses these ideas first. | always on |
 | **Instagram token** | Renewed on the 1st and 15th of each month and saved back as the secret, so posting never stops. | `GH_DISPATCH_TOKEN` needs *Secrets: Read and write* |
 
-## When Gemini fails (free backups)
+## Gemini first, free backups only when it fails
 
-| Step | Backups, in order |
+Gemini always gets priority, for both the story and the voice. A backup is used only after Gemini has had every chance:
+
+1. **Every Gemini key and model:** up to 3 keys (`GEMINI_API_KEY`, `_2`, `_3`) on 2 models each.
+2. **Per-minute limits are waited out:** when Gemini answers "too many requests, retry in 20s", the run waits (up to 65 s, `GEMINI_MAX_WAIT`) and tries the same key again, once per key.
+3. **A daily quota that's used up** moves straight to the next key. A brief outage moves to the next key or model.
+4. **Dialogue:** if Gemini's two-voice dialogue fails, Gemini retries with its single storyteller voice before any backup.
+
+| Step | When all of Gemini fails |
 | --- | --- |
-| Story (text) | 3 Gemini keys × 2 models → **Groq** (`GROQ_API_KEY`, free) → **OpenRouter** free models (`OPENROUTER_API_KEY`, free) |
-| Voice | 3 Gemini keys × 2 speech models → free **Microsoft Edge** Hindi neural voices (Madhur and Swara, pitch-shifted per character; no key needed) |
-| Quality check | Gemini; when it fails the visual check is skipped, but the length and sound checks still run |
+| Story (text) | **Groq** (`GROQ_API_KEY`, free) → **OpenRouter** free models (`OPENROUTER_API_KEY`, free) |
+| Voice | Free **Microsoft Edge** Hindi neural voices (Madhur and Swara, pitch-shifted per character; no key needed) |
+| Quality check | The visual check is skipped; the length and sound checks still run |
 
-Every backup used is named in the Telegram caption. Both backup keys are free: [console.groq.com](https://console.groq.com/keys) and [openrouter.ai/keys](https://openrouter.ai/keys).
+Every backup used is named in the Telegram caption, so you know when Gemini didn't make a Reel. Both text backup keys are free: [console.groq.com](https://console.groq.com/keys) and [openrouter.ai/keys](https://openrouter.ai/keys).
 
 ## Make Reels
 
