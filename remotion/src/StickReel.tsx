@@ -60,7 +60,7 @@ const FONTS = [
   { family: "Noto Sans Devanagari", file: "fonts/NotoSansDevanagari.ttf", weight: "100 900" },
 ];
 
-const useFonts = () => {
+export const useFonts = () => {
   const [handle] = useState(() => delayRender("Loading fonts"));
   useEffect(() => {
     Promise.all(FONTS.map((f) => new FontFace(f.family, `url(${staticFile(f.file)})`, { weight: f.weight }).load()

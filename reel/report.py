@@ -34,7 +34,7 @@ def instagram(start):
             stats.update({i['name']: (i.get('values') or [{}])[0].get('value', i.get('total_value', {}).get('value', 0)) for i in insights})
         except publish.PublishError:
             pass  # insights need a professional account and a day or two of data
-        items.append({'title': (m.get('caption') or '').split('\n')[0][:60], 'url': m.get('permalink', ''),
+        items.append({'title': (m.get('caption') or '').split('\n')[0][:60], 'url': m.get('permalink', ''), 'posted_at': when(m['timestamp']),
                       'views': stats.get('views', 0), 'likes': stats['likes'], 'comments': stats['comments'],
                       'saves': stats.get('saved', 0), 'shares': stats.get('shares', 0)})
     return items
@@ -56,7 +56,7 @@ def youtube(start):
         if when(v['snippet']['publishedAt']) < start:
             continue
         s = v.get('statistics', {})
-        items.append({'title': v['snippet']['title'][:60], 'url': f"https://youtube.com/shorts/{v['id']}",
+        items.append({'title': v['snippet']['title'][:60], 'url': f"https://youtube.com/shorts/{v['id']}", 'posted_at': when(v['snippet']['publishedAt']),
                       'views': int(s.get('viewCount', 0)), 'likes': int(s.get('likeCount', 0)),
                       'comments': int(s.get('commentCount', 0)), 'saves': 0, 'shares': 0})
     return items, int(channel.get('statistics', {}).get('subscriberCount', 0))
@@ -113,4 +113,9 @@ def weekly():
             notes.append(f'YouTube numbers unavailable: {exc}')
     else:
         notes.append('YouTube is not connected yet (YOUTUBE_ secrets).')
+    from . import growth
+    scored = [{**i, 'score': score(i)} for items, _ in platforms.values() for i in items]
+    if scored:
+        growth.record_scores(scored)  # teaches the writer and the best-time picker (saved in the topic history)
+        notes.append(f'Best posting time so far: {growth.best_slot()}:00 IST')
     return message(platforms, notes)

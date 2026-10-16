@@ -41,6 +41,15 @@ const gh = await fetch(`https://api.github.com/repos/${repo}/actions/workflows`,
   Accept: 'application/vnd.github+json', 'User-Agent': 'Stickman-Reels-Deploy' } });
 if (!gh.ok) throw new Error(`GH_DISPATCH_TOKEN cannot read ${repo}'s workflows (HTTP ${gh.status}). Give it Actions: Read and write on ${repo}.`);
 
+// Storage for carousel images (Workers KV, free tier): made once, then bound to the Worker as MEDIA.
+const fs = await import('node:fs');
+const namespaces = await call(`https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces?per_page=100`, { headers });
+let media = (namespaces || []).find((ns) => ns.title === 'stickman-media');
+if (!media) {
+  media = await call(`https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces`, {
+    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'stickman-media' }) });
+}
+fs.appendFileSync('wrangler.toml', `\n[[kv_namespaces]]\nbinding = "MEDIA"\nid = "${media.id}"\n`);
 wrangler(['deploy']);
 const secret = randomBytes(32).toString('hex');
 wrangler(['secret', 'bulk'], JSON.stringify({ WEBHOOK_SECRET: secret, GH_DISPATCH_TOKEN: env.GH_DISPATCH_TOKEN,
@@ -66,6 +75,7 @@ await tg('setMyCommands', { commands: [
   { command: 'series', description: 'A two-part story, e.g. /series दोस्ती' },
   { command: 'status', description: 'What is running' },
   { command: 'report', description: "This week's numbers" },
+  { command: 'ideas', description: 'Next lessons from comments and trends' },
   { command: 'help', description: 'How it works' }] });
 const hook = await tg('getWebhookInfo', {});
 if (hook.url !== url + '/webhook') throw new Error('Webhook verification failed');

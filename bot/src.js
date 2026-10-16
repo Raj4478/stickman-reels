@@ -5,7 +5,10 @@
 //   /series [lesson] make a two-part story
 //   /status          what is running, and the last results
 //   /report          the weekly numbers now
+//   /ideas           next lessons from viewers' comments and what India is searching for
 // Buttons under each Reel: ✅ Post (Instagram + YouTube), 🔁 Make again (same lesson), 🗑 Skip.
+// Under the ideas: one button per idea (make that Reel). Under the weekly compilation: ✅ Post to YouTube.
+// GET /m/<key> serves carousel images stored in the MEDIA KV namespace (Instagram fetches them by URL).
 // Only TELEGRAM_CHAT_ID is served, and only requests carrying the webhook secret are accepted.
 
 export const HELP = `🎬 Stickman Reels
@@ -17,10 +20,12 @@ Send me a life lesson (for example "गुस्से में फैसले
 /series <lesson> - a two-part story
 /status - what is running
 /report - this week's numbers
+/ideas - next lessons from comments and trends
 
 Under every Reel: ✅ Post, 🔁 Make again, 🗑 Skip.`;
 export const MENU = { keyboard: [[{ text: '🎬 New Reel' }, { text: '📚 Series' }], [{ text: '📊 Status' }, { text: '❓ Help' }]], resize_keyboard: true, is_persistent: true };
-const RUNS = { 'Make a Reel': 'Making Reels', 'Post a Reel': 'Posting', 'Weekly report': 'Weekly report' };
+const RUNS = { 'Make a Reel': 'Making Reels', 'Post a Reel': 'Posting', 'Weekly report': 'Weekly report', 'Weekly compilation': 'Compilation',
+  'Post queued Reels': 'Posting at the best time', 'Renew Instagram token': 'Instagram token' };
 
 export function authorized(update, env) {
   const chat = update.message?.chat?.id ?? update.callback_query?.message?.chat?.id;
@@ -30,6 +35,10 @@ export function authorized(update, env) {
 // What a message or button asks for: { workflow, inputs, reply } or { reply } or { status } / { skip }.
 export function route(text, data) {
   if (data) {
+    const idea = /^idea:(\d+):(\d+)$/.exec(data);
+    if (idea) return { workflow: 'make-reel.yml', inputs: { idea_of: `${idea[1]}:${idea[2]}` }, reply: `🎬 Making idea ${Number(idea[2]) + 1} (about 7 minutes)...` };
+    const comp = /^comp:(\d+)$/.exec(data);
+    if (comp) return { workflow: 'compile.yml', inputs: { from_run: comp[1] }, reply: '📺 Uploading the weekly compilation to YouTube...', clear: true };
     const m = /^(post|again|skip):(\d+):(\d+)$/.exec(data);
     if (!m) return data === 'status' ? { status: true } : { reply: 'That button has expired.' };
     const [, verb, run, reel] = m;
@@ -40,7 +49,8 @@ export function route(text, data) {
   const t = (text || '').trim();
   if (!t || t === '❓ Help' || /^\/(start|help)\b/i.test(t)) return { reply: HELP, menu: true };
   if (t === '📊 Status' || /^\/status\b/i.test(t)) return { status: true };
-  if (/^\/report\b/i.test(t)) return { workflow: 'weekly-report.yml', inputs: {}, reply: '📊 Counting this week\'s numbers...' };
+  if (/^\/report\b/i.test(t)) return { workflow: 'weekly-report.yml', inputs: { part: 'report' }, reply: '📊 Counting this week\'s numbers...' };
+  if (/^\/ideas\b/i.test(t)) return { workflow: 'weekly-report.yml', inputs: { part: 'ideas' }, reply: '💡 Reading comments and trends for new lessons...' };
   if (t === '📚 Series') return { reply: 'Send /series followed by the lesson, for example:\n/series दोस्ती में भरोसा' };
   let m = /^\/batch(?:@\w+)?\s*(\d*)/i.exec(t);
   if (m) {
@@ -111,6 +121,11 @@ export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
     if (path === '/health') return new Response('ok');
+    const media = /^\/m\/([a-f0-9]{32}\.jpg)$/.exec(path);
+    if (media && request.method === 'GET') {
+      const image = env.MEDIA ? await env.MEDIA.get(media[1], 'arrayBuffer') : null;
+      return image ? new Response(image, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400' } }) : new Response('Not found', { status: 404 });
+    }
     if (path !== '/webhook' || request.method !== 'POST') return new Response('Not found', { status: 404 });
     if (!env.WEBHOOK_SECRET || !env.TELEGRAM_CHAT_ID || !env.GH_DISPATCH_TOKEN || !env.TELEGRAM_BOT_TOKEN) return new Response('Not configured', { status: 503 });
     if (request.headers.get('X-Telegram-Bot-Api-Secret-Token') !== env.WEBHOOK_SECRET) return new Response('Forbidden', { status: 403 });

@@ -1,0 +1,48 @@
+name: Post queued Reels
+# With POST_AT_PEAK=true, Instagram uploads wait for the best time (a "queued-<run>-<reel>" artifact from Post
+# a Reel). This runs at each posting slot (08:00, 13:00, 19:00, 21:00 IST), publishes the ones whose time has
+# come, records them in the Reel's receipt and removes them from the queue.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 2 * * *'
+    - cron: '30 7 * * *'
+    - cron: '30 13 * * *'
+    - cron: '30 15 * * *'
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: post-queued
+  cancel-in-progress: false
+jobs:
+  queue:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Publish what is due
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.expired == false and (.name | startswith("queued-"))) | "\(.id) \(.name)"' > queue.txt || true
+          [ -s queue.txt ] || { echo 'Nothing is waiting.'; exit 0; }
+          while read -r id name; do
+            dir="q/$name"; mkdir -p "$dir"
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$id/zip" > "$dir.zip" && unzip -q -o "$dir.zip" -d "$dir"
+            state=$(python -m reel publish-queued "$dir" | tail -1)
+            echo "$name: $state"
+            if [ "$state" = "done" ]; then
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$id"
+            fi
+          done < queue.txt

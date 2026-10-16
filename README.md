@@ -40,6 +40,19 @@ Hindi life-lesson Reels for Instagram, acted out by a stick figure and filmed li
    - the three best Reels;
    - a tip on what to make more of.
 
+## Growth features
+
+| Feature | What it does | Switch |
+| --- | --- | --- |
+| **Best time to post** | The weekly report learns which slot (08:00, 13:00, 19:00 or 21:00 IST) gets the most reach. ✅ Post then schedules the Reel for that slot: YouTube and Facebook schedule it themselves, and Instagram is uploaded at once and published by **Post queued Reels** at that time. | `POST_AT_PEAK=true` |
+| **Learning** | Each Reel's score (shares and saves count most) is saved in the topic history. The writer is told which recent Reels did best and worst, and leans toward what worked. | always on |
+| **Hook test** | The director writes a second on-screen hook (`title_b`). That version is rendered too and posted as an Instagram **trial Reel**, which is shown to non-followers first and shared with followers if it does well. | `HOOK_TEST=true` |
+| **Carousel** | 5 portrait slides from every Reel (the hook, three beats and the lesson) are posted as an Instagram carousel, which earns the most saves. The images are hosted for 2 days by the bot's Worker (Workers KV, free). | `CAROUSEL=true` |
+| **Weekly compilation** | Every Sunday at 19:00 IST, the week's posted Reels are joined into "इस हफ्ते की N सीख" with an intro, an outro and YouTube chapters. It arrives in Telegram with a ✅ Post to YouTube button. | needs 3+ posted Reels |
+| **Facebook Reels** | Each Reel is also posted to your Facebook Page. | `FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_TOKEN` |
+| **Ideas from comments and trends** | Every Monday, and on `/ideas`, Gemini reads your Reels' comments plus what India searches on YouTube and Google. It suggests 5 new lessons, each with a Make button, plus reply drafts for you to copy. Plain `/reel` uses these ideas first. | always on |
+| **Instagram token** | Renewed on the 1st and 15th of each month and saved back as the secret, so posting never stops. | `GH_DISPATCH_TOKEN` needs *Secrets: Read and write* |
+
 ## When Gemini fails (free backups)
 
 | Step | Backups, in order |
@@ -58,6 +71,7 @@ Every backup used is named in the Telegram caption. Both backup keys are free: [
   - `/batch 3` makes three Reels at once.
   - `/series दोस्ती` makes a two-part story.
   - `/status` shows what's running, and `/report` sends this week's numbers.
+  - `/ideas` sends 5 next lessons from comments and trends, each with a Make button.
 - **From GitHub:** go to Actions → **Make a Reel** → Run workflow.
   - Type a lesson, or leave it empty for a fresh random line of [`topics.txt`](topics.txt). The last 25 topics are skipped.
   - **count** makes up to 5 Reels on different topics in one run.
@@ -82,14 +96,15 @@ A Reel takes about 6–8 minutes, including installing everything.
 
 | Secret | What |
 | --- | --- |
-| `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | The same values as in the infographic repository. The token needs *Workers Scripts: Edit*. |
-| `GH_DISPATCH_TOKEN` | A fine-grained GitHub token. Set *Repository access* to stickman-reels and *Actions* to Read and write. The bot uses it to start the workflows. |
+| `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | The same values as in the infographic repository. The token needs *Workers Scripts: Edit*, plus *Workers KV Storage: Edit* for carousel images. |
+| `GH_DISPATCH_TOKEN` | A fine-grained GitHub token. Set *Repository access* to stickman-reels, and both *Actions* and *Secrets* to Read and write. The bot uses it to start the workflows, and the token renewal uses it to save the new Instagram token. |
 
 **Posting** (each platform switches on when its secrets are added):
 
 | Secret | What |
 | --- | --- |
-| `INSTAGRAM_ACCESS_TOKEN` | A long-lived token for the new Instagram Professional account (it lasts 60 days). Optionally also add `INSTAGRAM_USER_ID`. |
+| `INSTAGRAM_ACCESS_TOKEN` | A long-lived token for the new Instagram Professional account. It lasts 60 days and is renewed automatically. Optionally also add `INSTAGRAM_USER_ID`. |
+| `FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_TOKEN` | Optional: the Facebook Page linked to the Instagram account, and a Page access token with *pages_manage_posts* |
 | `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN` | Run `python tools/youtube_auth.py --save-to-github` on your PC and sign in with the **stickman channel's** Google account. Using the same Google Cloud OAuth client as the infographic page is fine. |
 
 **Variables** (all optional):
@@ -99,6 +114,9 @@ A Reel takes about 6–8 minutes, including installing everything.
 | `REEL_HANDLE` | The channel handle shown on the Reel, e.g. `@stick.seekh` |
 | `DAILY_REEL` | `true` makes a Reel every day at 09:00 IST |
 | `AUTO_POST` | `true` posts every Reel without waiting for ✅ Post |
+| `POST_AT_PEAK` | `true` posts at the learned best time instead of at once |
+| `HOOK_TEST` | `true` also posts a second-hook version as an Instagram trial Reel |
+| `CAROUSEL` | `true` also posts a 5-slide carousel of every Reel |
 | `YOUTUBE_PRIVACY` | `public` (default), `unlisted` or `private` |
 | `REEL_VOICE` | Gemini voice name (default `Achird`; try `Sulafat`, `Charon`, `Kore`) |
 | `GEMINI_MODEL`, `GEMINI_TTS_MODEL` | Override the text or speech model |
@@ -129,6 +147,9 @@ python -m unittest discover -s tests -t .
 | `reel/build.py` | Writes each Reel's `props.json`: segments, word times, music |
 | `reel/publish.py` | Instagram (resumable upload) and YouTube Shorts posting, with a receipt so nothing is posted twice |
 | `reel/report.py` | The weekly numbers |
+| `reel/growth.py` | Best posting time, learning from scores, ideas from comments and trends, Instagram token renewal |
+| `reel/carousel.py` | Carousel slides and the weekly compilation |
+| `reel/media.py` | 2-day public links for carousel images (Workers KV, served by the bot) |
 | `bot/` | The Telegram bot (Cloudflare Worker): turns messages and button taps into workflow runs |
 | `tools/youtube_auth.py` | One-time YouTube sign-in that saves the secrets |
 | `remotion/src/StickReel.tsx` | The Reel: hook, captions, subtitles, lesson and follow cards, sound, loop |

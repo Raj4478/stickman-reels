@@ -1,0 +1,126 @@
+name: Weekly compilation
+run-name: "${{ inputs.from_run && format('Post compilation {0}', inputs.from_run) || 'Weekly compilation' }}"
+# Every Sunday 19:00 IST: the week's posted Reels joined into one long YouTube video ("इस हफ्ते की 5 सीख") with
+# an intro, an outro and chapters. It is sent to Telegram first; its ✅ Post button runs this again with from_run
+# to upload it. Needs at least 3 posted Reels in the week.
+on:
+  workflow_dispatch:
+    inputs:
+      from_run:
+        description: Upload the compilation made by this run (the Post button)
+        required: false
+        type: string
+  schedule:
+    - cron: '30 13 * * 0'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v7
+        if: inputs.from_run == ''
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: remotion/package-lock.json
+      - name: Upload an earlier compilation
+        if: inputs.from_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FROM_RUN: ${{ inputs.from_run }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE_PRIVACY: ${{ vars.YOUTUBE_PRIVACY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          [[ "$FROM_RUN" =~ ^[0-9]+$ ]] || { echo 'from_run must be a run ID'; exit 1; }
+          gh run download "$FROM_RUN" --repo "$GITHUB_REPOSITORY" --name "compilation-$FROM_RUN" --dir week
+          python -m reel compile week/plan.json week/week.mp4 --post --reuse
+      - name: Collect this week's posted Reels
+        if: inputs.from_run == ''
+        id: collect
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          since=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          gh run list --repo "$GITHUB_REPOSITORY" --workflow publish.yml --status success --limit 60 --json displayTitle,createdAt \
+            --jq ".[] | select(.createdAt >= \"$since\") | .displayTitle" | sed -nE 's/^Post Reel ([0-9]+) of run ([0-9]+)$/\2 \1/p' | sort -u | head -7 > posted.txt
+          echo "count=$(wc -l < posted.txt)" >> "$GITHUB_OUTPUT"
+          while read -r run reel; do
+            [ -d "src/$run" ] || gh run download "$run" --repo "$GITHUB_REPOSITORY" --name "reel-$run" --dir "src/$run" || true
+          done < posted.txt
+      - name: Make the compilation
+        if: inputs.from_run == '' && steps.collect.outputs.count >= 3
+        env:
+          COUNT: ${{ steps.collect.outputs.count }}
+        run: |
+          cd remotion && npm ci && cd ..
+          mkdir -p week
+          python - <<'EOF'
+          import json, os
+          reels = []
+          for line in open('posted.txt'):
+              run, n = line.split()
+              video, folder = f'src/{run}/remotion/out/reel-{n}.mp4', f'src/{run}/out/{n}'
+              if os.path.exists(video) and os.path.exists(f'{folder}/script.json'):
+                  reels.append({'video': video, 'folder': folder})
+          json.dump({'intro': 'week/intro.mp4', 'outro': 'week/outro.mp4', 'reels': reels}, open('week/plan.json', 'w'))
+          open('week/count', 'w').write(str(len(reels)))
+          EOF
+          n=$(cat week/count)
+          cd remotion
+          npx remotion render src/index.ts Card ../week/intro.mp4 --props="{\"title\":\"इस हफ्ते की $n सीख\",\"subtitle\":\"छोटी कहानियाँ, बड़ी सीख\"}"
+          npx remotion render src/index.ts Card ../week/outro.mp4 --props='{"title":"रोज़ नई सीख","subtitle":"subscribe करें · comment में बताइए","outro":true}'
+          cd ..
+          python -m reel compile week/plan.json week/week.mp4
+          # keep only what the Post button needs: the plan, the stories and the video
+          mkdir -p week/stories && python -c "
+          import json, shutil, os
+          plan = json.load(open('week/plan.json'))
+          for i, r in enumerate(plan['reels']):
+              d = f'week/stories/{i}'; os.makedirs(d, exist_ok=True); shutil.copy(r['folder'] + '/script.json', d)
+              r['folder'] = d
+          json.dump(plan, open('week/plan.json', 'w'))"
+      - name: Send it to Telegram
+        if: inputs.from_run == '' && steps.collect.outputs.count >= 3
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python -c "
+          import os
+          from pathlib import Path
+          from reel import telegram
+          text = Path('week/week.txt').read_text(encoding='utf-8')
+          keys = telegram.buttons([[('✅ Post to YouTube', 'comp:' + os.environ['GITHUB_RUN_ID'])]])
+          telegram.send_file('sendVideo', 'video', 'week/week.mp4', 'video/mp4', text[:1000], {'reply_markup': keys})"
+      - name: Not enough Reels this week
+        if: inputs.from_run == '' && steps.collect.outputs.count < 3
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          COUNT: ${{ steps.collect.outputs.count }}
+        run: |
+          python -c "import os; from reel import telegram; telegram.send_message('📺 No compilation this week: only ' + os.environ['COUNT'] + ' Reels were posted (it needs 3).')"
+      - uses: actions/upload-artifact@v7
+        if: inputs.from_run == '' && steps.collect.outputs.count >= 3
+        with:
+          name: compilation-${{ github.run_id }}
+          path: |
+            week/week.mp4
+            week/week.txt
+            week/plan.json
+            week/intro.mp4
+            week/stories/
+          retention-days: 14

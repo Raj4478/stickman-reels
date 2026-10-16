@@ -44,12 +44,13 @@ def review_buttons(run, n):
     return buttons([[('✅ Post', f'post:{run}:{n}'), ('🔁 Make again', f'again:{run}:{n}')], [('🗑 Skip', f'skip:{run}:{n}')]])
 
 
-def send_message(text):
+def send_message(text, reply_markup=None):
     token, chat = os.getenv('TELEGRAM_BOT_TOKEN', '').strip(), os.getenv('TELEGRAM_CHAT_ID', '').strip()
     if not token or not chat:
         print(text)
         return None
-    body = json.dumps({'chat_id': chat, 'text': text[:4000], 'disable_web_page_preview': True}).encode()
+    body = json.dumps({'chat_id': chat, 'text': text[:4000], 'disable_web_page_preview': True,
+                       **({'reply_markup': json.loads(reply_markup)} if reply_markup else {})}).encode()
     request = urllib.request.Request(f'https://api.telegram.org/bot{token}/sendMessage', data=body,
                                      headers={'Content-Type': 'application/json'})
     with urllib.request.urlopen(request, timeout=60) as response:

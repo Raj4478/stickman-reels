@@ -46,9 +46,9 @@ class PublishTest(unittest.TestCase):
 
     def test_posts_once_and_records_failures(self):
         calls = []
-        ok = lambda video, story: calls.append('instagram') or {'id': '1', 'url': 'https://ig/1'}  # noqa: E731
+        ok = lambda video, story, ctx=None: calls.append('instagram') or {'id': '1', 'url': 'https://ig/1'}  # noqa: E731
 
-        def broken(video, story):
+        def broken(video, story, ctx=None):
             raise publish.PublishError('quota')
         with mock.patch.dict(publish.UPLOADERS, {'instagram': ok, 'youtube': broken}):
             first = publish.publish(self.folder, self.video, ['instagram', 'youtube'])

@@ -105,7 +105,7 @@ SHOTS = {
 TRANSITIONS = ('cut', 'whip', 'zoom', 'flash')
 MOODS = ('calm', 'happy', 'sad', 'tense')
 MUSIC = ('warm', 'tense')
-LIMITS = {'title': 40, 'hook': 110, 'line': 150, 'caption': 40, 'lesson': 110, 'ask': 110, 'name': 16}
+LIMITS = {'title': 40, 'title_b': 40, 'hook': 110, 'line': 150, 'caption': 40, 'lesson': 110, 'ask': 110, 'name': 16}
 DEVANAGARI = re.compile(r'[ऀ-ॿ]')
 
 BEAT = {
@@ -135,6 +135,7 @@ SCHEMA = {
                   'description': 'Hindi spoken opening line options, at most 14 words each'},
         'hook': {'type': 'string', 'description': 'The chosen Hindi spoken opening line'},
         'title': {'type': 'string', 'description': 'Hindi on-screen hook text shown from the first frame, at most 5 words'},
+        'title_b': {'type': 'string', 'description': 'A second on-screen hook text with a different angle, at most 5 words (for an A/B test)'},
         'hook_action': {'type': 'string', 'enum': list(ACTIONS), 'description': 'The most dramatic action of the story, shown during the hook'},
         'scenes': {'type': 'array', 'minItems': 4, 'maxItems': 6, 'items': BEAT},
         'lesson': {'type': 'string', 'description': 'Hindi spoken and on-screen takeaway, at most 12 words'},
@@ -203,7 +204,8 @@ Draft script:
 
 Do all of this:
 1. Hook: judge the three hooks against the rules below, then write the final `hook` (you may sharpen the best one)
-   and a punchy `title`.
+   and a punchy `title`, plus `title_b`: a second on-screen title with a clearly different angle (for example a
+   number vs a question), so both can be tested.
 {hook_rules}
 2. Actions: every beat's action must visibly SHOW its line. Fix any mismatch using only these actions:
 {actions}
@@ -238,10 +240,21 @@ def remember(script):
     history_path().write_text(json.dumps(items[-200:], ensure_ascii=False, indent=1), encoding='utf-8')
 
 
+def saved_ideas():
+    """Lessons suggested by comments and trends (reel/growth.py), newest last."""
+    try:
+        return json.loads(history_path().with_name('ideas.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+
+
 def pick_topic(path=ROOT / 'topics.txt'):
-    """A random topic, avoiding the last 25 used."""
+    """A fresh idea from comments and trends when there is one, else a random topic; never the last 25 used."""
     topics = [t.strip() for t in path.read_text(encoding='utf-8').splitlines() if t.strip() and not t.startswith('#')]
     recent = {h.get('topic', '').strip().lower() for h in history()[-25:]}
+    fresh_ideas = [t for t in reversed(saved_ideas()) if t.strip().lower() not in recent]
+    if fresh_ideas:
+        return fresh_ideas[0]
     fresh = [t for t in topics if t.lower() not in recent]
     return random.choice(fresh or topics)
 
@@ -305,6 +318,8 @@ def clean(raw):
         if not DEVANAGARI.search(script[key]):
             raise ValueError(f'the {key} is not in Hindi: {script[key]!r}')
     script['scenes'] = scenes
+    if not DEVANAGARI.search(script.get('title_b', '')) or script.get('title_b') == script['title']:
+        script['title_b'] = ''
     script['hook_action'] = pick(raw.get('hook_action'), ACTIONS, max(scenes, key=lambda s: s['mood'] == 'tense')['action'])
     if script['hook_action'] in TWO_PERSON:
         script['hook_with'] = next((s['with'] for s in scenes if s['action'] == script['hook_action']), 'friend')
@@ -343,13 +358,15 @@ def series_note(part, previous):
 
 
 def write(topic=None, part='', previous=None):
+    from . import growth
     topic = (topic or '').strip() or pick_topic()
     recent = [h.get('title') for h in history()[-15:] if h.get('title')]
     prompt = WRITER.format(
         topic=topic, beats=random.choice((4, 5)), hook_rules=HOOK_RULES, two=', '.join(TWO_PERSON),
         actions=catalog(ACTIONS), cast=catalog(CAST), props=catalog(PROPS), places=catalog(PLACES), shots=catalog(SHOTS),
         series=series_note(part, previous), speakers=catalog(SPEAKERS), stickers=', '.join(STICKERS),
-        avoid=f'- Do not repeat these recent titles or their angle: {", ".join(recent)}' if recent else '')
+        avoid='\n'.join(x for x in (f'- Do not repeat these recent titles or their angle: {", ".join(recent)}' if recent else '',
+                                    growth.lessons_learned()) if x))
     last = None
     for _ in range(2):
         draft, model = gemini.json_call(prompt, SCHEMA)

@@ -84,6 +84,11 @@ def build(script, out, public, narrate=True, music=True, prefix=''):
         props['music'] = f'{prefix}music.wav'
     for folder in (out, public):
         (folder / 'props.json').write_text(json.dumps(props, ensure_ascii=False, indent=2), encoding='utf-8')
+    if os.getenv('HOOK_TEST', '').strip().lower() == 'true' and script.get('title_b'):
+        # the same Reel with the other on-screen hook, for an Instagram trial Reel (reel/publish.py)
+        variant = json.loads(json.dumps(props))
+        variant['segments'][0]['title'] = script['title_b']
+        (public / 'props-b.json').write_text(json.dumps(variant, ensure_ascii=False, indent=2), encoding='utf-8')
     if gemini.USED:
         record['backups'] = list(gemini.USED)
     (out / 'voice-record.json').write_text(json.dumps(record, indent=2, ensure_ascii=False), encoding='utf-8')

@@ -22,6 +22,19 @@ test('commands', () => {
   assert.ok(route('/unknown').menu);
 });
 
+test('ideas, compilation and media', async () => {
+  assert.deepEqual(route('', 'idea:55:2').inputs, { idea_of: '55:2' });
+  assert.deepEqual(route('', 'comp:77').inputs, { from_run: '77' });
+  assert.deepEqual(route('/ideas').inputs, { part: 'ideas' });
+  assert.deepEqual(route('/report').inputs, { part: 'report' });
+  const key = 'a'.repeat(32) + '.jpg';
+  const store = { MEDIA: { get: async (k) => (k === key ? new Uint8Array([1, 2]).buffer : null) } };
+  const hit = await worker.fetch(new Request('https://x/m/' + key), { ...env, ...store });
+  assert.equal(hit.headers.get('Content-Type'), 'image/jpeg');
+  assert.equal((await worker.fetch(new Request('https://x/m/' + 'b'.repeat(32) + '.jpg'), { ...env, ...store })).status, 404);
+  assert.equal((await worker.fetch(new Request('https://x/m/../secret'), env)).status, 404);
+});
+
 test('buttons', () => {
   assert.deepEqual(route('', 'post:123:2'), { workflow: 'publish.yml', inputs: { source_run: '123', reel: '2' }, reply: route('', 'post:123:2').reply, clear: true });
   assert.deepEqual(route('', 'again:123:1').inputs, { remake_of: '123:1' });
