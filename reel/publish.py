@@ -98,6 +98,9 @@ def texts(story):
 
 # --- YouTube ---------------------------------------------------------------------------------
 
+TOKEN_INFO = {}  # what Google said about the sign-in on the last token exchange
+
+
 def youtube_token():
     try:
         token, _ = request('https://oauth2.googleapis.com/token', {
@@ -109,7 +112,35 @@ def youtube_token():
             raise PublishError('YouTube sign-in has expired or was revoked. Keep the Google app "In production" '
                                '(console.cloud.google.com/auth/audience), then run: python tools/youtube_auth.py --save-to-github') from None
         raise PublishError(f'YouTube sign-in failed ({reason or exc.code}): {message}') from None
+    TOKEN_INFO.clear()
+    # Google sends a new refresh token only rarely (rotation); the keepalive workflow saves it back.
+    if token.get('refresh_token') and token['refresh_token'] != os.environ['YOUTUBE_REFRESH_TOKEN'].strip():
+        TOKEN_INFO['new_refresh_token'] = token['refresh_token']
+    # Only sign-ins that will end carry this (most often: the Google app is still in "Testing", 7 days).
+    if str(token.get('refresh_token_expires_in', '')).isdigit():
+        TOKEN_INFO['expires_days'] = int(token['refresh_token_expires_in']) // 86400
     return token['access_token']
+
+
+def youtube_check():
+    """The daily sign-in check: {'ok', 'channel', 'expires_days', 'new_refresh_token', 'problem'}."""
+    try:
+        token = youtube_token()
+    except PublishError as exc:
+        return {'ok': False, 'problem': str(exc)}
+    result = {'ok': True, **TOKEN_INFO}
+    try:
+        channel = request('https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true',
+                          headers={'Authorization': 'Bearer ' + token})[0].get('items', [])
+        result['channel'] = channel[0]['snippet']['title'] if channel else ''
+        if not channel:
+            result.update(ok=False, problem='This Google account has no YouTube channel yet: create it at youtube.com.')
+    except urllib.error.HTTPError as exc:
+        if exc.code == 403:
+            result['note'] = 'The sign-in may upload but not read the channel (sign in again to allow reading stats).'
+        else:
+            result.update(ok=False, problem=f'YouTube answered HTTP {exc.code} to the channel check.')
+    return result
 
 
 def youtube_upload(video, story, ctx=None, title=None, description=None, shorts=True):

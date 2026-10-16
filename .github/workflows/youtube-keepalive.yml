@@ -1,0 +1,47 @@
+name: Check YouTube sign-in
+# Daily: confirms YouTube posting still works (the sign-in, the channel). If Google renews the refresh token it is
+# saved back as the YOUTUBE_REFRESH_TOKEN secret automatically; if the sign-in will end (the Google app is still
+# in "Testing") or stopped working, you get a Telegram message with the one-time fix. Saving the secret needs
+# GH_DISPATCH_TOKEN to have "Secrets: Read and write" on this repository.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'   # 07:30 IST
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Check and renew
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TOKEN_FILE: ${{ runner.temp }}/yt-token
+        run: |
+          set +e
+          python -m reel youtube-check
+          code=$?
+          set -e
+          if [ "$code" = "2" ]; then
+            if gh secret set YOUTUBE_REFRESH_TOKEN --repo "$GITHUB_REPOSITORY" < "$TOKEN_FILE"; then
+              echo 'Saved the renewed YouTube refresh token.'
+            else
+              python -c "from reel import telegram; telegram.send_message('⚠️ Google renewed the YouTube sign-in but it could not be saved: give GH_DISPATCH_TOKEN Secrets: Read and write on stickman-reels.')"
+              exit 1
+            fi
+            rm -f "$TOKEN_FILE"
+          elif [ "$code" != "0" ]; then
+            exit "$code"
+          fi
