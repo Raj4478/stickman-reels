@@ -1,0 +1,81 @@
+name: Make a Reel
+run-name: "Stickman Reel: ${{ inputs.topic || (github.event_name == 'schedule' && 'daily') || 'random topic' }}"
+# Writes a Hindi life-lesson story with Gemini (free tier), records the narration, renders the stick-figure
+# Reel with Remotion and sends it to Telegram for review. Nothing is posted to Instagram yet.
+on:
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: Life lesson (leave empty for a random line of topics.txt)
+        required: false
+        type: string
+      sample:
+        description: Render examples/sample.json without Gemini (to test the template)
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    - cron: '30 3 * * *'   # 09:00 IST; runs only when the DAILY_REEL repository variable is "true"
+permissions:
+  contents: read
+concurrency:
+  group: make-reel
+  cancel-in-progress: false
+jobs:
+  reel:
+    if: github.event_name != 'schedule' || vars.DAILY_REEL == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: remotion/package-lock.json
+      - name: Install
+        run: |
+          command -v ffmpeg >/dev/null || { sudo apt-get update -q && sudo apt-get install -yq ffmpeg; }
+          cd remotion && npm ci
+      - name: Write the story and record the narration
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
+          GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          GEMINI_TTS_MODEL: ${{ vars.GEMINI_TTS_MODEL }}
+          REEL_VOICE: ${{ vars.REEL_VOICE }}
+          REEL_HANDLE: ${{ vars.REEL_HANDLE }}
+          TOPIC: ${{ inputs.topic }}
+          SAMPLE: ${{ inputs.sample }}
+        run: |
+          if [ "$SAMPLE" = "true" ]; then
+            python -m reel make --sample examples/sample.json
+          else
+            python -m reel make --topic "$TOPIC"
+          fi
+          cat out/script.json
+      - name: Render with Remotion
+        working-directory: remotion
+        run: npx remotion render src/index.ts StickReel out/reel-1080x1920.mp4 --props=public/props.json --crf=23
+      - name: Send it to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m reel send remotion/out/reel-1080x1920.mp4
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: reel-${{ github.run_id }}
+          path: |
+            remotion/out/reel-1080x1920.mp4
+            out/script.json
+            out/props.json
+            out/voice-record.json
+          if-no-files-found: warn
+          retention-days: 30

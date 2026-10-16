@@ -1,0 +1,5 @@
+node_modules/
+out/
+# Written per render by `python -m reel make`
+public/props.json
+public/voice.wav
