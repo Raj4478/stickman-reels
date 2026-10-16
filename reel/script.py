@@ -45,8 +45,10 @@ ACTIONS = {
     'argue': 'shouts at the other person, who shouts back (a fight, ego, misunderstanding)',
     'hug': 'hugs the other person (love, forgiveness, family)',
     'help_up': 'the other person lies fallen; the hero pulls them up (helping, kindness, support)',
+    'shy': 'hands under the chin, blushing and swaying, little hearts rise (a crush, first love, butterflies)',
+    'propose': 'kneels and holds out a rose; the other person gasps, then says yes (confessing love, a proposal)',
 }
-TWO_PERSON = ('handshake', 'argue', 'hug', 'help_up')
+TWO_PERSON = ('handshake', 'argue', 'hug', 'help_up', 'propose')
 PROPS = {
     'none': 'nothing extra',
     'clock': 'a ticking clock (time)',
@@ -67,6 +69,7 @@ CAST = {
     'partner': 'पार्टनर',
     'child': 'बच्चा',
     'stranger': 'अजनबी',
+    'teacher': 'टीचर',
 }
 PLACES = {
     'plain': 'plain paper (abstract, inner thoughts)',
@@ -84,8 +87,8 @@ PLACES = {
     'day_to_night': 'outdoors while day turns into night (time passing, long hours)',
 }
 SPEAKERS = {
-    'narrator': 'the storyteller narrates (most beats)',
-    'hero': 'the hero says his own words, in first person, as dialogue',
+    'narrator': 'the hero tells the story as a voice-over, in first person (most beats)',
+    'hero': 'the hero says something out loud in the scene, as dialogue',
     'other': 'the person in `with` says their words to the hero, as dialogue',
 }
 STICKERS = ('none', 'fire', 'star', 'check', 'cross', 'lightning', 'money', 'heart', 'warning', 'hundred', 'question')
@@ -107,6 +110,8 @@ MOODS = ('calm', 'happy', 'sad', 'tense')
 MUSIC = ('warm', 'tense')
 # Themes the bot offers (key: Hindi label, what the writer should pick a lesson about)
 THEMES = {
+    'love': ('प्यार', 'love: a first crush, one-sided love, waiting for a reply, a breakup, long distance, love that '
+                      'lasts, love vs attention'),
     'family': ('परिवार', 'family: parents, siblings, children, respect and sacrifice at home'),
     'money': ('पैसा', 'money: saving, spending, debt, showing off and financial discipline'),
     'health': ('सेहत', 'health: sleep, food, exercise, phone addiction and mental peace'),
@@ -164,9 +169,10 @@ SCHEMA = {
 
 HOOK_RULES = """Hook rules (the first 2 seconds decide if people keep watching):
   - Be specific and concrete: a number, a time, a person, a moment. Never vague or preachy.
-  - Use one proven pattern: a surprising number ("दस साल की दोस्ती, साठ सेकंड में खत्म।"), a mistake the viewer
-    makes ("आप भी सुबह उठते ही ये गलती करते हैं।"), a contrast ("उसके पास सब था, सिवाय एक चीज़ के।"),
-    a mystery ("एक छोटी सी आदत ने उसकी पूरी ज़िंदगी बदल दी।") or a direct "you" challenge.
+  - The hero is speaking about their own life, so hooks are first person. Use one proven pattern: a confession
+    ("तीन साल मैंने उसके एक मैसेज का इंतज़ार किया।"), a surprising number ("दस साल की दोस्ती, मैंने साठ सेकंड
+    में खत्म कर दी।"), a mistake ("सुबह उठते ही मैं यही गलती करता था।"), a contrast ("मेरे पास सब था, सिवाय एक चीज़
+    के।") or a mystery ("एक छोटी सी आदत ने मेरी पूरी ज़िंदगी बदल दी।").
   - Never start with generic openers like "रुकिए", "सुनिए", "क्या आप जानते हैं", "आज हम बात करेंगे".
   - title is the on-screen version: 2-5 punchy words that create curiosity (not the whole line)."""
 
@@ -174,7 +180,15 @@ WRITER = """You write scripts for a Hindi Instagram Reels channel where a simple
 
 Lesson for this Reel: {topic}
 {series}
-Write one tiny story (30-40 seconds when spoken) about an ordinary Indian person named in `name`, told as {beats} beats.
+Write one tiny story (30-40 seconds when spoken), told as {beats} beats, about a real-feeling moment from
+ordinary Indian life (school, college, home, office, tiffin time, a bus, a phone call), with a small funny or
+emotional twist.
+- FIRST PERSON: the hero ({hero}, named in `name`) tells their OWN story, like confiding in a friend. Every
+  narration line uses मैं / मैंने / मेरा / मेरी / मुझे ("उस दिन मैंने पहली बार उसे देखा..."), never "वह", "उसने"
+  or the hero's name for the hero. Other people are "वो", "माँ", "पापा", "टीचर". Use {forms} verb forms for the
+  hero, every time.
+- Love stories are the channel's favourites (a crush, waiting for a reply, a breakup, love that lasts). In a love
+  story, use the actions shy, propose, hug, walk_away and the partner.
 - Language: natural spoken Hindi in Devanagari, the way a friend talks (simple words, common English words like
   "phone" or "goal" are fine in Devanagari). No Roman script, no emoji, no hashtags in the spoken lines.
 - hooks: three different opening lines; hook: the strongest of them.
@@ -191,9 +205,9 @@ Write one tiny story (30-40 seconds when spoken) about an ordinary Indian person
 {places}
   mood sets the colours. The story must move from a problem to a turning point to a better place, and use at
   least 3 different actions.
-- speaker: make 1-2 beats DIALOGUE so it feels like a real story: the hero says his own words (speaker "hero",
-  first person, e.g. "बस पाँच मिनट और...") or the person in `with` speaks to him (speaker "other", e.g. पापा:
-  "बेटा, तुम्हारे सपनों का क्या हुआ?"). Write dialogue as the spoken words only (no "उसने कहा"). Only ONE other
+- speaker: make 1-2 beats DIALOGUE so it feels like a real story: the hero says something out loud in the
+  scene (speaker "hero", e.g. "बस पाँच मिनट और...") or the person in `with` speaks to the hero (speaker "other",
+  e.g. पापा: "बेटा, तुम्हारे सपनों का क्या हुआ?"). Write dialogue as the spoken words only (no "उसने कहा"). Only ONE other
   person may speak in the whole Reel. All other beats: "narrator".
 {speakers}
 - keyword: the single most important word of the caption (copied exactly); sticker: a small icon that
@@ -235,7 +249,10 @@ Do all of this:
    Keep 1-2 dialogue beats (speaker hero, or speaker other with `with` set; only ONE other person speaks in the
    Reel); dialogue is the spoken words only, in character. Pick each caption's `keyword` (copied exactly) and
    a sticker only where it adds punch.
-6. Keep the lesson, ask, caption and hashtags unless they are weak; never add Roman script to spoken lines."""
+6. Keep the lesson, ask, caption and hashtags unless they are weak; never add Roman script to spoken lines.
+7. First person: the hero ({hero}) tells their own story. Rewrite any narration or hook that talks about the hero
+   in the third person ("उसने", "वह", the hero's name) into first person (मैंने, मैं, मेरा), with {forms} verb
+   forms."""
 
 
 def history_path():
@@ -351,6 +368,34 @@ def clean(raw):
     return script
 
 
+FIRST_PERSON = re.compile(r'(?<![ऀ-ॿ])(मैं|मैंने|मेरा|मेरी|मेरे|मुझे|मुझसे|मुझको|हम|हमने|हमारा|हमारी)(?![ऀ-ॿ])')
+
+
+def first_person(script):
+    """True when the hook and at least half of the narrated beats are told as "I" (मैं, मेरा...)."""
+    told = [script['hook'], *(s['line'] for s in script['scenes'] if s.get('speaker', 'narrator') == 'narrator')]
+    hits = sum(bool(FIRST_PERSON.search(line)) for line in told)
+    return hits >= max(1, (len(told) + 1) // 2)
+
+
+def hero():
+    """The storyteller follows the narrator's voice: 'girl' for NARRATOR=female, else 'boy'."""
+    return 'girl' if os.getenv('NARRATOR', '').strip().lower() == 'female' else 'boy'
+
+
+HEROES = {'boy': ('a young man', 'masculine (मैं सोचता था, मैंने किया, मैं गया)'),
+          'girl': ('a young woman', 'feminine (मैं सोचती थी, मैंने किया, मैं गई)')}
+
+
+def love_turn():
+    """Whether a Reel with no chosen topic should be a love story (LOVE_SHARE, default 0.4 of them)."""
+    try:
+        share = float(os.getenv('LOVE_SHARE', '') or 0.4)
+    except ValueError:
+        share = 0.4
+    return random.random() < share
+
+
 def spoken_lines(script):
     """What is said, in order: hook, every beat, the lesson, then the question."""
     return [script['hook'], *(s['line'] for s in script['scenes']), script['lesson'], script['ask']]
@@ -394,41 +439,54 @@ def choose_topic(topic='', theme='', source='', part=''):
         fresh = [t for t in reversed(saved_ideas()) if t.strip().lower() not in recent]
         if fresh:
             return fresh[0], None
+    love = f'Choose one fresh, specific, relatable life lesson about {THEMES["love"][1]}'
     if source == 'random':
-        return pick_topic(), None
+        return (love if love_turn() else pick_topic()), None
     occasion = occasions.due(history=history())
-    return (occasion['lesson'], occasion) if occasion else (pick_topic(), None)
+    if occasion:
+        return occasion['lesson'], occasion
+    return (love if love_turn() else pick_topic()), None
 
 
 def write(topic=None, part='', previous=None, theme='', source=''):
     from . import growth, occasions
     topic, occasion = choose_topic(topic, theme, source, part)
     recent = [h.get('title') for h in history()[-15:] if h.get('title')]
+    who = hero()
+    person, forms = HEROES[who]
     prompt = WRITER.format(
-        topic=topic, beats=random.choice((4, 5)), hook_rules=HOOK_RULES, two=', '.join(TWO_PERSON),
+        hero=person, forms=forms, topic=topic, beats=random.choice((4, 5)), hook_rules=HOOK_RULES, two=', '.join(TWO_PERSON),
         actions=catalog(ACTIONS), cast=catalog(CAST), props=catalog(PROPS), places=catalog(PLACES), shots=catalog(SHOTS),
         series=series_note(part, previous), speakers=catalog(SPEAKERS), stickers=', '.join(STICKERS),
         avoid='\n'.join(x for x in (f'- Do not repeat these recent titles or their angle: {", ".join(recent)}' if recent else '',
                                     growth.lessons_learned(), occasions.note(occasion) if occasion else '') if x))
     last = None
-    for _ in range(2):
+    for attempt in range(2):
         draft, model = gemini.json_call(prompt, SCHEMA)
         try:
-            clean(draft)
+            drafted = clean(draft)
         except ValueError as exc:
             last = exc
             print(f'Draft rejected ({exc}); asking again')
             continue
+        if not first_person(drafted) and attempt == 0:
+            print('Draft is not told in first person; asking again')
+            continue
         try:
             directed, _ = gemini.json_call(DIRECTOR.format(
                 draft=json.dumps(draft, ensure_ascii=False, indent=1), hook_rules=HOOK_RULES, actions=catalog(ACTIONS),
-                two=', '.join(TWO_PERSON), shot_names=', '.join(SHOTS), place_names=', '.join(PLACES)), SCHEMA, temperature=0.6)
+                two=', '.join(TWO_PERSON), shot_names=', '.join(SHOTS), place_names=', '.join(PLACES),
+                hero=person, forms=forms), SCHEMA, temperature=0.6)
             script = clean(directed)
             script['directed'] = True
+            if first_person(drafted) and not first_person(script):
+                print('The director slipped out of first person; using the draft')
+                script, script['directed'] = drafted, False
         except (ValueError, gemini.GeminiError) as exc:
             print(f'Director pass skipped ({exc}); using the draft')
-            script = clean(draft)
+            script = drafted
             script['directed'] = False
+        script['hero'] = who
         script['model'] = model
         script['topic'] = script['topic'] or topic
         script['part'] = part

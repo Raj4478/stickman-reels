@@ -77,7 +77,7 @@ def build(script, out, public, narrate=True, music=True, prefix=''):
         (public / 'voice.wav').unlink(missing_ok=True)
     words = voice.word_times(lines, starts, speech_end, heard)
     props = {'audio': audio, 'music': None, 'lead': LEAD, 'handle': os.getenv('REEL_HANDLE', '').strip(),
-             'mouth': mouth, 'segments': segments(script, starts, speech_end, words)}
+             'mouth': mouth, 'hero': script.get('hero', 'boy'), 'segments': segments(script, starts, speech_end, words)}
     props['duration'] = props['segments'][-1]['end']
     if music:
         sounds.write_music(public / 'music.wav', props['duration'], script.get('music', 'warm'), script['title'])

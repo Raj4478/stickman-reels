@@ -4,22 +4,25 @@ Hindi life-lesson Reels for Instagram, acted out by a stick figure and filmed li
 
 **How a Reel is made:**
 1. **Writer:** Gemini (free tier) drafts a tiny Hindi story about one life lesson. It includes three hook options, 4–6 beats, the lesson and a question for the comments. Each beat names an action, the place, who else is in frame and a prop.
+   - **First person:** the hero tells their own story ("उस दिन मैंने पहली बार उसे देखा..."), never "he did". A draft told in the third person is sent back, and the director keeps it in first person.
+   - **Love first:** love stories (a crush, waiting for a reply, a breakup, a proposal) are the channel's favourite. About 40% of Reels without a chosen topic are love stories; change the share with the `LOVE_SHARE` variable.
 2. **Director:** a second Gemini pass acts as a Reels motion director.
    - It picks and sharpens the strongest hook, using proven patterns: a surprising number, a mistake you make, a contrast, a mystery.
    - It checks that every action shows its line.
    - It plans the camera: a different shot for each beat (wide, close, extreme close, low or high angle, tilted, push-in, pull-out, pan, two-shot) and the transition into it (cut, whip pan, zoom, flash).
 3. **Voice:**
-   - Gemini's speech model reads the story in a warm Hindi voice.
+   - Gemini's speech model reads the story as the hero, personal and sincere. The bot's voice choice also picks the hero: a male voice tells a boy's story, a female voice a girl's (with feminine verb forms, and a young man's voice for her partner).
    - **Dialogue:** 1–2 beats are spoken by the characters themselves. The narrator voices the hero's own words, and the other person (माँ, पापा, बॉस…) gets a fitting second voice. Their mouths move with the sound, and the subtitle shows who is speaking.
    - FFmpeg finds the pauses between lines.
    - Whisper (`small` model, given the script as a hint) times every word, so the subtitle highlight lands on the word being spoken.
 4. **Animation:** [Remotion](https://www.remotion.dev) renders a 1080×1920 Reel with:
    - **The hook:** on screen from the very first frame, over the story's most dramatic action and a push-in.
-   - **The hero:** the same capped figure every time, named in the hook.
-   - **26 actions:** for example walk in, think, idea, sad, cry, cheer, angry, run, scroll the phone, sleep and alarm, workout, work late, count money, fall and get up, carry a burden, climb, read, walk away, handshake, argue, hug, help up.
-   - **Characters:** माँ, पापा, दोस्त, बॉस, पार्टनर, बच्चा and अजनबी, each with its own colour and accessory. They join two-person beats or watch and react.
+   - **The hero:** the same figure every time, named in the hook: a boy in a cap, or a girl with a ponytail and a bow.
+   - **Cartoon faces:** big white heads with an outline, eyes with pupils and a shine that blink every few seconds, eyebrows that carry the emotion, and a black open mouth (with a tongue) that moves with the voice.
+   - **28 actions:** for example walk in, think, idea, sad, cry, cheer, angry, run, scroll the phone, sleep and alarm, workout, work late, count money, fall and get up, carry a burden, climb, read, walk away, handshake, argue, hug, help up, and for love stories **shy** (a blushing crush, hearts rising) and **propose** (kneels with a rose; the other person gasps, then says yes).
+   - **Characters:** माँ, पापा, टीचर, दोस्त, बॉस, पार्टनर, बच्चा and अजनबी, each with its own colour and accessory (पापा and टीचर wear glasses and a moustache). They join two-person beats or watch and react.
    - **Places:** home, office, street, night, park, classroom, kitchen, bus, hospital, sunset, rain, and day turning into night. They're drawn in layers that move at different speeds, so camera moves have depth.
-   - **Expressions:** surprised, heart eyes, crying, a big smile, sleepy, blushing, and talking mouths.
+   - **Expressions:** happy, a big smile, surprised, angry, sad, crying, heart eyes, blushing, shy, smug, nervous (with a sweat drop), sleepy, and talking mouths.
    - **Captions:** each beat's keyword pops out on a marker swipe, with an optional sticker (🔥 ⭐ ✅ ❌ ⚡ ₹ ❤️ ⚠️ 💯 ❓, drawn as shapes).
    - **Camera:** handheld drift, a punch-in and shake on impacts, and a 3D tilt for low and high angles.
    - **Sound:** effects made in code (whoosh, pop, thud, ding, ta-da, alarm, heartbeat…) and a lo-fi music bed made for each Reel. The music sits under the voice and rises at the end.
@@ -75,7 +78,7 @@ Every backup used is named in the Telegram caption, so you know when Gemini didn
 
 - **From Telegram:**
   - Tap **🎬 New Reel** and choose step by step:
-    - **topic:** 🎲 a fresh random lesson, 💡 viewer ideas, 🎉 the next festival, 📚 a theme (परिवार, पैसा, सेहत, पढ़ाई, दोस्ती, काम, आत्मसम्मान, रिश्ते, आदतें, समय), or ✍️ your own lesson;
+    - **topic:** 🎲 a fresh random lesson, 💡 viewer ideas, 🎉 the next festival, 📚 a theme (प्यार, परिवार, पैसा, सेहत, पढ़ाई, दोस्ती, काम, आत्मसम्मान, रिश्ते, आदतें, समय), or ✍️ your own lesson;
     - **voice:** 👨 male or 👩 female;
     - **music:** auto, warm, tense or none;
     - **how many:** 1, 2, 3 or 5, or a 📖 two-part story;
@@ -131,6 +134,7 @@ A Reel takes about 6–8 minutes, including installing everything.
 | `HOOK_TEST` | `true` also posts a second-hook version as an Instagram trial Reel |
 | `CAROUSEL` | `true` also posts a 5-slide carousel of every Reel |
 | `YOUTUBE_PRIVACY` | `public` (default), `unlisted` or `private` |
+| `LOVE_SHARE` | The share of Reels without a chosen topic that are love stories, from `0` to `1` (default `0.4`) |
 | `REEL_VOICE` | Gemini voice name (default `Achird`; try `Sulafat`, `Charon`, `Kore`) |
 | `GEMINI_MODEL`, `GEMINI_TTS_MODEL` | Override the text or speech model |
 
