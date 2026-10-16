@@ -7,6 +7,7 @@
 | File | Use |
 | --- | --- |
 | `avatar-800.png` | YouTube profile picture (800×800). Everything sits inside the circle YouTube shows. |
+| `banner-2560x1440.png` | YouTube banner. Name, mark, tagline and handle sit in the centre 1546×423 that every device shows; the edges carry a faint mark pattern for TVs and wide screens. |
 | `avatar-1080.png` | Instagram profile picture, Telegram bot photo |
 | `logo-light.png` | Mark + name on cream (2400×800): YouTube banner art, thumbnails, documents |
 | `logo-dark.png` | Mark + name on ink, for dark backgrounds |
@@ -30,4 +31,5 @@ npx remotion still src/index.ts LogoLockup ../brand/logo-light.png
 npx remotion still src/index.ts LogoLockup ../brand/logo-dark.png --props='{"dark":true}'
 npx remotion still src/index.ts LogoLockup ../brand/logo-transparent.png --props='{"transparent":true}'
 npx remotion still src/index.ts LogoMark ../brand/mark-transparent.png
+npx remotion still src/index.ts LogoBanner ../brand/banner-2560x1440.png
 ```

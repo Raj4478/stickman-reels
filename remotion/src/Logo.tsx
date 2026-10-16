@@ -72,3 +72,45 @@ export const LogoMark: React.FC = () => (
     <Mark size={1000} />
   </AbsoluteFill>
 );
+
+// YouTube banner, 2560 x 1440. Only the centre 1546 x 423 shows on every device (phones), so the name, mark and
+// promise sit there; the rest (seen on TVs and wide screens) carries a faint pattern of the mark.
+export const LogoBanner: React.FC<{ guides?: boolean }> = ({ guides }) => {
+  useFonts();
+  const tiles = [];
+  for (let row = 0; row < 7; row++) {
+    for (let col = 0; col < 13; col++) {
+      const x = col * 210 + (row % 2) * 105 - 60;
+      const y = row * 220 - 40;
+      tiles.push(
+        <div key={`${row}-${col}`} style={{ position: "absolute", left: x, top: y, opacity: 0.07, transform: `rotate(${(row + col) % 2 ? -8 : 8}deg)` }}>
+          <Mark size={120} bubble="#ffffff" figure={BRAND.ink} spark={BRAND.saffron} />
+        </div>,
+      );
+    }
+  }
+  return (
+    <AbsoluteFill style={{ background: `radial-gradient(ellipse at 50% 50%, #23232d 0%, ${BRAND.ink} 70%)`, overflow: "hidden" }}>
+      {tiles}
+      {/* the safe area: everything important lives inside 1546 x 423 at the centre */}
+      <div style={{ position: "absolute", left: (2560 - 1546) / 2, top: (1440 - 423) / 2, width: 1546, height: 423, display: "flex",
+        alignItems: "center", justifyContent: "center", gap: 56, outline: guides ? "4px dashed #ff4d4d" : undefined }}>
+        <Mark size={330} bubble={BRAND.saffron} figure={BRAND.ink} spark="#ffffff" />
+        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+          <div style={{ fontFamily: "Poppins, sans-serif", fontWeight: 800, fontSize: 150, lineHeight: 1, letterSpacing: -3, color: "#ffffff" }}>
+            Seekh <span style={{ color: BRAND.saffron }}>Sketch</span>
+          </div>
+          <div style={{ fontFamily: "'Noto Sans Devanagari', Poppins, sans-serif", fontWeight: 700, fontSize: 52, color: "#ffffff", opacity: 0.9 }}>
+            छोटी कहानियाँ, बड़ी सीख
+          </div>
+          <div style={{ display: "flex", gap: 18 }}>
+            <span style={{ background: BRAND.saffron, color: BRAND.ink, fontFamily: "'Noto Sans Devanagari', Poppins, sans-serif", fontWeight: 800,
+              fontSize: 36, padding: "8px 26px", borderRadius: 40 }}>हर दिन नई Short</span>
+            <span style={{ border: "4px solid #ffffff", color: "#ffffff", fontFamily: "Poppins, sans-serif", fontWeight: 700, fontSize: 34,
+              padding: "6px 24px", borderRadius: 40 }}>@seekhsketch</span>
+          </div>
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+};

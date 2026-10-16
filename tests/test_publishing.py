@@ -18,7 +18,7 @@ class TextsTest(unittest.TestCase):
         t = publish.texts(STORY)
         self.assertTrue(t['caption'].startswith(STORY['title']))
         self.assertIn(STORY['ask'], t['caption'])
-        self.assertIn('#stickman', t['caption'])
+        self.assertIn('#seekhsketch', t['caption'])
         self.assertTrue(t['title'].endswith('#shorts'))
         self.assertLessEqual(len(t['title']), 100)
         self.assertIn('lifelessons', t['tags'])
