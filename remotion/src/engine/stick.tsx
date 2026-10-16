@@ -84,7 +84,7 @@ export const solve = (p: Pose, s = 1, facing = 1): Joints => {
     FA = 38 * s,
     TH = 48 * s,
     SH = 46 * s,
-    R = 24 * s;
+    R = 30 * s; // a big cartoon head, so the face reads on a phone
   // every offset is relative to the hip, then rotated by rot and mirrored by facing
   const body = -p.lean;
   const up = dir(180 - p.lean);
@@ -126,53 +126,116 @@ export const solve = (p: Pose, s = 1, facing = 1): Joints => {
   };
 };
 
-export type Accessory = "tie" | "scarf" | "tophat" | "crown" | "cap" | "glasses" | "none";
-// Expressions (added for Stickman Reels): surprised, love (heart eyes), cry, big_smile, sleepy, blush
-export type FaceName = "none" | "eyes" | "angry" | "sad" | "happy" | "surprised" | "love" | "cry" | "big_smile" | "sleepy" | "blush";
+export type Accessory = "tie" | "scarf" | "tophat" | "crown" | "cap" | "glasses" | "dad" | "ponytail" | "none";
+// Expressions (added for Stickman Reels). The look follows popular Hindi stickman Reels: a big white head with
+// a dark outline, cartoon eyes with pupils and a shine, eyebrows that carry the emotion, a black open mouth.
+export type FaceName =
+  | "none" | "eyes" | "angry" | "sad" | "happy" | "surprised" | "love" | "cry" | "big_smile" | "sleepy" | "blush"
+  | "shy" | "smug" | "nervous";
 
 const pts = (...a: [number, number][]) => a.map((v) => v.join(",")).join(" ");
 
-// The face, drawn in head space (x forward, y down; the head is a dark disc, so features are white)
-const Face: React.FC<{ face: FaceName; s: number; mouth: number }> = ({ face, s, mouth }) => {
-  const line = { stroke: "#fff", strokeWidth: 3 * s, strokeLinecap: "round" as const, fill: "none" };
-  const eye = (cx: number) => {
-    if (face === "sleepy") return <path key={cx} d={`M${(cx - 3.5) * s},${-3 * s} Q${cx * s},${-0.5 * s} ${(cx + 3.5) * s},${-3 * s}`} {...line} strokeWidth={2.4 * s} />;
-    if (face === "love") return <path key={cx} d={`M${cx * s},${1 * s} l${-4 * s},${-4 * s} a${2.2 * s},${2.2 * s} 0 0 1 ${4 * s},${-2.6 * s} a${2.2 * s},${2.2 * s} 0 0 1 ${4 * s},${2.6 * s} Z`} fill="#ff6b8a" />;
-    if (face === "big_smile") return <path key={cx} d={`M${(cx - 3.5) * s},${-2 * s} Q${cx * s},${-7 * s} ${(cx + 3.5) * s},${-2 * s}`} {...line} strokeWidth={2.6 * s} />;
-    const big = face === "surprised";
-    return <ellipse key={cx} cx={cx * s} cy={-3 * s} rx={(big ? 4.2 : 3.2) * s} ry={(big ? 5.6 : 4.6) * s} fill="#fff" />;
+export const INK = "#151515";
+export const HEAD = "#ffffff";
+const TONGUE = "#ff7a8a";
+const CHEEK = "#ff9aa8";
+
+// The face, drawn in head space (x towards where the figure faces, y down, head radius 30 * s).
+// Features sit a little forward of centre, a three-quarter view, so the figure still "looks" somewhere.
+const Face: React.FC<{ face: FaceName; s: number; mouth: number; blink?: boolean }> = ({ face, s, mouth, blink }) => {
+  const u = (v: number) => v * s;
+  const line = { stroke: INK, strokeWidth: u(2.6), strokeLinecap: "round" as const, strokeLinejoin: "round" as const, fill: "none" };
+  const EYES = [-5, 12];
+  const EY = -4;
+  const shut = (x: number, up = true) => (
+    <path key={x} d={`M${u(x - 6)},${u(EY)} Q${u(x)},${u(up ? EY - 6 : EY + 5)} ${u(x + 6)},${u(EY)}`} {...line} />
+  );
+  const eye = (x: number) => {
+    if (face === "big_smile" || face === "blush") return shut(x);
+    if (face === "cry") return shut(x, false);
+    if (face === "sleepy" || blink) return <path key={x} d={`M${u(x - 6)},${u(EY + 1)} L${u(x + 6)},${u(EY + 1)}`} {...line} />;
+    const wide = face === "surprised" || face === "nervous";
+    const cute = face === "shy";
+    const rx = cute ? 9 : wide ? 9 : 8;
+    const ry = cute ? 10.5 : wide ? 11 : 9.5;
+    const look = face === "sad" ? [1, 3] : face === "smug" ? [3, 1] : [2, 1.5];
+    const shake = face === "nervous" ? Math.sin(x * 3.1 + mouth * 9) * 0.8 : 0;
+    const pupil = cute ? 6.4 : wide ? 3 : 4.6;
+    return (
+      <g key={x}>
+        <ellipse cx={u(x)} cy={u(EY)} rx={u(rx)} ry={u(ry)} fill="#fff" stroke={INK} strokeWidth={u(2.2)} />
+        {face === "love" ? (
+          <path transform={`translate(${u(x + 1)} ${u(EY + 4)}) scale(${s * 0.11})`} d="M0,40 C-70,-5 -55,-60 -18,-55 C0,-52 0,-35 0,-30 C0,-35 0,-52 18,-55 C55,-60 70,-5 0,40 Z" fill="#e8344e" />
+        ) : (
+          <>
+            <circle cx={u(x + look[0] + shake)} cy={u(EY + look[1])} r={u(pupil)} fill={INK} />
+            <circle cx={u(x + look[0] - pupil * 0.35)} cy={u(EY + look[1] - pupil * 0.4)} r={u(Math.max(1.3, pupil * 0.32))} fill="#fff" />
+            {cute && <circle cx={u(x + look[0] + 2)} cy={u(EY + look[1] + 2.4)} r={u(1)} fill="#fff" />}
+          </>
+        )}
+        {(face === "smug" || face === "sad") && (
+          // heavy upper lid: half-closed, bored or low
+          <path d={`M${u(x - rx - 1)},${u(EY + (face === "smug" ? 0 : -3))} L${u(x + rx + 1)},${u(EY + (face === "smug" ? 0 : -3))} L${u(x + rx + 1)},${u(EY - ry - 2)} L${u(x - rx - 1)},${u(EY - ry - 2)} Z`}
+            fill={HEAD} stroke="none" />
+        )}
+        {(face === "smug" || face === "sad") && <path d={`M${u(x - rx)},${u(EY + (face === "smug" ? 0 : -3))} L${u(x + rx)},${u(EY + (face === "smug" ? 0 : -3))}`} {...line} />}
+      </g>
+    );
   };
+  const brow = (x: number, side: number) => {
+    // side -1: the eye further back, +1: the front eye; "inner" ends point to the middle of the face
+    const inner = x + side * -6;
+    const outer = x + side * 7;
+    if (face === "angry") return <path key={x} d={`M${u(outer)},${u(-18)} L${u(inner)},${u(-12)}`} {...line} strokeWidth={u(3.4)} />;
+    if (face === "sad" || face === "cry" || face === "nervous") return <path key={x} d={`M${u(outer)},${u(-13)} L${u(inner)},${u(-18)}`} {...line} />;
+    if (face === "surprised") return <path key={x} d={`M${u(x - 7)},${u(-19)} Q${u(x)},${u(-24)} ${u(x + 7)},${u(-19)}`} {...line} />;
+    if (face === "smug") return side > 0 ? <path key={x} d={`M${u(x - 7)},${u(-17)} Q${u(x)},${u(-22)} ${u(x + 7)},${u(-17)}`} {...line} /> : <path key={x} d={`M${u(x - 7)},${u(-12)} L${u(x + 7)},${u(-12)}`} {...line} />;
+    return null;
+  };
+  const MX = 4;
+  const MY = 13;
   const talking = mouth > 0.05;
+  const bigMouth = (open: number) => (
+    <g>
+      <path d={`M${u(MX - 4 - open * 3)},${u(MY - 1)} Q${u(MX)},${u(MY - 3)} ${u(MX + 4 + open * 3)},${u(MY - 1)} Q${u(MX + 3 + open * 2)},${u(MY + 2 + open * 7)} ${u(MX)},${u(MY + 2 + open * 7)} Q${u(MX - 3 - open * 2)},${u(MY + 2 + open * 7)} ${u(MX - 4 - open * 3)},${u(MY - 1)} Z`} fill={INK} />
+      {open > 0.35 && <ellipse cx={u(MX + 0.5)} cy={u(MY + 1 + open * 5.5)} rx={u(1.4 + open * 2)} ry={u(0.8 + open * 1.2)} fill={TONGUE} />}
+    </g>
+  );
+  let lips: React.ReactNode = <path d={`M${u(MX - 4)},${u(MY)} Q${u(MX)},${u(MY + 3)} ${u(MX + 4)},${u(MY)}`} {...line} />;
+  if (talking) lips = bigMouth(Math.min(1, mouth));
+  else if (face === "big_smile" || face === "love") lips = bigMouth(0.8);
+  else if (face === "happy" || face === "blush" || face === "shy") lips = <path d={`M${u(MX - 6)},${u(MY - 1)} Q${u(MX)},${u(MY + 6)} ${u(MX + 6)},${u(MY - 1)}`} {...line} />;
+  else if (face === "sad") lips = <path d={`M${u(MX - 5)},${u(MY + 3)} Q${u(MX)},${u(MY - 2)} ${u(MX + 5)},${u(MY + 3)}`} {...line} />;
+  else if (face === "cry") lips = <path d={`M${u(MX - 6)},${u(MY + 6)} Q${u(MX)},${u(MY - 3)} ${u(MX + 6)},${u(MY + 6)} Z`} fill={INK} />;
+  else if (face === "surprised") lips = <ellipse cx={u(MX)} cy={u(MY + 2)} rx={u(3.2)} ry={u(4.4)} fill={INK} />;
+  else if (face === "angry") lips = (
+    <g>
+      <rect x={u(MX - 7)} y={u(MY - 2)} width={u(14)} height={u(6)} rx={u(2.5)} fill={INK} />
+      <path d={`M${u(MX - 6)},${u(MY + 1)} L${u(MX + 6)},${u(MY + 1)}`} stroke="#fff" strokeWidth={u(1.2)} />
+    </g>
+  );
+  else if (face === "smug") lips = <path d={`M${u(MX - 4)},${u(MY + 1)} Q${u(MX + 2)},${u(MY + 2)} ${u(MX + 6)},${u(MY - 2)}`} {...line} />;
+  else if (face === "nervous") lips = <path d={`M${u(MX - 6)},${u(MY + 1)} q${u(1.5)},${u(-2)} ${u(3)},0 t${u(3)},0 t${u(3)},0 t${u(3)},0`} {...line} />;
+  else if (face === "sleepy") lips = <ellipse cx={u(MX)} cy={u(MY + 1)} rx={u(2)} ry={u(1.6)} fill={INK} />;
   return (
     <>
-      {eye(7)}
-      {eye(15)}
-      {face === "angry" && <path d={`M${3 * s},${-11 * s} L${19 * s},${-7 * s}`} {...line} />}
-      {(face === "sad" || face === "cry") && <path d={`M${3 * s},${-8 * s} L${19 * s},${-12 * s}`} {...line} />}
-      {face === "surprised" && <path d={`M${3 * s},${-13 * s} Q${11 * s},${-17 * s} ${19 * s},${-13 * s}`} {...line} strokeWidth={2.4 * s} />}
-      {face === "blush" && (
+      {(face === "blush" || face === "shy" || face === "love") && (
         <>
-          <ellipse cx={4 * s} cy={5 * s} rx={3.5 * s} ry={2 * s} fill="#ff8fa3" opacity={0.85} />
-          <ellipse cx={18 * s} cy={5 * s} rx={3.5 * s} ry={2 * s} fill="#ff8fa3" opacity={0.85} />
+          <ellipse cx={u(-11)} cy={u(7)} rx={u(4.5)} ry={u(2.6)} fill={CHEEK} opacity={0.8} />
+          <ellipse cx={u(19)} cy={u(7)} rx={u(4.5)} ry={u(2.6)} fill={CHEEK} opacity={0.8} />
         </>
       )}
+      {EYES.map(eye)}
+      {brow(EYES[0], -1)}
+      {brow(EYES[1], 1)}
       {face === "cry" && (
         <>
-          <path d={`M${7 * s},${2 * s} L${7 * s},${14 * s}`} stroke="#7fc8ff" strokeWidth={3 * s} strokeLinecap="round" />
-          <path d={`M${15 * s},${2 * s} L${15 * s},${12 * s}`} stroke="#7fc8ff" strokeWidth={3 * s} strokeLinecap="round" />
+          <path d={`M${u(-5)},${u(0)} L${u(-6)},${u(20)}`} stroke="#5fb8ff" strokeWidth={u(3.2)} strokeLinecap="round" />
+          <path d={`M${u(12)},${u(0)} L${u(13)},${u(18)}`} stroke="#5fb8ff" strokeWidth={u(3.2)} strokeLinecap="round" />
         </>
       )}
-      {talking ? (
-        <ellipse cx={11 * s} cy={8 * s} rx={(3.2 + mouth * 1.5) * s} ry={(0.8 + mouth * 4.2) * s} fill="#fff" />
-      ) : face === "surprised" ? (
-        <ellipse cx={11 * s} cy={9 * s} rx={2.6 * s} ry={3.4 * s} fill="#fff" />
-      ) : face === "big_smile" || face === "love" ? (
-        <path d={`M${5 * s},${6 * s} Q${11 * s},${15 * s} ${17 * s},${6 * s} Z`} fill="#fff" />
-      ) : face === "happy" || face === "blush" ? (
-        <path d={`M${6 * s},${7 * s} Q${11 * s},${12 * s} ${16 * s},${7 * s}`} {...line} strokeWidth={2.6 * s} />
-      ) : face === "sad" || face === "cry" ? (
-        <path d={`M${6 * s},${10 * s} Q${11 * s},${6 * s} ${16 * s},${10 * s}`} {...line} strokeWidth={2.6 * s} />
-      ) : null}
+      {face === "nervous" && <path d={`M${u(24)},${u(-16)} q${u(-3)},${u(6)} 0,${u(8)} q${u(3)},${u(-2)} 0,${u(-8)} Z`} fill="#5fb8ff" stroke={INK} strokeWidth={u(1)} />}
+      {lips}
     </>
   );
 };
@@ -186,12 +249,13 @@ export const Figure: React.FC<{
   opacity?: number;
   face?: FaceName;
   mouth?: number; // 0..1: talking, from the narration loudness (replaces the drawn mouth while > 0)
+  blink?: boolean;
   label?: string;
   labelColor?: string;
   draw?: number; // 0..1: the figure is progressively "drawn" (pencil stroke)
   children?: (j: Joints) => React.ReactNode;
   behind?: (j: Joints) => React.ReactNode;
-}> = ({ pose, color, scale = 1, facing = 1, accessory = "none", opacity = 1, face = "none", mouth = 0, label, labelColor, draw = 1, children, behind }) => {
+}> = ({ pose, color, scale = 1, facing = 1, accessory = "none", opacity = 1, face = "none", mouth = 0, blink, label, labelColor, draw = 1, children, behind }) => {
   const j = solve(pose, scale, facing);
   const w = 12 * scale;
   const st = {
@@ -234,13 +298,14 @@ export const Figure: React.FC<{
           strokeLinejoin="round"
         />
       )}
+      {/* the head: white with an outline in the figure's colour */}
       {draw >= 1 ? (
-        <circle cx={hx} cy={hy} r={R} fill={color} />
+        <circle cx={hx} cy={hy} r={R} fill={HEAD} stroke={color} strokeWidth={w * 0.36} />
       ) : (
-        <circle cx={hx} cy={hy} r={R - w / 2} {...st} fill={dHead >= 1 ? color : "none"} {...dash(dHead)} />
+        <circle cx={hx} cy={hy} r={R} {...st} strokeWidth={w * 0.36} fill={dHead >= 1 ? HEAD : "none"} {...dash(dHead)} />
       )}
       <g transform={`translate(${hx} ${hy}) rotate(${ang}) scale(${facing} 1)`}>
-        {face !== "none" && draw >= 1 && <Face face={face} s={scale} mouth={mouth} />}
+        {face !== "none" && draw >= 1 && <Face face={face} s={scale} mouth={mouth} blink={blink} />}
         {accessory === "scarf" && (
           <>
             {/* headscarf: cap on the head plus cloth falling behind the neck */}
@@ -272,15 +337,29 @@ export const Figure: React.FC<{
         )}
         {accessory === "cap" && (
           <>
-            <path d={`M${-R},${-4 * scale} Q0,${-R - 16 * scale} ${R},${-4 * scale} Z`} fill="#1a1a1a" />
-            <rect x={0} y={-8 * scale} width={R + 16 * scale} height={6 * scale} rx={3 * scale} fill="#1a1a1a" />
+            {/* sits above the eyebrows, so the eyes stay visible */}
+            <path d={`M${-R + 2 * scale},${-17 * scale} Q0,${-R - 14 * scale} ${R - 2 * scale},${-17 * scale} Z`} fill="#1a1a1a" />
+            <rect x={0} y={-21 * scale} width={R + 14 * scale} height={5 * scale} rx={2.5 * scale} fill="#1a1a1a" />
           </>
         )}
-        {accessory === "glasses" && (
+        {(accessory === "glasses" || accessory === "dad") && face !== "none" && (
+          <g stroke={INK} strokeWidth={2.2 * scale} fill="none">
+            <rect x={-14 * scale} y={-12 * scale} width={18 * scale} height={14 * scale} rx={4 * scale} />
+            <rect x={3 * scale} y={-12 * scale} width={18 * scale} height={14 * scale} rx={4 * scale} />
+            <path d={`M${21 * scale},${-8 * scale} L${R},${-10 * scale}`} />
+          </g>
+        )}
+        {accessory === "ponytail" && (
+          // a girl hero: hair over the top of the head, a ponytail behind and a small bow
           <>
-            <rect x={1 * scale} y={-9 * scale} width={11 * scale} height={9 * scale} rx={3 * scale} fill="#111" />
-            <rect x={13 * scale} y={-9 * scale} width={11 * scale} height={9 * scale} rx={3 * scale} fill="#111" />
+            <path d={`M${-R - 2 * scale},${2 * scale} Q${-R - 4 * scale},${-R - 4 * scale} ${4 * scale},${-R - 3 * scale} Q${R * 0.7},${-R} ${R * 0.55},${-R * 0.5} Q${0},${-R * 0.75} ${-R * 0.55},${-R * 0.3} Q${-R * 0.75},${-6 * scale} ${-R - 2 * scale},${2 * scale} Z`} fill={INK} />
+            <path d={`M${-R * 0.75},${-R * 0.55} Q${-R - 26 * scale},${-R * 0.2} ${-R - 14 * scale},${R + 8 * scale} Q${-R - 4 * scale},${R * 0.2} ${-R * 0.55},${-R * 0.35} Z`} fill={INK} />
+            <path d={`M${-R * 0.85},${-R * 0.72} l${-9 * scale},${-8 * scale} l${2 * scale},${14 * scale} Z M${-R * 0.85},${-R * 0.72} l${10 * scale},${-9 * scale} l${-1 * scale},${14 * scale} Z`} fill="#e5322d" stroke={INK} strokeWidth={1.5 * scale} strokeLinejoin="round" />
           </>
+        )}
+        {accessory === "dad" && face !== "none" && (
+          // a big moustache, drawn over the top lip
+          <path d={`M${-6 * scale},${9 * scale} Q${-4 * scale},${3 * scale} ${4 * scale},${5 * scale} Q${12 * scale},${3 * scale} ${14 * scale},${9 * scale} Q${4 * scale},${7 * scale} ${-6 * scale},${9 * scale} Z`} fill={INK} />
         )}
       </g>
       {label && (
@@ -414,6 +493,8 @@ export const Actor: React.FC<{
   };
   const fc = (t: number) => (typeof facing === "function" ? facing(t) : facing);
   const now = get(f);
+  const seed = [...color].reduce((a, c) => a + c.charCodeAt(0), 0);
+  const blink = (f + seed) % 97 < 4;
   const ghosts: React.ReactNode[] = [];
   if (trails) {
     [3, 2, 1].forEach((d) => {
@@ -437,6 +518,7 @@ export const Actor: React.FC<{
         accessory={accessory}
         face={face}
         mouth={mouth}
+        blink={blink}
         label={label}
         opacity={opacity}
         draw={draw}

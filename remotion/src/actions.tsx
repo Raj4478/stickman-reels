@@ -21,13 +21,16 @@ export type Cast = { color: string; accessory: Accessory; label: string; scale: 
 export const CAST: Record<string, Cast> = {
   friend: { color: COL.blue, accessory: "none", label: "दोस्त", scale: S },
   mother: { color: COL.purple, accessory: "scarf", label: "माँ", scale: S * 0.95 },
-  father: { color: COL.green, accessory: "glasses", label: "पापा", scale: S },
+  father: { color: COL.green, accessory: "dad", label: "पापा", scale: S },
+  teacher: { color: "#6b4f3a", accessory: "dad", label: "टीचर", scale: S * 1.02 },
   boss: { color: "#555b66", accessory: "tie", label: "बॉस", scale: S * 1.05 },
   partner: { color: COL.red, accessory: "none", label: "पार्टनर", scale: S * 0.97 },
   child: { color: COL.orange, accessory: "cap", label: "बच्चा", scale: S * 0.62 },
   stranger: { color: COL.grey, accessory: "none", label: "अजनबी", scale: S },
 };
 export const HERO = { color: COL.ink, accessory: "cap" as Accessory };
+// The hero's look by the narrator's voice: a boy in a cap, or a girl with a ponytail
+export const heroLook = (hero?: string): Accessory => (hero === "girl" ? "ponytail" : "cap");
 
 export type Figure = {
   keys: Key[];
@@ -159,6 +162,32 @@ const Desk: React.FC<{ x: number; f: number }> = ({ x, f }) => {
 
 const two = (other: Cast | undefined) => other ?? CAST.friend;
 
+// A red rose, held out in a proposal (stem down from the hand)
+const Rose: React.FC<{ f: number }> = ({ f }) => (
+  <g transform={`rotate(${-30 + Math.sin(f * 0.2) * 3})`}>
+    <path d="M0,0 L0,-70" stroke={COL.green} strokeWidth={7} strokeLinecap="round" />
+    <path d="M0,-34 q-22,-4 -26,-20 q18,0 26,14 Z" fill={COL.green} stroke={COL.ink} strokeWidth={3} />
+    <circle cx={0} cy={-84} r={20} fill={COL.red} stroke={COL.ink} strokeWidth={4} />
+    <path d="M-9,-86 q9,-12 18,0 q-9,8 -18,0" fill="none" stroke="#9e1b1b" strokeWidth={3} />
+  </g>
+);
+
+// Small hearts floating up from a point, one every `every` frames
+const Hearts: React.FC<{ f: number; from: number; x: number; y: number; every?: number }> = ({ f, from, x, y, every = 14 }) => (
+  <g>
+    {[0, 1, 2, 3].map((i) => {
+      const d = f - from - i * every;
+      if (d < 0) return null;
+      const life = d % (every * 4);
+      return (
+        <At key={i} x={x + Math.sin((life + i * 20) * 0.12) * 30 + (i % 2 ? 40 : -40)} y={y - life * 3.2} o={Math.max(0, 1 - life / (every * 4))}>
+          <Heart f={f} s={0.32 + (i % 2) * 0.1} />
+        </At>
+      );
+    })}
+  </g>
+);
+
 export const act = (action: string, f: number, dur: number, other?: Cast): Act => {
   switch (action) {
     case "walk_in": {
@@ -263,7 +292,7 @@ export const act = (action: string, f: number, dur: number, other?: Cast): Act =
     case "shrug": {
       const keys: Key[] = [{ f: 0, p: {} }];
       for (let k = 6; k < dur; k += 32) keys.push({ f: k, p: P.shrug }, { f: k + 16, p: ARMS });
-      return { keys, mod: breathe(), face: "eyes", hits: [], sfx: [[6, "pop", 0.4]], propAt: { x: 880 }, watcherAt: 880 };
+      return { keys, mod: breathe(), face: "smug", hits: [], sfx: [[6, "pop", 0.4]], propAt: { x: 880 }, watcherAt: 880 };
     }
     case "facepalm":
       return {
@@ -492,7 +521,7 @@ export const act = (action: string, f: number, dur: number, other?: Cast): Act =
       return {
         keys: [{ f: 0, p: {} }, { f: 8, p: { ...P.carry, ll1: -18, ll2: 25, rl1: 18, rl2: -20 } }],
         mod: (t, p) => addPose(p, { lean: Math.sin(t * 0.15) * 6, y: Math.sin(t * 0.3) * 3 * S }),
-        face: "sad",
+        face: "nervous",
         hold: (j) => {
           const [x, y] = mid(j);
           const r = Math.sin(f * 0.15) * 6;
@@ -666,6 +695,52 @@ export const act = (action: string, f: number, dur: number, other?: Cast): Act =
         watcherAt: null,
       };
     }
+    case "shy":
+      // a crush: hands together under the chin, swaying, blushing, little hearts rising
+      return {
+        keys: [{ f: 0, p: {} }, { f: 10, p: { la1: -35, la2: -140, ra1: 35, ra2: 140, head: 12, ll1: -6, rl1: 10, rl2: -12 }, e: SMOOTH }],
+        mod: (t, p) => addPose(p, { lean: Math.sin(t * 0.13) * 5, head: Math.sin(t * 0.13) * 4, y: Math.sin(t * 0.26) * 2 }),
+        face: "shy",
+        hold: (j) => <Hearts f={f} from={10} x={j.headC[0] + 120} y={j.headC[1] - 30} />, // beside the head, clear of the name
+        hits: [],
+        sfx: [[10, "heartbeat", 0.45]],
+        propAt: { x: 880 },
+        watcherAt: 880,
+      };
+    case "propose": {
+      // the hero walks in, kneels and holds out a rose; the other person gasps, then melts
+      const o = two(other);
+      const w = Math.min(Math.round(dur * 0.35), 30);
+      const kneel = w + 10;
+      const yes = Math.max(kneel + 16, Math.round(dur * 0.62));
+      const KNEEL = { y: HIP + 40 * S, lean: -6, head: -12, ll1: 0, ll2: -90, rl1: 90, rl2: -90, ra1: 82, ra2: -18, la1: 30, la2: 50 };
+      return {
+        keys: [{ f: 0, p: { x: 170 } }, { f: w, p: { x: 400 }, e: linear }, { f: kneel, p: KNEEL, e: SMOOTH }],
+        mod: (t, p) => (t < w ? addPose(p, walkCycle(t, 0.3)) : t > kneel ? addPose(p, { y: Math.sin(t * 0.2) * 1.5 }) : p),
+        face: f < kneel ? "shy" : f < yes ? "nervous" : "big_smile",
+        hold: (j) => (f >= w ? <At x={j.rHand[0]} y={j.rHand[1]} o={ease(f, w, kneel)}><Rose f={f} /></At> : null),
+        second: {
+          keys: [
+            { f: 0, p: { x: 760, y: hipFor(o.scale) } },
+            { f: kneel + 4, p: { la1: -40, la2: -135, ra1: 40, ra2: 135, head: -6, lean: -6 } },
+            { f: yes, p: { ...P.cheer, la1: -130, ra1: 130, head: -8, lean: 0 } },
+          ],
+          mod: (t, p) => addPose(p, { y: t > yes ? -Math.abs(Math.sin(t * 0.3)) * 8 : 0 }),
+          face: f < kneel ? "eyes" : f < yes ? "surprised" : "love",
+          facing: -1,
+        },
+        over: (
+          <>
+            <Burst x={CX + 60} y={HIP - 260} at={yes} f={f} size={140} color={COL.red} />
+            <Hearts f={f} from={yes} x={CX + 60} y={HIP - 360} every={10} />
+          </>
+        ),
+        hits: [kneel, yes],
+        sfx: [[kneel, "pop", 0.6], [kneel + 4, "heartbeat", 0.5], [yes, "tada", 0.7]],
+        propAt: null,
+        watcherAt: null,
+      };
+    }
     case "help_up": {
       const o = two(other);
       const at = Math.max(16, Math.round(dur * 0.4));
@@ -701,7 +776,7 @@ export const act = (action: string, f: number, dur: number, other?: Cast): Act =
 export const watcher = (x: number, mood: string | undefined): Figure => ({
   keys: [{ f: 0, p: { x } }, { f: 10, p: mood === "sad" ? P.sad : mood === "happy" ? { ...P.cheer, la1: -120, ra1: 120 } : mood === "tense" ? P.shock : P.think }],
   mod: breathe(3),
-  face: mood === "sad" ? "sad" : mood === "happy" ? "big_smile" : mood === "tense" ? "surprised" : "eyes",
+  face: mood === "sad" ? "sad" : mood === "happy" ? "big_smile" : mood === "tense" ? "nervous" : "eyes",
   facing: x > CX ? -1 : 1,
 });
 

@@ -46,7 +46,7 @@ test('commands', () => {
 });
 
 test('every menu button fits Telegram and decodes back', () => {
-  const states = [{}, { src: 't', theme: 9 }, { src: 't', theme: 3, voice: 'f' }, { src: 'l', voice: 'm', music: 'o' },
+  const states = [{}, { src: 't', theme: 10 }, { src: 't', theme: 3, voice: 'f' }, { src: 'l', voice: 'm', music: 'o' },
     { src: 'o', voice: 'f', music: 't', count: 's' }];
   for (const st of states) {
     for (const stage of ['s', 'h', 'v', 'm', 'c', 'k']) {
@@ -65,8 +65,8 @@ test('every menu button fits Telegram and decodes back', () => {
 test('menu walks topic → theme → voice → music → count → make', () => {
   let r = route('', screen('s').keys[1][1].callback_data); // 📚 Pick a theme
   assert.equal(r.menu, 'h');
-  r = route('', screen('h', r.st).keys[0][1].callback_data); // 💰 पैसा
-  assert.deepEqual([r.menu, r.st.theme], ['v', 1]);
+  r = route('', screen('h', r.st).keys[1][0].callback_data); // 💰 पैसा
+  assert.deepEqual([r.menu, r.st.theme], ['v', 2]);
   r = route('', screen('v', r.st).keys[0][1].callback_data); // 👩 Female
   r = route('', screen('m', r.st).keys[1][1].callback_data); // 🔇 No music
   r = route('', screen('c', r.st).keys[0][2].callback_data); // 3 Reels
@@ -80,7 +80,8 @@ test('inputs for each topic source', () => {
   assert.deepEqual(makeInputs({ src: 'r', voice: 'm', music: 'a', count: '1' }), { options: 'source=random voice=male' });
   assert.deepEqual(makeInputs({ src: 'o', voice: 'f', music: 'w', count: 's' }), { options: 'source=occasion voice=female music=warm', series: 'true' });
   assert.deepEqual(makeInputs({ src: 'l', voice: 'm', music: 't', count: '1' }, 'समय'), { options: 'voice=male music=tense', topic: 'समय' });
-  assert.equal(THEMES.length, 10);
+  assert.equal(THEMES.length, 11);
+  assert.equal(THEMES[0][0], 'love'); // love comes first
   assert.ok(route('', screen('s').keys[3][0].callback_data).go); // ⚡ Random Reel now
   assert.ok(route('', screen('s').keys[2][0].callback_data).edit); // ✍️ My own lesson
 });

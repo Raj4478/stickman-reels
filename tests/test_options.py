@@ -55,6 +55,36 @@ class TopicChoiceTest(unittest.TestCase):
         self.assertEqual(occasions.upcoming_any(dt.date(2026, 10, 16), [{'occasion': 'dussehra-2026'}])['key'], 'diwali')
 
 
+class FirstPersonAndLoveTest(unittest.TestCase):
+    def story(self, hook, *lines):
+        return {'hook': hook, 'scenes': [{'line': line, 'speaker': 'narrator'} for line in lines]}
+
+    def test_first_person(self):
+        self.assertTrue(script.first_person(self.story('तीन साल मैंने उसके एक मैसेज का इंतज़ार किया।',
+                                                       'मेरी क्लास में वो सबसे अलग थी।', 'वो हँस दी।')))
+        self.assertFalse(script.first_person(self.story('राहुल ने तीन साल इंतज़ार किया।',
+                                                        'उसकी क्लास में वो सबसे अलग थी।', 'वह चुप रहा।')))
+        self.assertFalse(script.first_person(self.story('मैंनेजर ने बुलाया।', 'उसने देखा।')))  # a word that only starts like मैंने
+
+    def test_hero_follows_the_voice(self):
+        with mock.patch.dict(os.environ, {'NARRATOR': 'female'}):
+            self.assertEqual(script.hero(), 'girl')
+            self.assertEqual(voice.cast_voice('partner'), 'Orus')  # her partner is a young man
+            self.assertEqual(voice.cast_voice('mother'), 'Sulafat')
+        with mock.patch.dict(os.environ, {'NARRATOR': ''}):
+            self.assertEqual(script.hero(), 'boy')
+            self.assertEqual(voice.cast_voice('partner'), 'Despina')
+
+    def test_love_is_first_and_frequent(self):
+        self.assertEqual(next(iter(script.THEMES)), 'love')
+        self.assertIn('propose', script.TWO_PERSON)
+        self.assertIn('shy', script.ACTIONS)
+        with mock.patch.dict(os.environ, {'LOVE_SHARE': '1'}):
+            self.assertIn('love', script.choose_topic('', '', 'random')[0])
+        with mock.patch.dict(os.environ, {'LOVE_SHARE': '0'}):
+            self.assertNotIn('love:', script.choose_topic('', '', 'random')[0])
+
+
 class NarratorTest(unittest.TestCase):
     def test_choice(self):
         with mock.patch.dict(os.environ, {'NARRATOR': 'female', 'REEL_VOICE': ''}):

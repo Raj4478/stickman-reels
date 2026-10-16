@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import {
   AbsoluteFill, Audio, Freeze, Sequence, continueRender, delayRender, interpolate, staticFile, useCurrentFrame, useVideoConfig,
 } from "remotion";
-import { Act, CAST, CX, Figure, GROUND, H, HERO, HIP, PropView, S, W, act, hipFor, watcher } from "./actions";
+import { Act, CAST, CX, Figure, GROUND, H, HERO, HIP, PropView, S, W, act, heroLook, hipFor, watcher } from "./actions";
 import { cameraAt, entrance, layerTransform, tiltTransform } from "./director";
 import { COL, FONT, ease, shakeAt } from "./engine/fx";
 import { Actor, Joints } from "./engine/stick";
@@ -37,10 +37,11 @@ export type Segment = {
 export type ReelProps = {
   audio: string | null; music?: string | null; lead: number; handle: string; duration: number; segments: Segment[];
   mouth?: number[]; // narration loudness per video frame from the start of the voice (0..1)
+  hero?: "boy" | "girl"; // who tells the story (follows the narrator's voice)
 };
 
 // The mouth curve and where the voice starts, for the talking figures
-const Voice = createContext<{ mouth: number[]; leadFrames: number; fps: number }>({ mouth: [], leadFrames: 0, fps: 30 });
+const Voice = createContext<{ mouth: number[]; leadFrames: number; fps: number; hero?: string }>({ mouth: [], leadFrames: 0, fps: 30 });
 const useMouth = (seg: Segment, f: number) => {
   const { mouth, leadFrames, fps } = useContext(Voice);
   return mouth[Math.round(seg.start * fps) + f - leadFrames] ?? 0;
@@ -264,6 +265,7 @@ const beatOf = (seg: Segment) => ({
 const World: React.FC<{ seg: Segment; f: number; dur: number }> = ({ seg, f, dur }) => {
   const beat = beatOf(seg);
   const level = useMouth(seg, f);
+  const { hero } = useContext(Voice);
   const other = seg.with && seg.with !== "none" ? CAST[seg.with] : undefined;
   const a: Act = act(beat.action, f, dur, other);
   const where = place(beat.place, f, dur);
@@ -307,7 +309,7 @@ const World: React.FC<{ seg: Segment; f: number; dur: number }> = ({ seg, f, dur
               {second.hold}
             </Actor>
           )}
-          <Actor f={f} keys={a.keys} mod={a.mod} color={HERO.color} accessory={HERO.accessory} face={a.face} facing={a.facing} scale={S} mouth={seg.speaker === "hero" ? level : 0}
+          <Actor f={f} keys={a.keys} mod={a.mod} color={HERO.color} accessory={heroLook(hero)} face={a.face} facing={a.facing} scale={S} mouth={seg.speaker === "hero" ? level : 0}
             base={{ y: HIP, ...a.base }} label={seg.kind === "hook" && seg.name && f > 6 ? seg.name : undefined}>
             {hold}
           </Actor>
@@ -374,7 +376,7 @@ export const StickReel: React.FC<ReelProps> = (p) => {
   const nudgeAt = Math.round(durationInFrames * 0.45);
   const nudge = nudgeAt + 66 < at(ask.start) ? nudgeAt : -1;
   return (
-    <Voice.Provider value={{ mouth: p.mouth ?? [], leadFrames: at(p.lead), fps }}>
+    <Voice.Provider value={{ mouth: p.mouth ?? [], leadFrames: at(p.lead), fps, hero: p.hero }}>
     <AbsoluteFill style={{ background: MOOD.calm.bg }}>
       {p.segments.map((seg, i) => {
         const from = at(seg.start);

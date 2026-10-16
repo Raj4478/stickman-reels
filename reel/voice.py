@@ -24,13 +24,15 @@ from . import gemini
 DEFAULT_VOICE = 'Achird'  # friendly; set REEL_VOICE to try another (Sulafat, Charon, Kore, Puck...)
 # Gemini voices for the other person, by who they are
 CAST_VOICES = {'mother': 'Sulafat', 'father': 'Algenib', 'boss': 'Alnilam', 'friend': 'Puck', 'partner': 'Despina',
-               'child': 'Leda', 'stranger': 'Charon'}
+               'child': 'Leda', 'stranger': 'Charon', 'teacher': 'Gacrux'}
+# A girl hero's partner is a young man
+PARTNER_OF_GIRL = ('Orus', ('hi-IN-MadhurNeural', '+8Hz', '+6%'))
 # Edge backup voices: (voice, pitch, rate) for the narrator, the hero and each kind of other person
 EDGE = {'narrator': ('hi-IN-MadhurNeural', '+0Hz', '+12%'), 'hero': ('hi-IN-MadhurNeural', '+6Hz', '+12%'),
         'mother': ('hi-IN-SwaraNeural', '-6Hz', '+0%'), 'partner': ('hi-IN-SwaraNeural', '+2Hz', '+6%'),
         'child': ('hi-IN-SwaraNeural', '+30Hz', '+10%'), 'father': ('hi-IN-MadhurNeural', '-14Hz', '-4%'),
         'boss': ('hi-IN-MadhurNeural', '-8Hz', '+0%'), 'friend': ('hi-IN-MadhurNeural', '+12Hz', '+8%'),
-        'stranger': ('hi-IN-MadhurNeural', '-4Hz', '+0%')}
+        'stranger': ('hi-IN-MadhurNeural', '-4Hz', '+0%'), 'teacher': ('hi-IN-MadhurNeural', '-10Hz', '-2%')}
 GAP = 0.42  # seconds of silence between lines in the Edge backup
 # The bot's voice choice (NARRATOR=male/female): the Gemini narrator, and the Edge backup's narrator and hero
 NARRATORS = {'male': ('Achird', 'hi-IN-MadhurNeural'), 'female': ('Sulafat', 'hi-IN-SwaraNeural')}
@@ -41,10 +43,11 @@ def narrator():
     choice = NARRATORS.get(os.getenv('NARRATOR', '').strip().lower(), NARRATORS['male'])
     return os.getenv('REEL_VOICE', '').strip() or choice[0], choice[1]
 
-NOTES = """# AUDIO PROFILE: A warm Indian storyteller sharing a short life lesson
+NOTES = """# AUDIO PROFILE: A young Indian person telling a short story from their own life
 ## THE SCENE: Recording the voice-over for an animated Instagram Reel, speaking straight to one viewer.
 ### DIRECTOR'S NOTES
-Style: Warm, sincere and gently energetic, like a big brother or sister telling a small story that matters.
+Style: Personal and sincere, like confiding in a close friend: a little shy in the sweet moments, a little
+broken in the sad ones, warm and hopeful at the end. It is their own story, so they feel every line.
 Natural rhythm; never robotic, preachy or like a news announcer.
 Pacing: brisk but clear, with a short, clear pause between lines.
 Language and accent: Hindi, with a natural Indian accent.
@@ -53,7 +56,8 @@ Read only the transcript below, exactly as written. Never read these notes, head
 {transcript}"""
 DIALOGUE = """# AUDIO PROFILE: An animated Hindi Reel with a narrator and a {who}
 ### DIRECTOR'S NOTES
-Narrator: a warm, sincere Indian storyteller; when he says the hero's own words he acts them, with feeling.
+Narrator: the hero, telling their own story in first person, sincere and personal; when they say their
+own words in a scene they act them, with feeling.
 Other: the {who}, speaking naturally and in character, with real emotion.
 Pacing: brisk but clear, with a short, clear pause between lines. Language: Hindi, natural Indian accent.
 Read only the conversation below, exactly as written. Never read these notes or the speaker names aloud.
@@ -62,7 +66,20 @@ Read only the conversation below, exactly as written. Never read these notes or 
 SHORT = 'Say in a warm, friendly Hindi storytelling voice, with a short pause between lines:\n\n{transcript}'
 SHORT_DIALOGUE = 'TTS the following Hindi conversation between Narrator and Other, with a short pause between lines:\n\n{transcript}'
 WHO = {'mother': 'mother', 'father': 'father', 'boss': 'strict boss', 'friend': 'close friend', 'partner': 'partner',
-       'child': 'young child', 'stranger': 'stranger'}
+       'child': 'young child', 'stranger': 'stranger', 'teacher': 'strict school teacher'}
+
+
+def girl_hero():
+    return os.getenv('NARRATOR', '').strip().lower() == 'female'
+
+
+def cast_voice(other):
+    """The Gemini voice of the other person (a girl hero's partner is a young man)."""
+    return PARTNER_OF_GIRL[0] if other == 'partner' and girl_hero() else CAST_VOICES.get(other, 'Kore')
+
+
+def edge_cast(other):
+    return PARTNER_OF_GIRL[1] if other == 'partner' and girl_hero() else EDGE.get(other, EDGE['narrator'])
 
 
 def speakable(text):
@@ -94,7 +111,7 @@ def gemini_voice(turns, other, path):
     lines = [text for _, text in turns]
     dialogue = any(who == 'other' for who, _ in turns)
     if dialogue:
-        speakers = {'Narrator': voice, 'Other': CAST_VOICES.get(other, 'Kore')}
+        speakers = {'Narrator': voice, 'Other': cast_voice(other)}
         transcript = '\n'.join(f"{'Other' if who == 'other' else 'Narrator'}: {speakable(text)}" for who, text in turns)
         prompts = (DIALOGUE.format(who=WHO.get(other, 'friend'), transcript=transcript), SHORT_DIALOGUE.format(transcript=transcript))
     else:
@@ -124,7 +141,7 @@ def edge_voice(turns, other, path, rate=24000):
     silence = b'\x00\x00' * int(rate * GAP)
     with tempfile.TemporaryDirectory() as tmp:
         for i, (who, text) in enumerate(turns):
-            voice, pitch, speed = EDGE.get(other if who == 'other' else who, EDGE['narrator'])
+            voice, pitch, speed = edge_cast(other) if who == 'other' else EDGE.get(who, EDGE['narrator'])
             if who in ('narrator', 'hero'):
                 voice = narrator()[1]
             mp3 = Path(tmp) / f'{i}.mp3'

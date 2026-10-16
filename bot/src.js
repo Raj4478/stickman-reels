@@ -35,7 +35,7 @@ const RUNS = { 'Make a Reel': 'Making Reels', 'Post a Reel': 'Posting', 'Weekly 
 //   w:<stage>:<source>:<theme>:<voice>:<music>:<count>
 // source r random, i ideas, o festival, t theme, l your lesson · theme index · voice m/f · music a/w/t/o ·
 // count 1/2/3/5 or s (two-part series) · "-" = not chosen yet
-export const THEMES = [['family', '👨‍👩‍👧 परिवार'], ['money', '💰 पैसा'], ['health', '💪 सेहत'], ['study', '📚 पढ़ाई'],
+export const THEMES = [['love', '💘 प्यार'], ['family', '👨‍👩‍👧 परिवार'], ['money', '💰 पैसा'], ['health', '💪 सेहत'], ['study', '📚 पढ़ाई'],
   ['friendship', '🤝 दोस्ती'], ['work', '💼 काम'], ['self_respect', '👑 आत्मसम्मान'], ['relationships', '❤️ रिश्ते'],
   ['habits', '🔁 आदतें'], ['time', '⏰ समय']];
 const SOURCES = { r: '🎲 Fresh random lesson', i: '💡 From viewer ideas', o: '🎉 Upcoming festival', t: '📚 Pick a theme', l: '✍️ Your lesson' };
@@ -49,7 +49,7 @@ export function encode(stage, st) {
 }
 
 export function decode(data) {
-  const m = /^w:([shvmckx]):([-rioltc]):([-\d]):([-mf]):([-awto]):([-1235s])$/.exec(data);
+  const m = /^w:([shvmckx]):([-rioltc]):(-|\d{1,2}):([-mf]):([-awto]):([-1235s])$/.exec(data);
   if (!m) return null;
   const v = (x) => (x === '-' ? undefined : x);
   return { stage: m[1], st: { src: v(m[2]), theme: v(m[3]) === undefined ? undefined : Number(m[3]), voice: v(m[4]), music: v(m[5]), count: v(m[6]) } };

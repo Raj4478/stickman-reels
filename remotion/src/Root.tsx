@@ -10,13 +10,15 @@ const DEMO: ReelProps = {
   music: null,
   lead: 0.3,
   handle: "",
-  duration: 22,
+  duration: 26,
+  hero: "boy",
   segments: [
-    { kind: "hook", text: "रोहन रोज़ कहता था, मेरे पास टाइम नहीं है।", title: "5 घंटे कहाँ गए?", name: "रोहन", action: "shock", start: 0, end: 4 },
-    { kind: "scene", text: "सुबह उठते ही उसका हाथ सीधा phone पर जाता।", caption: "बस दो मिनट...", action: "scroll_phone", prop: "clock", mood: "calm", with: "none", place: "home", shot: "medium", transition: "cut", start: 4, end: 8 },
-    { kind: "scene", text: "पापा ने पूछा, तुम्हारे सपनों का क्या हुआ?", caption: "सपनों का क्या हुआ?", action: "argue", prop: "none", mood: "tense", with: "father", place: "home", shot: "two_shot", transition: "whip", start: 8, end: 13 },
-    { kind: "lesson", text: "टाइम कम नहीं होता, हम उसे खो देते हैं।", start: 13, end: 17 },
-    { kind: "ask", text: "आपका screen time कितना है?", start: 17, end: 22 },
+    { kind: "hook", text: "तीन साल मैंने उसके एक मैसेज का इंतज़ार किया।", title: "3 साल, 1 मैसेज", name: "रोहन", action: "shy", start: 0, end: 4 },
+    { kind: "scene", text: "कॉलेज के पहले दिन मैंने उसे देखा, और बस देखता रह गया।", caption: "पहली नज़र", action: "shy", prop: "none", mood: "happy", with: "none", place: "classroom", shot: "close", transition: "cut", start: 4, end: 8 },
+    { kind: "scene", text: "पापा बोले, पहले पढ़ाई, फिर ये सब।", caption: "पहले पढ़ाई!", action: "argue", prop: "none", mood: "tense", with: "father", place: "home", shot: "two_shot", transition: "whip", start: 8, end: 12 },
+    { kind: "scene", text: "आखिरी दिन मैंने हिम्मत की, और गुलाब लेकर उसके सामने बैठ गया।", caption: "आखिरी मौका", action: "propose", prop: "none", mood: "happy", with: "partner", place: "park", shot: "two_shot", transition: "zoom", start: 12, end: 17 },
+    { kind: "lesson", text: "जो दिल में है, वक्त रहते कह दो।", start: 17, end: 21 },
+    { kind: "ask", text: "आपने कभी किसी से दिल की बात कही?", start: 21, end: 26 },
   ],
 };
 
