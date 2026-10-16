@@ -1,5 +1,6 @@
 node_modules/
 out/
-# Written per render by `python -m reel make`
+# Written per run by `python -m reel make`
+public/reels/
 public/props.json
 public/voice.wav

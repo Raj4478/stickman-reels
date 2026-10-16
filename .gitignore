@@ -3,3 +3,4 @@ __pycache__/
 .venv/
 # Written per run by `python -m reel make`
 out/
+history.json
