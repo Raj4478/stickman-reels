@@ -9,6 +9,7 @@ recorded in USED and shown in Telegram. Keys are never printed or written to dis
 import base64
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -67,24 +68,64 @@ def post(model, key, body, timeout=180):
             time.sleep(5 * (attempt + 1))
 
 
+MAX_WAIT = 65  # seconds: the longest Gemini "try again in Ns" worth waiting for before moving on
+
+
+def limit_info(exc):
+    """(seconds to wait, whether the daily quota is used up) from a 429 answer."""
+    try:
+        error = json.loads(exc.read() or b'{}').get('error', {})
+    except ValueError:
+        return None, False
+    daily = 'PerDay' in json.dumps(error) or 'per day' in error.get('message', '').lower()
+    for item in error.get('details', []):
+        found = re.match(r'([\d.]+)s', str(item.get('retryDelay', '')))
+        if found:
+            return float(found.group(1)), daily
+    found = re.search(r'retry in ([\d.]+)\s*s', error.get('message', ''))
+    return (float(found.group(1)) if found else None), daily
+
+
 def call(kind, body):
-    """Run `body` on the first model and key that answer. Returns (response, model)."""
+    """Run `body` on the first model and key that answer. Returns (response, model).
+
+    Gemini always comes first and gets every chance: each key on each model; a per-minute limit (429 with
+    "retry in Ns") is waited out once per key when it is under MAX_WAIT; a daily limit moves on to the next
+    key; brief outages (5xx, timeouts) move on to the next model. Only when all of that fails does the caller
+    use a backup.
+    """
     available = keys()
     if not available:
         raise GeminiError('No Gemini API key: add the GEMINI_API_KEY secret.')
     last = None
+    wait_cap = float(os.getenv('GEMINI_MAX_WAIT', MAX_WAIT) or MAX_WAIT)
     for model in models(kind):
         for index, key in enumerate(available):
-            try:
-                return post(model, key, body), model
-            except urllib.error.HTTPError as exc:
-                last = f'HTTP {exc.code} from {model}'
-                if exc.code == 429:
-                    print(f'Gemini {kind}: key {index + 1} has used its daily quota on {model}; trying the next one')
-                    continue
-                if exc.code in (400, 404):
-                    break  # this model is not offered to the key: try the next model
-                raise GeminiError(f'Gemini refused the {kind} request ({last}). Check the GEMINI_API_KEY secret.') from None
+            waited = False
+            while True:
+                try:
+                    return post(model, key, body), model
+                except urllib.error.HTTPError as exc:
+                    last = f'HTTP {exc.code} from {model}'
+                    if exc.code == 429:
+                        delay, daily = limit_info(exc)
+                        if not daily and not waited and delay is not None and delay <= wait_cap:
+                            print(f'Gemini {kind}: key {index + 1} hit the per-minute limit on {model}; waiting {delay:.0f}s')
+                            time.sleep(delay + 1)
+                            waited = True
+                            continue
+                        print(f'Gemini {kind}: key {index + 1} has used its {"daily " if daily else ""}quota on {model}; trying the next one')
+                        break
+                    if exc.code in (400, 404):
+                        break  # this model does not take this request or key: try the next
+                    if exc.code in (500, 502, 503, 504):
+                        break  # still failing after retries: try the next key or model
+                    raise GeminiError(f'Gemini refused the {kind} request ({last}). Check the GEMINI_API_KEY secret.') from None
+                except (urllib.error.URLError, TimeoutError) as exc:
+                    last = f'{model}: {getattr(exc, "reason", exc)}'
+                    break
+            if last and last.startswith('HTTP 40') and not last.startswith('HTTP 429'):
+                break  # 400/404 is about the model, not the key: skip its other keys
     raise GeminiError(f'Gemini {kind} failed on every key and model ({last}). Free quotas reset daily.')
 
 

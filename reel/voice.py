@@ -138,6 +138,14 @@ def synthesize(turns, out, other='friend'):
     try:
         return gemini_voice(turns, other, path)
     except (gemini.GeminiError, OSError) as exc:
+        if any(who == 'other' for who, _ in turns):
+            # Gemini still comes first: if only its two-voice dialogue failed, use its single storyteller voice
+            try:
+                record = gemini_voice([('narrator', text) for _, text in turns], other, path)
+                record['dialogue'] = f'one voice (two voices failed: {str(exc)[:120]})'
+                return record
+            except (gemini.GeminiError, OSError) as single:
+                exc = single
         try:
             record = edge_voice(turns, other, path)
         except Exception as backup:  # noqa: BLE001 - any failure here means no narration
