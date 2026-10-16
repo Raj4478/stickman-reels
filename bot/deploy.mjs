@@ -32,7 +32,33 @@ function wrangler(args, input) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const headers = { Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}` };
-const subdomain = await call(`https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/workers/subdomain`, { headers });
+
+// Explain a Cloudflare refusal plainly (never printing a secret): is the token active, and can it see this account?
+async function cloudflareCheck() {
+  let active = false;
+  for (const endpoint of ['user/tokens/verify', `accounts/${env.CLOUDFLARE_ACCOUNT_ID}/tokens/verify`]) {
+    try {
+      if ((await call(`https://api.cloudflare.com/client/v4/${endpoint}`, { headers }))?.status === 'active') { active = true; break; }
+    } catch {}
+  }
+  let visible = null, count = 0;
+  try {
+    const accounts = await call('https://api.cloudflare.com/client/v4/accounts?per_page=50', { headers });
+    count = accounts?.length || 0;
+    visible = accounts?.some((a) => a.id === env.CLOUDFLARE_ACCOUNT_ID) ?? null;
+  } catch {}
+  console.log(`Cloudflare token active: ${active}; accounts it can see: ${count}; CLOUDFLARE_ACCOUNT_ID among them: ${visible}`);
+  if (!active) return 'CLOUDFLARE_API_TOKEN is not an active API token (copy it again, whole, or create a new one from the "Edit Cloudflare Workers" template).';
+  if (visible === false) return `the token cannot see CLOUDFLARE_ACCOUNT_ID. It can see ${count} account(s): make sure the secret is the Account ID (Workers & Pages, right side; not a Zone ID) and that the token's Account Resources include that account.`;
+  return 'the token is active but lacks Workers permissions for this account: create it from the "Edit Cloudflare Workers" template with Account Resources = your account.';
+}
+
+let subdomain;
+try {
+  subdomain = await call(`https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/workers/subdomain`, { headers });
+} catch {
+  throw new Error(`Cloudflare refused the Workers account check: ${await cloudflareCheck()}`);
+}
 if (!subdomain?.subdomain) throw new Error('Enable a workers.dev subdomain in Cloudflare Workers & Pages first');
 
 // The GitHub token must be able to start this repository's workflows, or every button would fail later.
