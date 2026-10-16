@@ -82,9 +82,26 @@ def detail(exc):
     return (reasons[0] if reasons else str(error.get('code', ''))), error.get('message', ''), error
 
 
+# Niche tags first: YouTube shows the first three hashtags above the title, and a few focused tags reach
+# further than a long list (more than 15 makes YouTube ignore them all).
+CHANNEL_TAGS = ['#hindikahani', '#lifelessons', '#seekhsketch']
+SEARCH_PHRASE = 'ज़िंदगी की सीख'  # what people type when looking for this kind of video
+
+
+def hashtag_list(story, limit=6):
+    """The channel's niche tags, then the story's own, without repeats or near-repeats."""
+    seen, out = set(), []
+    for tag in CHANNEL_TAGS + (story.get('hashtags') or []):
+        key = tag.lower().lstrip('#').replace('_', '')
+        if key and key not in seen:
+            seen.add(key)
+            out.append('#' + tag.lstrip('#'))
+    return out[:limit]
+
+
 def hashtags(story):
-    """The Reel's hashtags plus the channel's own, without repeats, as one line."""
-    return ' '.join(dict.fromkeys((story.get('hashtags') or []) + ['#stickman', '#hindi']))
+    """The hashtags as one line (for the caption and the copy button)."""
+    return ' '.join(hashtag_list(story))
 
 
 def copy_texts(story):
@@ -95,17 +112,26 @@ def copy_texts(story):
 
 
 def texts(story):
-    """Caption, YouTube title, description and tags for a script."""
-    tags = story.get('hashtags') or []
+    """Caption, YouTube title, description and tags for a script, written for reach:
+    - title: the hook title first (it decides the tap), then the search phrase, then #shorts; under 70
+      characters where it can be, because the feed cuts long titles;
+    - description: the spoken hook as the first line (search and previews show it), the story, the lesson,
+      the question that invites comments, a subscribe line and 5-6 focused hashtags;
+    - tags: the story's tags plus the channel's keywords.
+    """
+    tags = hashtag_list(story)
     part = f" (भाग {story['part']})" if story.get('part') else ''
+    handle = os.getenv('REEL_HANDLE', '').strip()
     caption = '\n\n'.join(x for x in (story['title'] + part, story.get('instagram_caption') or story['lesson'],
-                                      story.get('ask', ''), ' '.join(tags + ['#stickman', '#hindi'])) if x)
-    title = f"{story['title']}{part} | {story['lesson']}"
-    title = (title if len(title) <= 90 else story['title'] + part)[:90] + ' #shorts'
-    description = '\n\n'.join(x for x in (story.get('instagram_caption') or '', 'सीख: ' + story['lesson'], story.get('ask', ''),
-                                          ' '.join(tags + ['#shorts', '#stickman'])) if x)
-    return {'caption': caption[:2200], 'title': title, 'description': description[:4900],
-            'tags': [t.lstrip('#') for t in tags][:15] + ['stickman', 'hindi', 'life lessons']}
+                                      story.get('ask', ''), ' '.join(tags)) if x)
+    title = f"{story['title']}{part} | {SEARCH_PHRASE}"
+    title = (title if len(title) <= 80 else (story['title'] + part)[:80]) + ' #shorts'
+    subscribe = '🔔 रोज़ एक नई सीख के लिए Subscribe करें' + (f' {handle}' if handle else '')
+    description = '\n\n'.join(x for x in (story.get('hook', ''), story.get('instagram_caption') or '', 'सीख: ' + story['lesson'],
+                                          story.get('ask', ''), subscribe, ' '.join(tags + ['#shorts'])) if x)
+    keywords = [t.lstrip('#') for t in tags] + ['stickman animation', 'hindi stories', 'life lessons', 'हिंदी कहानी', 'moral stories']
+    return {'caption': caption[:2200], 'title': title[:100], 'description': description[:4900],
+            'tags': list(dict.fromkeys(keywords))[:20]}
 
 
 # --- YouTube ---------------------------------------------------------------------------------
@@ -164,7 +190,10 @@ def youtube_upload(video, story, ctx=None, title=None, description=None, shorts=
     at = ctx.get('publish_at') if privacy == 'public' else None
     body = {'snippet': {'title': title or meta['title'], 'description': description or meta['description'], 'tags': meta['tags'],
                         'categoryId': '22', 'defaultLanguage': 'hi', 'defaultAudioLanguage': 'hi'},
+            # Not for kids (comments, notifications and full reach stay on); clearly animated with a clearly synthetic
+            # voice, so not "altered or synthetic" realistic content under YouTube's disclosure rule.
             'status': {'privacyStatus': 'private' if at else privacy, 'selfDeclaredMadeForKids': False, 'embeddable': True,
+                       'containsSyntheticMedia': False,
                        **({'publishAt': at.strftime('%Y-%m-%dT%H:%M:%SZ')} if at else {})}}
     size = video.stat().st_size
     try:

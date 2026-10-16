@@ -18,8 +18,8 @@ class CopyButtonsTest(unittest.TestCase):
         self.assertTrue(copy['caption'].startswith(STORY['title']))
         self.assertIn(STORY['ask'], copy['caption'])
         self.assertNotIn('#', copy['caption'])
-        self.assertTrue(copy['hashtags'].startswith('#lifelessons'))
-        self.assertEqual(copy['hashtags'].count('#stickman'), 1)  # no repeats
+        self.assertTrue(copy['hashtags'].startswith('#hindikahani #lifelessons #seekhsketch'))
+        self.assertEqual(copy['hashtags'].count('#lifelessons'), 1)  # no repeats
 
     def test_buttons_under_a_reel(self):
         keys = rows(telegram.review_buttons('99', '2', publish.copy_texts(STORY)))
