@@ -74,12 +74,17 @@ Every backup used is named in the Telegram caption, so you know when Gemini didn
 ## Make Reels
 
 - **From Telegram:**
-  - Send any life lesson (e.g. "गुस्से में फैसले मत लो") and the bot makes a Reel about it.
-  - `/reel` picks a fresh lesson.
-  - `/batch 3` makes three Reels at once.
-  - `/series दोस्ती` makes a two-part story.
-  - `/status` shows what's running, and `/report` sends this week's numbers.
-  - `/ideas` sends 5 next lessons from comments and trends, each with a Make button.
+  - Tap **🎬 New Reel** and choose step by step:
+    - **topic:** 🎲 a fresh random lesson, 💡 viewer ideas, 🎉 the next festival, 📚 a theme (परिवार, पैसा, सेहत, पढ़ाई, दोस्ती, काम, आत्मसम्मान, रिश्ते, आदतें, समय), or ✍️ your own lesson;
+    - **voice:** 👨 male or 👩 female;
+    - **music:** auto, warm, tense or none;
+    - **how many:** 1, 2, 3 or 5, or a 📖 two-part story;
+    - then **✅ Make it**.
+
+    **⚡ Random Reel now** skips the questions.
+  - **Send any lesson as a message**, and the menu continues with voice, music and count. `/reel <lesson>` makes it straight away with the usual settings.
+  - **⚙️ Settings** shows on/off switches for auto-post, posting at the best time, carousel, hook test, the daily Reel and festival topics. Each tap saves the repository variable; `GH_DISPATCH_TOKEN` needs *Variables: Read and write*.
+  - **Other commands:** `/batch 3`, `/series <lesson>`, `/status`, `/report`, `/ideas`.
 - **From GitHub:** go to Actions → **Make a Reel** → Run workflow.
   - Type a lesson, or leave it empty for a fresh random line of [`topics.txt`](topics.txt). The last 25 topics are skipped.
   - **count** makes up to 5 Reels on different topics in one run.
@@ -105,7 +110,7 @@ A Reel takes about 6–8 minutes, including installing everything.
 | Secret | What |
 | --- | --- |
 | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | The same values as in the infographic repository. The token needs *Workers Scripts: Edit*, plus *Workers KV Storage: Edit* for carousel images. |
-| `GH_DISPATCH_TOKEN` | A fine-grained GitHub token. Set *Repository access* to stickman-reels, and both *Actions* and *Secrets* to Read and write. The bot uses it to start the workflows, and the token renewal uses it to save the new Instagram token. |
+| `GH_DISPATCH_TOKEN` | A fine-grained GitHub token. Set *Repository access* to stickman-reels, and *Actions*, *Secrets* and *Variables* to Read and write. The bot uses it to start the workflows, and the token renewal uses it to save the new Instagram token. |
 
 **Posting** (each platform switches on when its secrets are added):
 

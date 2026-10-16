@@ -106,6 +106,18 @@ def due(today=None, history=()):
     return None
 
 
+def upcoming_any(today=None, history=(), days=45):
+    """The nearest occasion in the next `days` days not made yet (for the bot's "festival" choice), or None."""
+    today = today or dt.datetime.now(IST).date()
+    made = {h.get('occasion') for h in history if h.get('occasion')}
+    for day, key in upcoming(today, days):
+        if tag(key, day) not in made:
+            name, lesson = OCCASIONS[key]
+            return {'key': key, 'tag': tag(key, day), 'name': name, 'lesson': lesson, 'date': day.isoformat(),
+                    'days': (day - today).days}
+    return None
+
+
 def note(occasion):
     """The writer's instruction for an occasion Reel."""
     when = 'today' if occasion['days'] == 0 else f"in {occasion['days']} day{'s' if occasion['days'] > 1 else ''}"

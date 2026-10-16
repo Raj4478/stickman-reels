@@ -47,19 +47,34 @@ def stories(args):
         yield script.clean(json.loads(args.sample.read_text(encoding='utf-8')))
         return
     if args.series:
-        first = script.write(args.topic, part='1/2')
+        first = script.write(args.topic, part='1/2', theme=args.theme, source=args.source)
         yield first
         summary = {k: first[k] for k in ('topic', 'name', 'title', 'hook', 'lesson')}
         summary['beats'] = [s['line'] for s in first['scenes']]
         yield script.write(first['topic'], part='2/2', previous=summary)
         return
     for _ in range(args.count):
-        yield script.write(args.topic)
+        yield script.write(args.topic, theme=args.theme, source=args.source)
+
+
+OPTIONS = {'theme': tuple(script.THEMES), 'source': script.SOURCES, 'voice': ('male', 'female'), 'music': ('auto', 'warm', 'tense', 'off')}
+
+
+def parse_options(text):
+    """The bot's choices, "theme=money voice=female music=off source=ideas", checked against OPTIONS."""
+    chosen = {}
+    for part in (text or '').replace(',', ' ').split():
+        key, _, value = part.partition('=')
+        if value in OPTIONS.get(key, ()):
+            chosen[key] = value
+    return chosen
 
 
 def make(args):
     made = []
     for n, story in enumerate(stories(args), 1):
+        if args.music in script.MUSIC:
+            story['music'] = args.music
         out = args.out / str(n)
         from . import build
         props, record = build.build(story, out, args.public, narrate=not args.silent, music=not args.no_music,
@@ -135,6 +150,8 @@ def main(argv=None):
     make_cmd.add_argument('--sample', type=Path, help='use this script JSON instead of asking Gemini')
     make_cmd.add_argument('--silent', action='store_true', help='skip the narration (timing from word counts)')
     make_cmd.add_argument('--no-music', action='store_true', help='leave out the music bed')
+    make_cmd.add_argument('--options', default='', help='the bot\'s choices: theme=<%s> source=<random|ideas|occasion> '
+                          'voice=<male|female> music=<auto|warm|tense|off>' % '|'.join(script.THEMES))
     make_cmd.add_argument('--out', type=Path, default=ROOT / 'out')
     make_cmd.add_argument('--public', type=Path, default=ROOT / 'remotion' / 'public')
     send = commands.add_parser('send', help='send a rendered Reel (and its cover) to Telegram')
@@ -172,6 +189,14 @@ def main(argv=None):
 
     if args.command == 'make':
         args.count = max(1, min(args.count, 5))
+        chosen = parse_options(args.options)
+        args.theme, args.source, args.music = chosen.get('theme', ''), chosen.get('source', ''), chosen.get('music', 'auto')
+        if args.music == 'off':
+            args.no_music = True
+        if chosen.get('voice'):
+            os.environ['NARRATOR'] = chosen['voice']
+        if chosen:
+            print('Options:', ' '.join(f'{k}={v}' for k, v in chosen.items()))
         make(args)
     elif args.command == 'sounds':
         from . import sounds

@@ -105,6 +105,20 @@ SHOTS = {
 TRANSITIONS = ('cut', 'whip', 'zoom', 'flash')
 MOODS = ('calm', 'happy', 'sad', 'tense')
 MUSIC = ('warm', 'tense')
+# Themes the bot offers (key: Hindi label, what the writer should pick a lesson about)
+THEMES = {
+    'family': ('परिवार', 'family: parents, siblings, children, respect and sacrifice at home'),
+    'money': ('पैसा', 'money: saving, spending, debt, showing off and financial discipline'),
+    'health': ('सेहत', 'health: sleep, food, exercise, phone addiction and mental peace'),
+    'study': ('पढ़ाई', 'studies and exams: focus, consistency, failure and marks'),
+    'friendship': ('दोस्ती', 'friendship: trust, true friends, fake friends and loyalty'),
+    'work': ('काम', 'work and career: effort, bosses, colleagues, learning skills and patience'),
+    'self_respect': ('आत्मसम्मान', 'self-respect: saying no, people pleasing, confidence and boundaries'),
+    'relationships': ('रिश्ते', 'relationships: ego, anger, forgiveness, communication and time'),
+    'habits': ('आदतें', 'habits: discipline, small daily actions, laziness and mornings'),
+    'time': ('समय', 'time: wasting time, procrastination, priorities and regret'),
+}
+SOURCES = ('random', 'ideas', 'occasion')
 LIMITS = {'title': 40, 'title_b': 40, 'hook': 110, 'line': 150, 'caption': 40, 'lesson': 110, 'ask': 110, 'name': 16}
 DEVANAGARI = re.compile(r'[ऀ-ॿ]')
 
@@ -362,10 +376,33 @@ def series_note(part, previous):
             'Keep the same hero name, continue from the cliffhanger, and the hook must remind viewers in a few words.')
 
 
-def write(topic=None, part='', previous=None):
+def choose_topic(topic='', theme='', source='', part=''):
+    """(topic, occasion) for a new Reel: the given lesson, else the chosen theme or source, else the calendar's due
+    occasion, else a fresh idea or random topic."""
+    from . import occasions
+    topic = (topic or '').strip()
+    if topic or part == '2/2':
+        return topic, None
+    if theme in THEMES:
+        return f'Choose one fresh, specific, relatable life lesson about {THEMES[theme][1]}', None
+    if source == 'occasion':
+        soon = occasions.upcoming_any(history=history())
+        if soon:
+            return soon['lesson'], soon
+    if source == 'ideas':
+        recent = {h.get('topic', '').strip().lower() for h in history()[-25:]}
+        fresh = [t for t in reversed(saved_ideas()) if t.strip().lower() not in recent]
+        if fresh:
+            return fresh[0], None
+    if source == 'random':
+        return pick_topic(), None
+    occasion = occasions.due(history=history())
+    return (occasion['lesson'], occasion) if occasion else (pick_topic(), None)
+
+
+def write(topic=None, part='', previous=None, theme='', source=''):
     from . import growth, occasions
-    occasion = None if (topic or '').strip() or part == '2/2' else occasions.due(history=history())
-    topic = (topic or '').strip() or (occasion['lesson'] if occasion else pick_topic())
+    topic, occasion = choose_topic(topic, theme, source, part)
     recent = [h.get('title') for h in history()[-15:] if h.get('title')]
     prompt = WRITER.format(
         topic=topic, beats=random.choice((4, 5)), hook_rules=HOOK_RULES, two=', '.join(TWO_PERSON),

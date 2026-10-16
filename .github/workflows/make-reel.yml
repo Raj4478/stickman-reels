@@ -29,6 +29,10 @@ on:
         description: 'An idea from the weekly ideas: "<run id>:<index>"'
         required: false
         type: string
+      options:
+        description: 'Choices from the bot, e.g. "theme=money voice=female music=off source=ideas"'
+        required: false
+        type: string
       sample:
         description: Render examples/sample.json without Gemini (to test the template)
         required: false
@@ -96,6 +100,7 @@ jobs:
           REMAKE_OF: ${{ inputs.remake_of }}
           IDEA_OF: ${{ inputs.idea_of }}
           OCCASIONS: ${{ vars.OCCASIONS }}
+          OPTIONS: ${{ inputs.options }}
           HOOK_TEST: ${{ vars.HOOK_TEST }}
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -114,9 +119,9 @@ jobs:
           if [ "$SAMPLE" = "true" ]; then
             python -m reel make --sample examples/sample.json
           elif [ "$SERIES" = "true" ]; then
-            python -m reel make --series --topic "$TOPIC"
+            python -m reel make --series --topic "$TOPIC" --options "$OPTIONS"
           else
-            python -m reel make --count "$COUNT" --topic "$TOPIC"
+            python -m reel make --count "$COUNT" --topic "$TOPIC" --options "$OPTIONS"
           fi
           for n in $(cat out/reels.txt); do echo "::group::Reel $n script"; cat "out/$n/script.json"; echo "::endgroup::"; done
       - name: Save the topic history

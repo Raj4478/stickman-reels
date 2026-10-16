@@ -32,6 +32,14 @@ EDGE = {'narrator': ('hi-IN-MadhurNeural', '+0Hz', '+12%'), 'hero': ('hi-IN-Madh
         'boss': ('hi-IN-MadhurNeural', '-8Hz', '+0%'), 'friend': ('hi-IN-MadhurNeural', '+12Hz', '+8%'),
         'stranger': ('hi-IN-MadhurNeural', '-4Hz', '+0%')}
 GAP = 0.42  # seconds of silence between lines in the Edge backup
+# The bot's voice choice (NARRATOR=male/female): the Gemini narrator, and the Edge backup's narrator and hero
+NARRATORS = {'male': ('Achird', 'hi-IN-MadhurNeural'), 'female': ('Sulafat', 'hi-IN-SwaraNeural')}
+
+
+def narrator():
+    """(Gemini voice, Edge voice) of the storyteller: REEL_VOICE wins, then NARRATOR, then male."""
+    choice = NARRATORS.get(os.getenv('NARRATOR', '').strip().lower(), NARRATORS['male'])
+    return os.getenv('REEL_VOICE', '').strip() or choice[0], choice[1]
 
 NOTES = """# AUDIO PROFILE: A warm Indian storyteller sharing a short life lesson
 ## THE SCENE: Recording the voice-over for an animated Instagram Reel, speaking straight to one viewer.
@@ -82,7 +90,7 @@ def write_pcm(path, data, rate):
 
 def gemini_voice(turns, other, path):
     """Record with Gemini (one call). Returns the record, or raises GeminiError."""
-    voice = os.getenv('REEL_VOICE', '').strip() or DEFAULT_VOICE
+    voice = narrator()[0]
     lines = [text for _, text in turns]
     dialogue = any(who == 'other' for who, _ in turns)
     if dialogue:
@@ -117,6 +125,8 @@ def edge_voice(turns, other, path, rate=24000):
     with tempfile.TemporaryDirectory() as tmp:
         for i, (who, text) in enumerate(turns):
             voice, pitch, speed = EDGE.get(other if who == 'other' else who, EDGE['narrator'])
+            if who in ('narrator', 'hero'):
+                voice = narrator()[1]
             mp3 = Path(tmp) / f'{i}.mp3'
             asyncio.run(say(speakable(text), voice, pitch, speed, mp3))
             raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(mp3), '-ac', '1', '-ar', str(rate), '-f', 's16le', '-'],
@@ -125,7 +135,7 @@ def edge_voice(turns, other, path, rate=24000):
             pcm += raw + silence
             t += len(raw) / 2 / rate + GAP
     write_pcm(path, pcm, rate)
-    return {'model': 'edge-tts', 'voice': EDGE['narrator'][0], 'seconds': round(duration(path), 2), 'starts': starts,
+    return {'model': 'edge-tts', 'voice': narrator()[1], 'seconds': round(duration(path), 2), 'starts': starts,
             'speech_end': round(t - GAP, 3)}
 
 
