@@ -1,50 +1,92 @@
 """Command line.
 
-    python -m reel make [--topic "..."] [--sample examples/sample.json] [--silent]
-    python -m reel send remotion/out/reel.mp4
+    python -m reel make [--topic "..."] [--count 3 | --series] [--sample examples/sample.json] [--silent]
+    python -m reel send out/1 remotion/out/reel-1.mp4 [--cover out/1/cover.jpg]
+    python -m reel sounds        (rewrites remotion/public/sfx/*.wav)
+
+`make` writes each Reel to out/<n>/ and its media to remotion/public/reels/<n>/, and lists the numbers in
+out/reels.txt for the render step.
 """
 import argparse
 import json
 import sys
 from pathlib import Path
 
-from . import build, script, telegram
+from . import build, script, sounds, telegram
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def caption(story, record):
-    lines = [story['title'], '', story.get('instagram_caption') or story['lesson'], '', ' '.join(story.get('hashtags', []))]
+    part = f" (भाग {story['part']})" if story.get('part') else ''
+    lines = [story['title'] + part, '', story.get('instagram_caption') or story['lesson'], '', ' '.join(story.get('hashtags', []))]
     if record.get('narration') == 'failed':
         lines += ['', '(Preview without narration: ' + record.get('reason', '')[:150] + ')']
     return '\n'.join(lines).strip()
+
+
+def stories(args):
+    if args.sample:
+        yield script.clean(json.loads(args.sample.read_text(encoding='utf-8')))
+        return
+    if args.series:
+        first = script.write(args.topic, part='1/2')
+        yield first
+        summary = {k: first[k] for k in ('topic', 'name', 'title', 'hook', 'lesson')}
+        summary['beats'] = [s['line'] for s in first['scenes']]
+        yield script.write(first['topic'], part='2/2', previous=summary)
+        return
+    for _ in range(args.count):
+        yield script.write(args.topic)
+
+
+def make(args):
+    made = []
+    for n, story in enumerate(stories(args), 1):
+        out = args.out / str(n)
+        props, record = build.build(story, out, args.public, narrate=not args.silent, music=not args.no_music,
+                                    prefix=f'reels/{n}/')
+        if not args.sample:
+            script.remember(story)
+        made.append(str(n))
+        print(f"Reel {n}: {story['title']} ({story['topic']}): {len(props['segments'])} segments, "
+              f"{props['duration']:.1f}s, narration: {record.get('voice', record.get('narration'))}, "
+              f"words: {record.get('word_timing', '-')}, directed: {story.get('directed', '-')}")
+    (args.out / 'reels.txt').write_text('\n'.join(made) + '\n', encoding='utf-8')
 
 
 def main(argv=None):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')  # Hindi titles on a Windows console
     parser = argparse.ArgumentParser(prog='reel')
     commands = parser.add_subparsers(dest='command', required=True)
-    make = commands.add_parser('make', help='write the script, record the narration and build props.json')
-    make.add_argument('--topic', default='', help='the life lesson (default: a random line of topics.txt)')
-    make.add_argument('--sample', type=Path, help='use this script JSON instead of asking Gemini')
-    make.add_argument('--silent', action='store_true', help='skip the narration (timing from word counts)')
-    make.add_argument('--out', type=Path, default=ROOT / 'out')
-    make.add_argument('--public', type=Path, default=ROOT / 'remotion' / 'public')
-    send = commands.add_parser('send', help='send a rendered video to Telegram')
+    make_cmd = commands.add_parser('make', help='write the scripts, record the narration and build props.json')
+    make_cmd.add_argument('--topic', default='', help='the life lesson (default: a random fresh line of topics.txt)')
+    make_cmd.add_argument('--count', type=int, default=1, help='how many Reels to make (different topics)')
+    make_cmd.add_argument('--series', action='store_true', help='make a two-part story (part 1 ends on a cliffhanger)')
+    make_cmd.add_argument('--sample', type=Path, help='use this script JSON instead of asking Gemini')
+    make_cmd.add_argument('--silent', action='store_true', help='skip the narration (timing from word counts)')
+    make_cmd.add_argument('--no-music', action='store_true', help='leave out the music bed')
+    make_cmd.add_argument('--out', type=Path, default=ROOT / 'out')
+    make_cmd.add_argument('--public', type=Path, default=ROOT / 'remotion' / 'public')
+    send = commands.add_parser('send', help='send a rendered Reel (and its cover) to Telegram')
+    send.add_argument('folder', type=Path, help='the Reel folder, e.g. out/1')
     send.add_argument('video', type=Path)
-    send.add_argument('--out', type=Path, default=ROOT / 'out')
+    send.add_argument('--cover', type=Path)
+    commands.add_parser('sounds', help='regenerate the sound effects in remotion/public/sfx')
     args = parser.parse_args(argv)
 
     if args.command == 'make':
-        story = script.clean(json.loads(args.sample.read_text(encoding='utf-8'))) if args.sample else script.write(args.topic)
-        props, record = build.build(story, args.out, args.public, narrate=not args.silent)
-        print(f"{story['title']} ({story['topic']}): {len(props['segments'])} segments, {props['duration']:.1f}s, "
-              f"narration: {record.get('voice', record.get('narration'))}")
-        return 0
-    story = json.loads((args.out / 'script.json').read_text(encoding='utf-8'))
-    record_path = args.out / 'voice-record.json'
-    record = json.loads(record_path.read_text(encoding='utf-8')) if record_path.exists() else {}
-    telegram.send_video(args.video, caption(story, record))
+        args.count = max(1, min(args.count, 5))
+        make(args)
+    elif args.command == 'sounds':
+        print(sounds.write_effects(ROOT / 'remotion' / 'public' / 'sfx'))
+    else:
+        story = json.loads((args.folder / 'script.json').read_text(encoding='utf-8'))
+        record_path = args.folder / 'voice-record.json'
+        record = json.loads(record_path.read_text(encoding='utf-8')) if record_path.exists() else {}
+        if args.cover and args.cover.exists():
+            telegram.send_file('sendPhoto', 'photo', args.cover, 'image/jpeg', f"Cover: {story['title']}")
+        telegram.send_file('sendVideo', 'video', args.video, 'video/mp4', caption(story, record))
     return 0
 
 

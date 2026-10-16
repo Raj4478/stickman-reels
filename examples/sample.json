@@ -1,13 +1,18 @@
 {
   "topic": "Phone scrolling quietly eats your best hours",
-  "title": "5 घंटे कहाँ गए?",
+  "name": "रोहन",
+  "hooks": ["रोहन रोज़ कहता था, मेरे पास टाइम नहीं है। सच कुछ और था।"],
   "hook": "रोहन रोज़ कहता था, मेरे पास टाइम नहीं है। सच कुछ और था।",
+  "title": "5 घंटे कहाँ गए?",
+  "hook_action": "shock",
+  "music": "warm",
   "scenes": [
-    {"line": "सुबह उठते ही उसका हाथ सीधा phone पर जाता, और बस दो मिनट के लिए reels खुलतीं।", "caption": "बस दो मिनट...", "action": "scroll_phone", "prop": "clock", "mood": "calm"},
-    {"line": "वो दो मिनट कब दो घंटे बन जाते, उसे पता ही नहीं चलता।", "caption": "2 मिनट = 2 घंटे", "action": "shock", "prop": "none", "mood": "tense"},
-    {"line": "एक दिन उसने screen time देखा, पूरे पाँच घंटे रोज़!", "caption": "रोज़ 5 घंटे!", "action": "facepalm", "prop": "none", "mood": "sad"},
-    {"line": "उसने रोज़ सिर्फ़ एक घंटा पढ़ने में लगाना शुरू किया, धीरे धीरे, हर दिन।", "caption": "रोज़ 1 घंटा", "action": "climb", "prop": "plant", "mood": "calm"},
-    {"line": "छह महीने बाद वही रोहन नई job के interview में पास हो गया।", "caption": "6 महीने बाद...", "action": "cheer", "prop": "trophy", "mood": "happy"}
+    {"line": "सुबह उठते ही उसका हाथ सीधा phone पर जाता, और बस दो मिनट के लिए reels खुलतीं।", "caption": "बस दो मिनट...", "action": "scroll_phone", "prop": "clock", "mood": "calm", "with": "none", "place": "home", "shot": "medium", "transition": "cut"},
+    {"line": "वो दो मिनट कब दो घंटे बन जाते, उसे पता ही नहीं चलता।", "caption": "2 मिनट = 2 घंटे", "action": "sleep_alarm", "prop": "none", "mood": "tense", "with": "none", "place": "night", "shot": "high_angle", "transition": "whip"},
+    {"line": "एक दिन पापा ने पूछा, बेटा, तुम्हारे सपनों का क्या हुआ?", "caption": "सपनों का क्या हुआ?", "action": "argue", "prop": "none", "mood": "sad", "with": "father", "place": "home", "shot": "two_shot", "transition": "cut"},
+    {"line": "उसने screen time देखा, पूरे पाँच घंटे रोज़! उसी पल उसने फ़ैसला किया।", "caption": "रोज़ 5 घंटे!", "action": "idea", "prop": "none", "mood": "tense", "with": "none", "place": "plain", "shot": "push_in", "transition": "zoom"},
+    {"line": "अब वो रोज़ सिर्फ़ एक घंटा पढ़ता है, धीरे धीरे, हर दिन।", "caption": "रोज़ 1 घंटा", "action": "climb", "prop": "plant", "mood": "calm", "with": "none", "place": "park", "shot": "pan", "transition": "whip"},
+    {"line": "छह महीने बाद वही रोहन नई job के interview में पास हो गया।", "caption": "6 महीने बाद...", "action": "cheer", "prop": "trophy", "mood": "happy", "with": "none", "place": "office", "shot": "low_angle", "transition": "flash"}
   ],
   "lesson": "टाइम कम नहीं होता, हम उसे खो देते हैं।",
   "ask": "आपका screen time कितना है? comment में बताइए।",

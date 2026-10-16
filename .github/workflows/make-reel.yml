@@ -1,14 +1,26 @@
 name: Make a Reel
-run-name: "Stickman Reel: ${{ inputs.topic || (github.event_name == 'schedule' && 'daily') || 'random topic' }}"
-# Writes a Hindi life-lesson story with Gemini (free tier), records the narration, renders the stick-figure
-# Reel with Remotion and sends it to Telegram for review. Nothing is posted to Instagram yet.
+run-name: "Stickman Reel: ${{ inputs.topic || (github.event_name == 'schedule' && 'daily') || 'random topic' }}${{ inputs.series && ' (2-part series)' || '' }}"
+# Writes Hindi life-lesson stories with Gemini (free tier: a writer pass, then a director pass for hooks and
+# camera shots), records the narration, times every word with Whisper, renders the stick-figure Reels with
+# Remotion and sends each video and its cover to Telegram for review. Nothing is posted to Instagram yet.
 on:
   workflow_dispatch:
     inputs:
       topic:
-        description: Life lesson (leave empty for a random line of topics.txt)
+        description: Life lesson (leave empty for a fresh random line of topics.txt)
         required: false
         type: string
+      count:
+        description: How many Reels (different topics)
+        required: false
+        type: choice
+        options: ['1', '2', '3', '5']
+        default: '1'
+      series:
+        description: Two-part story instead (part 1 ends on a cliffhanger)
+        required: false
+        type: boolean
+        default: false
       sample:
         description: Render examples/sample.json without Gemini (to test the template)
         required: false
@@ -25,7 +37,7 @@ jobs:
   reel:
     if: github.event_name != 'schedule' || vars.DAILY_REEL == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
         with:
@@ -33,16 +45,29 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
+          cache: pip
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: remotion/package-lock.json
+      - name: Cache the Whisper model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: whisper-small-v1
+      - name: Restore the topic history
+        uses: actions/cache/restore@v4
+        with:
+          path: history.json
+          key: reel-history-${{ github.run_id }}
+          restore-keys: reel-history-
       - name: Install
         run: |
           command -v ffmpeg >/dev/null || { sudo apt-get update -q && sudo apt-get install -yq ffmpeg; }
+          pip install -q -r requirements.txt
           cd remotion && npm ci
-      - name: Write the story and record the narration
+      - name: Write the stories and record the narration
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
@@ -52,30 +77,45 @@ jobs:
           REEL_VOICE: ${{ vars.REEL_VOICE }}
           REEL_HANDLE: ${{ vars.REEL_HANDLE }}
           TOPIC: ${{ inputs.topic }}
+          COUNT: ${{ inputs.count || '1' }}
+          SERIES: ${{ inputs.series }}
           SAMPLE: ${{ inputs.sample }}
         run: |
           if [ "$SAMPLE" = "true" ]; then
             python -m reel make --sample examples/sample.json
+          elif [ "$SERIES" = "true" ]; then
+            python -m reel make --series --topic "$TOPIC"
           else
-            python -m reel make --topic "$TOPIC"
+            python -m reel make --count "$COUNT" --topic "$TOPIC"
           fi
-          cat out/script.json
+          for n in $(cat out/reels.txt); do echo "::group::Reel $n script"; cat "out/$n/script.json"; echo "::endgroup::"; done
+      - name: Save the topic history
+        if: always() && hashFiles('history.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: history.json
+          key: reel-history-${{ github.run_id }}
       - name: Render with Remotion
         working-directory: remotion
-        run: npx remotion render src/index.ts StickReel out/reel-1080x1920.mp4 --props=public/props.json --crf=23
-      - name: Send it to Telegram
+        run: |
+          for n in $(cat ../out/reels.txt); do
+            npx remotion render src/index.ts StickReel "out/reel-$n.mp4" --props="public/reels/$n/props.json" --crf=23
+            npx remotion still src/index.ts StickReel "../out/$n/cover.jpg" --props="public/reels/$n/props.json" --frame=20 --image-format=jpeg
+          done
+      - name: Send them to Telegram
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python -m reel send remotion/out/reel-1080x1920.mp4
+        run: |
+          for n in $(cat out/reels.txt); do
+            python -m reel send "out/$n" "remotion/out/reel-$n.mp4" --cover "out/$n/cover.jpg"
+          done
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: reel-${{ github.run_id }}
           path: |
-            remotion/out/reel-1080x1920.mp4
-            out/script.json
-            out/props.json
-            out/voice-record.json
+            remotion/out/reel-*.mp4
+            out/
           if-no-files-found: warn
           retention-days: 30
