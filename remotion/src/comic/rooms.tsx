@@ -58,8 +58,68 @@ const Plant: React.FC<{ x: number; y: number }> = ({ x, y }) => (
   </g>
 );
 
-export const room = (name: string | undefined, f: number): Room => {
+// `computer`: the bedroom desk shows the computer only when the line is about it (typing, looking at the screen)
+export const room = (name: string | undefined, f: number, computer = true): Room => {
   switch (name) {
+    case "gym":
+      return {
+        back: (
+          <g>
+            <Wall color="#dfe3ea" floor="#5c6370" />
+            <rect x={120} y={340} width={840} height={520} rx={8} fill="#cfe3f5" {...O} />
+            <path d="M200,360 L300,840 M760,360 L860,840" stroke="#fff" strokeWidth={18} opacity={0.5} />
+            <text x={250} y={450} textAnchor="middle" fontFamily={FONT.hindi} fontWeight={800} fontSize={64} fill="#e03131">GYM</text>
+            {[0, 1].map((r) => (
+              <g key={r}>
+                <rect x={-40} y={940 + r * 120} width={250} height={16} fill="#495057" />
+                <rect x={870} y={940 + r * 120} width={250} height={16} fill="#495057" />
+                {[0, 1, 2].map((i) => (
+                  <g key={i}>
+                    <rect x={-20 + i * 80} y={900 + r * 120} width={22} height={50} rx={6} fill="#212529" />
+                    <rect x={890 + i * 80} y={900 + r * 120} width={22} height={50} rx={6} fill="#212529" />
+                  </g>
+                ))}
+              </g>
+            ))}
+          </g>
+        ),
+        table: (
+          <g>
+            <Top color="#343a40" front="#212529" />
+            <path d={`M140,${TOP + 22} L330,${TOP + 22}`} stroke="#adb5bd" strokeWidth={14} strokeLinecap="round" />
+            <rect x={110} y={TOP - 10} width={44} height={64} rx={10} fill="#495057" {...O} strokeWidth={4} />
+            <rect x={316} y={TOP - 10} width={44} height={64} rx={10} fill="#495057" {...O} strokeWidth={4} />
+            <path d={`M830,${TOP - 80} L900,${TOP - 80} L890,${TOP + 30} L840,${TOP + 30} Z`} fill="#4dabf7" {...O} strokeWidth={5} />
+            <rect x={826} y={TOP - 104} width={78} height={28} rx={8} fill="#1c7ed6" {...O} strokeWidth={4} />
+          </g>
+        ),
+      };
+    case "street":
+      return {
+        back: (
+          <g>
+            <rect x={L} y={-80} width={R - L} height={1300} fill="#a5d8ff" />
+            {[["#ffd8a8", -60, 380], ["#ffc9c9", 250, 300], ["#d3f9d8", 560, 360], ["#e5dbff", 860, 320]].map(([c, x, y]) => (
+              <g key={String(x)}>
+                <rect x={Number(x)} y={Number(y)} width={300} height={1200 - Number(y)} fill={String(c)} {...O} />
+                <rect x={Number(x) + 40} y={Number(y) + 60} width={90} height={110} fill="#fff" {...O} strokeWidth={5} />
+                <rect x={Number(x) + 170} y={Number(y) + 60} width={90} height={110} fill="#fff" {...O} strokeWidth={5} />
+              </g>
+            ))}
+            <rect x={L} y={1100} width={R - L} height={820} fill="#868e96" />
+            <path d={`M${L},1180 L${R},1180`} stroke="#fff" strokeWidth={10} strokeDasharray="60 50" />
+          </g>
+        ),
+        table: (
+          <g>
+            <Top color="#c8813f" front="#9c5d24" />
+            <text x={540} y={FRONT + 140} textAnchor="middle" fontFamily={FONT.hindi} fontWeight={800} fontSize={86} fill="#fff3bf">चाय</text>
+            <path d={`M150,${TOP - 70} Q150,${TOP - 120} 230,${TOP - 120} Q310,${TOP - 120} 310,${TOP - 70} L300,${TOP + 20} L160,${TOP + 20} Z`} fill="#adb5bd" {...O} strokeWidth={5} />
+            <path d={`M310,${TOP - 60} q50,0 60,-40`} {...O} strokeWidth={8} fill="none" />
+            {[780, 860, 940].map((x) => <path key={x} d={`M${x - 26},${TOP - 50} L${x + 26},${TOP - 50} L${x + 20},${TOP + 20} L${x - 20},${TOP + 20} Z`} fill="rgba(255,236,200,.9)" {...O} strokeWidth={4} />)}
+          </g>
+        ),
+      };
     case "classroom":
       return {
         back: (
@@ -182,14 +242,27 @@ export const room = (name: string | undefined, f: number): Room => {
           <g>
             <Top color="#cc915a" front="#a86f3e" />
             <rect x={200} y={FRONT + 70} width={300} height={140} rx={8} fill="none" stroke="rgba(0,0,0,.2)" strokeWidth={8} />
-            <path d={`M30,1070 L300,1100 L300,1300 L30,1310 Z`} fill="#62666e" {...O} />
-            <path d={`M300,1100 L330,1108 L330,1292 L300,1300 Z`} fill="#7c818a" {...O} strokeWidth={4} />
-            <rect x={140} y={1300} width={60} height={TOP - 1300} fill="#55595f" />
-            <path d={`M360,${TOP + 8} L730,${TOP + 8} L760,${TOP + 48} L330,${TOP + 48} Z`} fill="#3a3d44" {...O} strokeWidth={4} />
-            {Array.from({ length: 3 }).map((_, r) => Array.from({ length: 12 }).map((_, c) => (
-              <rect key={`${r}-${c}`} x={350 + c * 32 + r * 6} y={TOP + 14 + r * 11} width={24} height={7} rx={2} fill="#6e737c" />
-            )))}
-            <ellipse cx={830} cy={TOP + 26} rx={34} ry={20} fill="#3a3d44" {...O} strokeWidth={4} />
+            {computer ? (
+              <g>
+                <path d={`M30,1070 L300,1100 L300,1300 L30,1310 Z`} fill="#62666e" {...O} />
+                <path d={`M300,1100 L330,1108 L330,1292 L300,1300 Z`} fill="#7c818a" {...O} strokeWidth={4} />
+                <rect x={140} y={1300} width={60} height={TOP - 1300} fill="#55595f" />
+                <path d={`M360,${TOP + 8} L730,${TOP + 8} L760,${TOP + 48} L330,${TOP + 48} Z`} fill="#3a3d44" {...O} strokeWidth={4} />
+                {Array.from({ length: 3 }).map((_, r) => Array.from({ length: 12 }).map((_, c) => (
+                  <rect key={`${r}-${c}`} x={350 + c * 32 + r * 6} y={TOP + 14 + r * 11} width={24} height={7} rx={2} fill="#6e737c" />
+                )))}
+                <ellipse cx={830} cy={TOP + 26} rx={34} ry={20} fill="#3a3d44" {...O} strokeWidth={4} />
+              </g>
+            ) : (
+              <g>
+                {/* a study desk: a lamp, books and a phone */}
+                <path d={`M90,${TOP} L150,${TOP - 10} L130,1180 L80,1120`} stroke="#495057" strokeWidth={14} fill="none" strokeLinecap="round" />
+                <path d="M40,1130 L140,1080 L170,1170 Z" fill="#fcc419" {...O} strokeWidth={5} />
+                <rect x={180} y={TOP - 40} width={170} height={36} fill="#4dabf7" {...O} strokeWidth={4} />
+                <rect x={196} y={TOP - 74} width={150} height={34} fill="#ff8787" {...O} strokeWidth={4} />
+                <rect x={800} y={TOP + 6} width={110} height={44} rx={10} fill="#2b2d36" {...O} strokeWidth={4} />
+              </g>
+            )}
           </g>
         ),
       };

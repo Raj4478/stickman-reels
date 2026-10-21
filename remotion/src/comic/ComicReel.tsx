@@ -172,7 +172,9 @@ const Line: React.FC<{ p: ReelProps; seg: Segment; i: number; dur: number; sound
   // the person on screen moves their mouth to the voice: their own line, or the words the kid quotes
   const level = person ? voice : seg.speaker === "other" ? 0 : voice;
   const flashback = person !== null && seg.speaker !== "other";
-  const where = room(person ? ROOM_OF[person] : p.place, start + f);
+  // the kid is where the line happens; the computer is only on the desk when the line is about it
+  const computer = act.gesture === "type" || act.look === "screen";
+  const where = room(person ? ROOM_OF[person] : seg.place ?? p.place, start + f, computer);
   const cam = camAt(seg, i, f, dur);
   const cutaway = !CHARACTERS.includes(act.visual) && act.visual !== "person";
   const shake = shakeAt(f, [...(cutaway ? [] : hitsOf(act.gesture)), ...(seg.kind === "lesson" ? [3] : [])], 14);

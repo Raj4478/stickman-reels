@@ -30,7 +30,7 @@ def segments(script, starts, speech_end, words=None):
     if script.get('style') == 'comic':
         # how the kid acts the setup and the punchline (the rant lines carry their own face, gesture and look)
         for segment, key in ((out[0], 'hook'), (out[-2], 'punch')):
-            segment.update({k: script[f'{key}_{k}'] for k in ('face', 'gesture', 'look', 'visual', 'visual_text', 'screen', 'who')
+            segment.update({k: script[f'{key}_{k}'] for k in ('face', 'gesture', 'look', 'visual', 'visual_text', 'screen', 'who', 'place')
                             if f'{key}_{k}' in script})
     out[0]['start'] = 0.0
     out[-1]['end'] = round(speech_end + LEAD + TAIL, 3)
