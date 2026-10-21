@@ -138,7 +138,7 @@ class BuildAndPostTest(unittest.TestCase):
 
 
 class VoiceTest(unittest.TestCase):
-    def test_comic_voice_is_cheeky(self):
+    def test_comic_voice_sounds_like_a_real_person(self):
         calls = []
 
         def speech(prompt, voice_name, speakers=None):
@@ -148,7 +148,7 @@ class VoiceTest(unittest.TestCase):
                 mock.patch.dict(os.environ, {'REEL_VOICE': '', 'NARRATOR': ''}):
             voice.gemini_voice([('narrator', 'एक'), ('narrator', 'दो')], 'friend', Path(tmp) / 'v.wav', style='comic')
             voice.gemini_voice([('narrator', 'एक'), ('other', 'दो')], 'mother', Path(tmp) / 'v.wav', style='comic')
-        self.assertIn('cheeky cartoon kid', calls[0][0])
-        self.assertEqual(calls[0][1], 'Puck')
-        self.assertIn('shouting from off screen', calls[1][0])
-        self.assertEqual(calls[1][2]['Narrator'], 'Puck')
+        self.assertIn('never a voice actor, a cartoon', calls[0][0])
+        self.assertEqual(calls[0][1], 'Zubenelgenubi')
+        self.assertIn('calling from another room', calls[1][0])
+        self.assertEqual(calls[1][2], {'Narrator': 'Zubenelgenubi', 'Other': 'Sulafat'})

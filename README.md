@@ -60,7 +60,7 @@ the channel's own character, not any TV cartoon, so nothing is copied.
   - **The kid:** a big round head, huge eyes and thick eyebrows that do the acting, a saffron T-shirt. A boy has a spiky tuft; a girl (female voice) has a ponytail and a bow.
   - **The room:** bedroom, classroom, kitchen, office or living room.
   - **On screen:** a white title strip with two emoji at the top ("Computer Course 😭😭"), subtitles at the bottom, a medium or close framing for each line like a sitcom, and a snap zoom on the punchline followed by a "ba-dum-tss".
-- **The voice:** Gemini reads it deadpan and cheeky with comic timing, in a younger voice (`Puck`, or `Leda` for a girl). The Edge backup is pitched up and faster.
+- **The voice:** Gemini reads it like a real person venting to a friend: dry, deadpan, small breaths and a beat before the punchline. It uses its casual voices (`Zubenelgenubi`, or `Callirrhoe` for a girl; `REEL_VOICE` overrides). The Edge backup keeps its natural pitch, only a little faster.
 - **The ending:** the question for the comments, then Like, Subscribe, Follow and Share.
 
 **Make one:**

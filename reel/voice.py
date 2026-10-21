@@ -36,10 +36,11 @@ EDGE = {'narrator': ('hi-IN-MadhurNeural', '+0Hz', '+12%'), 'hero': ('hi-IN-Madh
 GAP = 0.42  # seconds of silence between lines in the Edge backup
 # The bot's voice choice (NARRATOR=male/female): the Gemini narrator, and the Edge backup's narrator and hero
 NARRATORS = {'male': ('Achird', 'hi-IN-MadhurNeural'), 'female': ('Sulafat', 'hi-IN-SwaraNeural')}
-# Comic Reels (reel/comic.py): a cheekier, younger voice, and the Edge backup pitched up like a cartoon kid
-COMIC_NARRATORS = {'male': ('Puck', 'hi-IN-MadhurNeural'), 'female': ('Leda', 'hi-IN-SwaraNeural')}
-COMIC_EDGE = {'male': ('+18Hz', '+22%'), 'female': ('+22Hz', '+20%')}
-COMIC_GAP = 0.26  # a rant runs on: shorter pauses than a story
+# Comic Reels (reel/comic.py): Gemini's casual, easy-going voices, which sound like a real person talking rather
+# than a performer. The Edge backup keeps its natural pitch (pitching it up sounds robotic), only a little faster.
+COMIC_NARRATORS = {'male': ('Zubenelgenubi', 'hi-IN-MadhurNeural'), 'female': ('Callirrhoe', 'hi-IN-SwaraNeural')}
+COMIC_EDGE = {'male': ('+0Hz', '+8%'), 'female': ('+0Hz', '+6%')}
+COMIC_GAP = 0.3  # a rant runs on: shorter pauses than a story
 
 
 def narrator(style='story'):
@@ -68,26 +69,31 @@ Pacing: brisk but clear, with a short, clear pause between lines. Language: Hind
 Read only the conversation below, exactly as written. Never read these notes or the speaker names aloud.
 #### CONVERSATION
 {transcript}"""
-COMIC_NOTES = """# AUDIO PROFILE: A cheeky cartoon kid ranting about their own life like a tired desi adult
-## THE SCENE: The voice of an animated Hindi comedy Reel; the kid talks straight to the viewer.
+COMIC_NOTES = """# AUDIO PROFILE: A real young person from a small Indian town, venting to a friend about their own life
+## THE SCENE: Sitting at the desk at home, talking into a phone camera, unscripted. Nobody is performing.
 ### DIRECTOR'S NOTES
-Style: deadpan and dry, cheeky and sarcastic, a little dramatic, with sharp comic timing. A bored, done-with-life
-delivery on the first line; growing frustration as it builds; a short pause right before the last line, then the
-punchline, flat and dry (or suddenly over the top if the words call for it). Playful, never mean.
-Voice: young and mischievous, like a naughty kid in a Hindi cartoon dub.
-Pacing: fast, like a real rant, with only a short pause between lines (and a slightly longer one before the last).
-Language and accent: Hindi, natural Indian accent, with a light UP/Bihar flavour where the words have it.
+Style: completely natural and conversational, exactly like a real person talking, never a voice actor, a cartoon
+voice or an announcer. Dry, deadpan and a bit tired of life, with a hint of sarcasm. They are not trying to be
+funny, and that is what makes it funny. Real speech: small breaths, a slight drag on words like "बस" and "अब", a
+little sigh where it fits, natural rises and falls instead of a sing-song pattern, the odd word said a touch faster.
+Pacing: normal talking speed, relaxed but never slow, with a short pause between lines and a beat of silence
+before the last line, which is said flat and matter-of-fact.
+Language and accent: everyday Hindi with a natural Indian accent and a light UP/Bihar flavour, the way people
+actually talk at home.
 Read only the transcript below, exactly as written. Never read these notes, headings or labels aloud.
 #### TRANSCRIPT
 {transcript}"""
-COMIC_DIALOGUE = """# AUDIO PROFILE: An animated Hindi comedy Reel: a cheeky kid and a {who} shouting from off screen
+COMIC_DIALOGUE = """# AUDIO PROFILE: A real Indian home: a young person venting to the camera, and their {who} calling from another room
 ### DIRECTOR'S NOTES
-Narrator: the kid, deadpan, cheeky and sarcastic, with sharp comic timing; a short pause before the last line.
-Other: the {who}, calling from another room, loud and exasperated, in character.
-Pacing: brisk, with a short, clear pause between lines. Language: Hindi, natural Indian accent.
+Narrator: completely natural and conversational, like a real person, never a voice actor or a cartoon voice;
+dry, deadpan and a bit tired of life, with small breaths and a beat of silence before the last line.
+Other: the {who}, calling from another room: real, exasperated and natural, the way family actually shouts at home.
+Pacing: normal talking speed, with a short pause between lines. Language: everyday Hindi, natural Indian accent.
 Read only the conversation below, exactly as written. Never read these notes or the speaker names aloud.
 #### CONVERSATION
 {transcript}"""
+COMIC_SHORT = ('Say this naturally, like a real person casually venting to a friend: dry, deadpan and conversational, '
+               'in everyday Hindi, with a short pause between lines:\n\n{transcript}')
 SHORT = 'Say in a warm, friendly Hindi storytelling voice, with a short pause between lines:\n\n{transcript}'
 SHORT_DIALOGUE = 'TTS the following Hindi conversation between Narrator and Other, with a short pause between lines:\n\n{transcript}'
 WHO = {'mother': 'mother', 'father': 'father', 'boss': 'strict boss', 'friend': 'close friend', 'partner': 'partner',
@@ -144,7 +150,8 @@ def gemini_voice(turns, other, path, style='story'):
     else:
         speakers = None
         transcript = '\n\n'.join(speakable(line) for line in lines)
-        prompts = ((COMIC_NOTES if comic else NOTES).format(transcript=transcript), SHORT.format(transcript=transcript))
+        prompts = ((COMIC_NOTES if comic else NOTES).format(transcript=transcript),
+                   (COMIC_SHORT if comic else SHORT).format(transcript=transcript))
     limit = expected_seconds(lines) * 1.6 + 2
     for prompt in prompts:
         audio, model = gemini.speech_call(prompt, voice, speakers)
