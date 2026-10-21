@@ -278,9 +278,20 @@ def heard_words(path, transcript=''):
     pcm = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(path), '-ac', '1', '-ar', '16000', '-f', 'f32le', '-'],
                          capture_output=True, check=True, timeout=120).stdout
     model = WhisperModel(os.getenv('WHISPER_MODEL', 'small'), device='cpu', compute_type='int8')
-    segments, _ = model.transcribe(np.frombuffer(pcm, np.float32), language='hi', word_timestamps=True, beam_size=1,
-                                   initial_prompt=transcript or None, condition_on_previous_text=False)
-    return [(float(w.start), float(w.end)) for s in segments for w in (s.words or [])]
+    audio = np.frombuffer(pcm, np.float32)
+
+    def listen(prompt, beam):
+        segments, _ = model.transcribe(audio, language='hi', word_timestamps=True, beam_size=beam,
+                                       initial_prompt=prompt or None, condition_on_previous_text=False)
+        return [(float(w.start), float(w.end)) for s in segments for w in (s.words or [])]
+    heard = listen(transcript, 1)
+    written = len(transcript.split())
+    if written and len(heard) < written * 0.6:
+        # the script as a prompt sometimes makes Whisper skip most of a voice ("already said"): listen again without it
+        again = listen('', 5)
+        print(f'Whisper heard {len(heard)} of {written} words with the script as a hint, {len(again)} without it')
+        heard = max(heard, again, key=len)
+    return heard
 
 
 def word_times(lines, starts, speech_end, heard):

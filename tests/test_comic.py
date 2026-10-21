@@ -231,3 +231,27 @@ class VisualsTest(unittest.TestCase):
         sounds_used = set(re.findall(r'\[\d+, "([a-z_]+)", [0-9.]+\]', cut))
         self.assertTrue(sounds_used)
         self.assertLessEqual(sounds_used, set(sounds.effects()))
+
+
+class WhisperRetryTest(unittest.TestCase):
+    def test_listens_again_without_the_hint_when_most_words_are_missed(self):
+        import sys
+        import types
+        prompts = []
+
+        class Model:
+            def __init__(self, *a, **k):
+                pass
+
+            def transcribe(self, audio, initial_prompt=None, **k):
+                prompts.append(initial_prompt)
+                n = 1 if initial_prompt else 9
+                word = types.SimpleNamespace(start=0.0, end=0.1)
+                return [types.SimpleNamespace(words=[word] * n)], None
+        fake = types.ModuleType('faster_whisper')
+        fake.WhisperModel = Model
+        with mock.patch.dict(sys.modules, {'faster_whisper': fake}), \
+                mock.patch.object(voice.subprocess, 'run', return_value=types.SimpleNamespace(stdout=b'\x00' * 64)):
+            heard = voice.heard_words(Path('v.wav'), 'एक दो तीन चार पाँच छह सात आठ नौ दस')
+        self.assertEqual(len(heard), 9)
+        self.assertEqual(prompts, ['एक दो तीन चार पाँच छह सात आठ नौ दस', None])
