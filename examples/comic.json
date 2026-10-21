@@ -15,29 +15,45 @@
     "face": "deadpan",
     "gesture": "type",
     "look": "screen",
-    "speaker": "hero"
+    "speaker": "hero",
+    "visual": "kid",
+    "visual_text": "",
+    "screen": "music",
+    "who": "teacher"
   },
   "lines": [
     {
       "line": "सर बोले थे, पंद्रह हज़ार की नौकरी पक्की।",
-      "face": "side_eye",
+      "face": "smug",
       "gesture": "talk",
       "look": "viewer",
-      "speaker": "hero"
+      "speaker": "hero",
+      "visual": "person",
+      "visual_text": "",
+      "screen": "music",
+      "who": "teacher"
     },
     {
       "line": "गोलू! कुछ काम-धाम करेगा या नहीं?",
-      "face": "nervous",
-      "gesture": "type",
-      "look": "side",
-      "speaker": "other"
+      "face": "angry",
+      "gesture": "talk",
+      "look": "viewer",
+      "speaker": "other",
+      "visual": "person",
+      "visual_text": "",
+      "screen": "music",
+      "who": "mother"
     },
     {
       "line": "चार साल से घर पे बैठे हैं।",
       "face": "sad",
       "gesture": "shrug",
       "look": "viewer",
-      "speaker": "hero"
+      "speaker": "hero",
+      "visual": "calendar",
+      "visual_text": "4 साल",
+      "screen": "music",
+      "who": "teacher"
     }
   ],
   "punchline": {
@@ -45,7 +61,11 @@
     "face": "smug",
     "gesture": "point_self",
     "look": "viewer",
-    "speaker": "hero"
+    "speaker": "hero",
+    "visual": "screen",
+    "visual_text": "गाना.mp3",
+    "screen": "music",
+    "who": "teacher"
   },
   "ask": "तुमने कौन सा कोर्स किया था?",
   "instagram_caption": "कोर्स दो साल का, सीख दो मिनट की 😭\nटैग करो उस दोस्त को जिसने भी यही किया।",

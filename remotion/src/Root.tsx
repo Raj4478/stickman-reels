@@ -31,10 +31,10 @@ const COMIC: ReelProps = {
   audio: null, music: null, lead: 0.3, handle: "", duration: 22, hero: "boy", style: "comic", place: "bedroom", emoji: "sob",
   segments: [
     { kind: "hook", text: "दो साल कंप्यूटर कोर्स किया, आज तक एक दिन काम नहीं आया।", title: "Computer Course", face: "deadpan", gesture: "type", look: "screen", start: 0, end: 4 },
-    { kind: "scene", text: "सर बोले थे, पंद्रह हज़ार की नौकरी पक्की।", face: "side_eye", gesture: "talk", look: "viewer", speaker: "narrator", start: 4, end: 8 },
-    { kind: "scene", text: "गोलू! कुछ काम-धाम करेगा या नहीं?", face: "nervous", gesture: "type", look: "side", speaker: "other", with: "mother", start: 8, end: 11.5 },
-    { kind: "scene", text: "चार साल से घर पे बैठे हैं।", face: "sad", gesture: "shrug", look: "viewer", speaker: "narrator", start: 11.5, end: 15 },
-    { kind: "lesson", text: "पूरे कोर्स में बस एक चीज़ सीखी, गाना और फिलम चलाना।", face: "smug", gesture: "point_self", look: "viewer", start: 15, end: 19.5 },
+    { kind: "scene", text: "सर बोले थे, पंद्रह हज़ार की नौकरी पक्की।", face: "smug", gesture: "talk", look: "viewer", speaker: "narrator", visual: "person", who: "teacher", start: 4, end: 8 },
+    { kind: "scene", text: "गोलू! कुछ काम-धाम करेगा या नहीं?", face: "angry", gesture: "talk", look: "viewer", speaker: "other", with: "mother", visual: "person", who: "mother", start: 8, end: 11.5 },
+    { kind: "scene", text: "चार साल से घर पे बैठे हैं।", face: "sad", gesture: "shrug", look: "viewer", speaker: "narrator", visual: "calendar", visual_text: "4 साल", start: 11.5, end: 15 },
+    { kind: "lesson", text: "पूरे कोर्स में बस एक चीज़ सीखी, गाना और फिलम चलाना।", face: "smug", gesture: "point_self", look: "viewer", visual: "screen", screen: "music", visual_text: "गाना.mp3", start: 15, end: 19.5 },
     { kind: "ask", text: "तुमने कौन सा कोर्स किया था?", start: 19.5, end: 22 },
   ],
 };

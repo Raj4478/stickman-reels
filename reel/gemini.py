@@ -205,11 +205,20 @@ def vision_json(prompt, images, schema):
 
 
 def speech_call(prompt, voice, speakers=None):
-    """Audio for `prompt`: one `voice`, or {speaker name: voice} (at most two) for a dialogue."""
+    """Audio for `prompt`: one `voice`, or {speaker name: voice} (at most two) for a dialogue.
+
+    A dialogue's `prompt` is a list of (speaker, line, style) turns: the 3.8 speech models only take a
+    dialogue as one part per turn, each tagged with its speaker (and an optional delivery style).
+    """
     config = ({'multiSpeakerVoiceConfig': {'speakerVoiceConfigs': [
         {'speaker': name, 'voiceConfig': {'prebuiltVoiceConfig': {'voiceName': v}}} for name, v in speakers.items()]}}
         if speakers else {'voiceConfig': {'prebuiltVoiceConfig': {'voiceName': voice}}})
-    body = {'contents': [{'parts': [{'text': prompt}]}],
+    if speakers:
+        content = [{'text': line, 'speechMetadata': {'speaker': who, **({'style': style} if style else {})}}
+                   for who, line, style in prompt]
+    else:
+        content = [{'text': prompt}]
+    body = {'contents': [{'parts': content}],
             'generationConfig': {'responseModalities': ['AUDIO'], 'speechConfig': config}}
     response, model = call('speech', body)
     audio = next((p['inlineData'] for p in parts(response) if 'inlineData' in p), None)

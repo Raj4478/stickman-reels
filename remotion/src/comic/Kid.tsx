@@ -4,7 +4,8 @@ import { Easing, interpolate } from "remotion";
 // The comic Reels' star (reel/comic.py): our own cartoon kid, drawn for the cartoon-meme look of viral Hindi
 // Reels. A big round head with huge white eyes that do the acting, thick eyebrows, a small talking mouth, a
 // saffron T-shirt (the Seekh Sketch colour), and the upper body only: the kid sits behind a table (rooms.tsx).
-// A boy has a spiky tuft of hair; a girl has a ponytail and a bow.
+// A boy has a spiky tuft of hair; a girl has a ponytail and a bow. The same drawing, with other hair, colours and
+// accessories (TOONS), plays the people in the kid's life: मम्मी, पापा, सर, the boss and a friend.
 //
 // Everything is drawn in stage space (1080x1920). The head is centred at HEAD, the shoulders sit at y 1110 and
 // the table top at TABLE (rooms.tsx), so the hands rest on it.
@@ -12,10 +13,25 @@ import { Easing, interpolate } from "remotion";
 export const HEAD = { x: 540, y: 840, rx: 232, ry: 218 };
 export const TABLE = 1360;
 const INK = "#1b1b1f";
-const SKIN = "#f7d2ae";
-const SKIN_DARK = "#e9b98f";
-const SHIRT = "#ffb000";
-const SHIRT_DARK = "#e39300";
+
+export type Toon = {
+  skin: string; skinDark: string; shirt: string; shirtDark: string;
+  hair: "tuft" | "ponytail" | "bun" | "side_part" | "bald" | "slick" | "messy";
+  hairColor?: string; glasses?: boolean; moustache?: boolean; bindi?: boolean; earrings?: boolean;
+  tie?: string; dupatta?: string;
+};
+const SKIN = { skin: "#f7d2ae", skinDark: "#e9b98f" };
+const TAN = { skin: "#e8b88c", skinDark: "#cf9a6c" };
+// Keys: the kid, then reel/comic.py OTHERS (who can be on screen)
+export const TOONS: Record<string, Toon> = {
+  kid: { ...SKIN, shirt: "#ffb000", shirtDark: "#e39300", hair: "tuft" },
+  girl: { ...SKIN, shirt: "#ffb000", shirtDark: "#e39300", hair: "ponytail" },
+  mother: { ...SKIN, shirt: "#d6336c", shirtDark: "#a61e4d", hair: "bun", bindi: true, earrings: true, dupatta: "#ffd43b" },
+  father: { ...TAN, shirt: "#4dabf7", shirtDark: "#1c7ed6", hair: "side_part", moustache: true },
+  teacher: { ...TAN, shirt: "#c9a26b", shirtDark: "#a07a45", hair: "bald", glasses: true, moustache: true },
+  boss: { ...SKIN, shirt: "#e9ecef", shirtDark: "#adb5bd", hair: "slick", glasses: true, tie: "#c92a2a" },
+  friend: { ...TAN, shirt: "#40c057", shirtDark: "#2b8a3e", hair: "messy" },
+};
 const PINK = "#ff8f9e";
 const TEAR = "#62b9ff";
 const EYE_L = { x: 470, y: 800 };
@@ -55,7 +71,7 @@ const FACES: Record<Face, { lid: number; low: number; pupil: number; brows: [num
   sad: { lid: 0.35, low: 0, pupil: 16, brows: [-22, 12] },
 };
 
-const Eye: React.FC<{ c: Pt; side: -1 | 1; face: Face; look: Pt; blink: number; id: string; f: number }> = ({ c, side, face, look, blink, id, f }) => {
+const Eye: React.FC<{ c: Pt; side: -1 | 1; face: Face; look: Pt; blink: number; id: string; f: number; skin: string }> = ({ c, side, face, look, blink, id, f, skin }) => {
   const k = FACES[face];
   const lid = Math.max(k.lid, blink);
   const top = c.y - EYE.ry;
@@ -80,8 +96,8 @@ const Eye: React.FC<{ c: Pt; side: -1 | 1; face: Face; look: Pt; blink: number; 
             <circle cx={px - k.pupil * 0.35} cy={py - k.pupil * 0.4} r={Math.max(3, k.pupil * 0.3)} fill="#fff" />
           </>
         )}
-        {lid > 0.01 && <rect x={c.x - EYE.rx - 4} y={top - 6} width={EYE.rx * 2 + 8} height={lidY - top + 6} fill={SKIN} />}
-        {k.low > 0.01 && <rect x={c.x - EYE.rx - 4} y={lowY} width={EYE.rx * 2 + 8} height={EYE.ry * 2} fill={SKIN} />}
+        {lid > 0.01 && <rect x={c.x - EYE.rx - 4} y={top - 6} width={EYE.rx * 2 + 8} height={lidY - top + 6} fill={skin} />}
+        {k.low > 0.01 && <rect x={c.x - EYE.rx - 4} y={lowY} width={EYE.rx * 2 + 8} height={EYE.ry * 2} fill={skin} />}
       </g>
       {lid > 0.01 && lid < 0.97 && <path d={`M${c.x - EYE.rx + 6},${lidY} L${c.x + EYE.rx - 6},${lidY}`} stroke={INK} strokeWidth={9} strokeLinecap="round" />}
       {lid >= 0.97 && <path d={`M${c.x - EYE.rx + 10},${c.y + 6} Q${c.x},${c.y + 22} ${c.x + EYE.rx - 10},${c.y + 6}`} stroke={INK} strokeWidth={9} fill="none" strokeLinecap="round" />}
@@ -144,25 +160,88 @@ const Mouth: React.FC<{ face: Face; open: number; f: number }> = ({ face, open, 
   }
 };
 
-const Hair: React.FC<{ girl?: boolean }> = ({ girl }) => {
+const HAIR = "#2a1b17";
+// the hair cap that covers the top of the head
+const cap = (x: number, y: number) => `M${x - 214},${y - 70} Q${x - 170},${y - 250} ${x},${y - 236} Q${x + 170},${y - 250} ${x + 214},${y - 70} Q${x + 130},${y - 160} ${x},${y - 152} Q${x - 130},${y - 160} ${x - 214},${y - 70} Z`;
+
+const HairBack: React.FC<{ t: Toon }> = ({ t }) => {
   const top = HEAD.y - HEAD.ry;
-  if (girl) {
-    return (
-      <g stroke={INK} strokeWidth={8} strokeLinejoin="round">
-        {/* ponytail behind the head, and a fringe and a bow on top */}
-        <path d={`M${HEAD.x + 170},${top + 90} Q${HEAD.x + 330},${top + 40} ${HEAD.x + 300},${top + 260} Q${HEAD.x + 270},${top + 200} ${HEAD.x + 200},${top + 170} Z`} fill="#2a1b17" />
-        <path d={`M${HEAD.x - 200},${top + 120} Q${HEAD.x - 120},${top - 30} ${HEAD.x + 10},${top - 6} Q${HEAD.x + 150},${top - 24} ${HEAD.x + 210},${top + 110} Q${HEAD.x + 120},${top + 40} ${HEAD.x + 20},${top + 70} Q${HEAD.x - 100},${top + 40} ${HEAD.x - 200},${top + 120} Z`} fill="#2a1b17" />
-        <path d={`M${HEAD.x + 120},${top + 2} l-46,-40 l6,70 Z M${HEAD.x + 120},${top + 2} l50,-34 l-4,70 Z`} fill="#ff4f7b" />
-        <circle cx={HEAD.x + 120} cy={top + 4} r={14} fill="#ff4f7b" />
-      </g>
-    );
+  const fill = t.hairColor ?? HAIR;
+  if (t.hair === "ponytail") {
+    return <path d={`M${HEAD.x + 170},${top + 90} Q${HEAD.x + 330},${top + 40} ${HEAD.x + 300},${top + 260} Q${HEAD.x + 270},${top + 200} ${HEAD.x + 200},${top + 170} Z`} fill={fill} stroke={INK} strokeWidth={8} strokeLinejoin="round" />;
   }
-  // a spiky tuft on top
-  return (
-    <path d={`M${HEAD.x - 90},${top + 20} L${HEAD.x - 70},${top - 46} L${HEAD.x - 30},${top + 6} L${HEAD.x},${top - 64} L${HEAD.x + 34},${top + 6} L${HEAD.x + 82},${top - 40} L${HEAD.x + 96},${top + 22} Q${HEAD.x},${top - 6} ${HEAD.x - 90},${top + 20} Z`}
-      fill={INK} stroke={INK} strokeWidth={6} strokeLinejoin="round" />
-  );
+  if (t.hair === "bun") return <circle cx={HEAD.x} cy={top - 18} r={78} fill={fill} stroke={INK} strokeWidth={8} />;
+  return null;
 };
+
+const HairFront: React.FC<{ t: Toon }> = ({ t }) => {
+  const top = HEAD.y - HEAD.ry;
+  const fill = t.hairColor ?? HAIR;
+  const o = { fill, stroke: INK, strokeWidth: 8, strokeLinejoin: "round" as const };
+  switch (t.hair) {
+    case "ponytail":
+      return (
+        <g>
+          <path d={`M${HEAD.x - 196},${HEAD.y - 120} Q${HEAD.x - 120},${HEAD.y - 250} ${HEAD.x + 10},${HEAD.y - 222} Q${HEAD.x + 150},${HEAD.y - 240} ${HEAD.x + 206},${HEAD.y - 110} Q${HEAD.x + 110},${HEAD.y - 168} ${HEAD.x + 20},${HEAD.y - 150} Q${HEAD.x - 100},${HEAD.y - 176} ${HEAD.x - 196},${HEAD.y - 120} Z`} {...o} />
+          <path d={`M${HEAD.x + 120},${top + 2} l-46,-40 l6,70 Z M${HEAD.x + 120},${top + 2} l50,-34 l-4,70 Z`} fill="#ff4f7b" stroke={INK} strokeWidth={8} strokeLinejoin="round" />
+          <circle cx={HEAD.x + 120} cy={top + 4} r={14} fill="#ff4f7b" stroke={INK} strokeWidth={8} />
+        </g>
+      );
+    case "bun":
+      return <path d={cap(HEAD.x, HEAD.y)} {...o} />;
+    case "side_part":
+      return (
+        <g>
+          <path d={cap(HEAD.x, HEAD.y)} {...o} />
+          <path d={`M${HEAD.x - 70},${HEAD.y - 232} Q${HEAD.x - 60},${HEAD.y - 190} ${HEAD.x - 90},${HEAD.y - 150}`} stroke={SKIN.skin} strokeWidth={10} fill="none" strokeLinecap="round" />
+        </g>
+      );
+    case "bald":
+      // a shiny top with tufts over the ears
+      return (
+        <g>
+          <path d={`M${HEAD.x - 228},${HEAD.y - 10} Q${HEAD.x - 250},${HEAD.y - 110} ${HEAD.x - 190},${HEAD.y - 140} Q${HEAD.x - 200},${HEAD.y - 70} ${HEAD.x - 214},${HEAD.y - 4} Z`} {...o} />
+          <path d={`M${HEAD.x + 228},${HEAD.y - 10} Q${HEAD.x + 250},${HEAD.y - 110} ${HEAD.x + 190},${HEAD.y - 140} Q${HEAD.x + 200},${HEAD.y - 70} ${HEAD.x + 214},${HEAD.y - 4} Z`} {...o} />
+          <path d={`M${HEAD.x - 90},${HEAD.y - 180} Q${HEAD.x - 40},${HEAD.y - 205} ${HEAD.x + 10},${HEAD.y - 196}`} stroke="#fff" strokeWidth={14} fill="none" strokeLinecap="round" opacity={0.6} />
+        </g>
+      );
+    case "slick":
+      return (
+        <g>
+          <path d={cap(HEAD.x, HEAD.y)} {...o} />
+          <path d={`M${HEAD.x - 150},${HEAD.y - 170} Q${HEAD.x},${HEAD.y - 250} ${HEAD.x + 170},${HEAD.y - 160}`} stroke="#5c4a42" strokeWidth={8} fill="none" strokeLinecap="round" />
+        </g>
+      );
+    case "messy":
+      return (
+        <path d={`M${HEAD.x - 214},${HEAD.y - 70} L${HEAD.x - 230},${HEAD.y - 170} L${HEAD.x - 160},${HEAD.y - 150} L${HEAD.x - 150},${HEAD.y - 250} L${HEAD.x - 70},${HEAD.y - 196} L${HEAD.x - 20},${HEAD.y - 280} L${HEAD.x + 40},${HEAD.y - 200} L${HEAD.x + 120},${HEAD.y - 262} L${HEAD.x + 140},${HEAD.y - 170} L${HEAD.x + 236},${HEAD.y - 176} L${HEAD.x + 214},${HEAD.y - 70} Q${HEAD.x + 120},${HEAD.y - 150} ${HEAD.x},${HEAD.y - 146} Q${HEAD.x - 120},${HEAD.y - 150} ${HEAD.x - 214},${HEAD.y - 70} Z`} {...o} />
+      );
+    default:
+      // the kid's spiky tuft on top
+      return (
+        <path d={`M${HEAD.x - 90},${top + 20} L${HEAD.x - 70},${top - 46} L${HEAD.x - 30},${top + 6} L${HEAD.x},${top - 64} L${HEAD.x + 34},${top + 6} L${HEAD.x + 82},${top - 40} L${HEAD.x + 96},${top + 22} Q${HEAD.x},${top - 6} ${HEAD.x - 90},${top + 20} Z`}
+          fill={INK} stroke={INK} strokeWidth={6} strokeLinejoin="round" />
+      );
+  }
+};
+
+// Glasses, a moustache and a bindi, over the face
+const FaceExtras: React.FC<{ t: Toon }> = ({ t }) => (
+  <g>
+    {t.glasses && (
+      <g fill="none" stroke={INK} strokeWidth={12}>
+        <ellipse cx={EYE_L.x} cy={EYE_L.y} rx={EYE.rx + 14} ry={EYE.ry + 12} />
+        <ellipse cx={EYE_R.x} cy={EYE_R.y} rx={EYE.rx + 14} ry={EYE.ry + 12} />
+        <path d={`M${EYE_L.x - EYE.rx - 14},${EYE_L.y - 10} L${HEAD.x - HEAD.rx + 6},${EYE_L.y - 24} M${EYE_R.x + EYE.rx + 14},${EYE_R.y - 10} L${HEAD.x + HEAD.rx - 6},${EYE_R.y - 24}`} />
+      </g>
+    )}
+    {t.moustache && (
+      <path d={`M${HEAD.x + 8},${HEAD.y + 104} Q${HEAD.x - 50},${HEAD.y + 88} ${HEAD.x - 82},${HEAD.y + 122} Q${HEAD.x - 30},${HEAD.y + 118} ${HEAD.x + 8},${HEAD.y + 124} Q${HEAD.x + 46},${HEAD.y + 118} ${HEAD.x + 98},${HEAD.y + 122} Q${HEAD.x + 66},${HEAD.y + 88} ${HEAD.x + 8},${HEAD.y + 104} Z`}
+        fill={t.hairColor ?? HAIR} stroke={INK} strokeWidth={6} strokeLinejoin="round" />
+    )}
+    {t.bindi && <circle cx={HEAD.x + 4} cy={EYE_L.y - EYE.ry - 66} r={14} fill="#e03131" stroke={INK} strokeWidth={4} />}
+  </g>
+);
 
 // ---- arms and gestures ------------------------------------------------------------------------------------
 export type Gesture = "type" | "talk" | "shrug" | "facepalm" | "point_self" | "point_viewer" | "arms_crossed" | "slam" | "phone" | "chai" | "think" | "scratch_head";
@@ -224,7 +303,7 @@ const solveArm = (sh: Pt, target: Pt, side: -1 | 1) => {
   return { elbow, hand };
 };
 
-const Arm: React.FC<{ sh: Pt; pose: ArmPose; side: -1 | 1 }> = ({ sh, pose, side }) => {
+const Arm: React.FC<{ sh: Pt; pose: ArmPose; side: -1 | 1; t: Toon }> = ({ sh, pose, side, t }) => {
   const { elbow, hand } = solveArm(sh, pose.at, side);
   const path = `M${sh.x},${sh.y} L${elbow.x},${elbow.y} L${hand.x},${hand.y}`;
   const sleeve = mix(sh, elbow, 0.45);
@@ -232,30 +311,30 @@ const Arm: React.FC<{ sh: Pt; pose: ArmPose; side: -1 | 1 }> = ({ sh, pose, side
   return (
     <g>
       <path d={path} stroke={INK} strokeWidth={66} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      <path d={path} stroke={SKIN} strokeWidth={52} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={path} stroke={t.skin} strokeWidth={52} fill="none" strokeLinecap="round" strokeLinejoin="round" />
       {/* the short sleeve */}
       <path d={`M${sh.x},${sh.y} L${sleeve.x},${sleeve.y}`} stroke={INK} strokeWidth={92} strokeLinecap="round" />
-      <path d={`M${sh.x},${sh.y} L${sleeve.x},${sleeve.y}`} stroke={SHIRT} strokeWidth={78} strokeLinecap="round" />
+      <path d={`M${sh.x},${sh.y} L${sleeve.x},${sleeve.y}`} stroke={t.shirt} strokeWidth={78} strokeLinecap="round" />
       {pose.hand === "point" && (
         <g>
           <path d={`M${hand.x},${hand.y} l${Math.cos(fingerDir) * 58},${Math.sin(fingerDir) * 58}`} stroke={INK} strokeWidth={30} strokeLinecap="round" />
-          <path d={`M${hand.x},${hand.y} l${Math.cos(fingerDir) * 58},${Math.sin(fingerDir) * 58}`} stroke={SKIN} strokeWidth={18} strokeLinecap="round" />
+          <path d={`M${hand.x},${hand.y} l${Math.cos(fingerDir) * 58},${Math.sin(fingerDir) * 58}`} stroke={t.skin} strokeWidth={18} strokeLinecap="round" />
         </g>
       )}
-      <circle cx={hand.x} cy={hand.y} r={pose.hand === "open" ? 42 : 37} fill={SKIN} stroke={INK} strokeWidth={8} />
+      <circle cx={hand.x} cy={hand.y} r={pose.hand === "open" ? 42 : 37} fill={t.skin} stroke={INK} strokeWidth={8} />
       {pose.hand === "open" && <path d={`M${hand.x - 20},${hand.y - 30} l-8,-22 M${hand.x},${hand.y - 36} l0,-24 M${hand.x + 20},${hand.y - 30} l8,-22`} stroke={INK} strokeWidth={8} strokeLinecap="round" />}
       {pose.hand === "phone" && (
         <g>
           <rect x={hand.x - 44} y={hand.y - 120} width={88} height={150} rx={16} fill="#2b2d36" stroke={INK} strokeWidth={8} />
           <rect x={hand.x - 32} y={hand.y - 106} width={64} height={110} rx={8} fill="#8fd3ff" />
-          <circle cx={hand.x + 28} cy={hand.y + 4} r={22} fill={SKIN} stroke={INK} strokeWidth={7} />
+          <circle cx={hand.x + 28} cy={hand.y + 4} r={22} fill={t.skin} stroke={INK} strokeWidth={7} />
         </g>
       )}
       {pose.hand === "chai" && (
         <g>
           <path d={`M${hand.x - 40},${hand.y - 64} L${hand.x + 40},${hand.y - 64} L${hand.x + 30},${hand.y + 10} L${hand.x - 30},${hand.y + 10} Z`} fill="#fff" stroke={INK} strokeWidth={8} strokeLinejoin="round" />
           <ellipse cx={hand.x} cy={hand.y - 64} rx={40} ry={10} fill="#b5703a" stroke={INK} strokeWidth={6} />
-          <circle cx={hand.x - 30} cy={hand.y - 14} r={24} fill={SKIN} stroke={INK} strokeWidth={7} />
+          <circle cx={hand.x - 30} cy={hand.y - 14} r={24} fill={t.skin} stroke={INK} strokeWidth={7} />
         </g>
       )}
     </g>
@@ -265,10 +344,13 @@ const Arm: React.FC<{ sh: Pt; pose: ArmPose; side: -1 | 1 }> = ({ sh, pose, side
 // ---- the whole kid ----------------------------------------------------------------------------------------
 export const Kid: React.FC<{
   f: number; face: string; look: string; gesture: string; mouth: number; girl?: boolean;
+  toon?: string; // who to draw (TOONS): the kid by default
   // frames into the whole Reel, for blinking on a steady rhythm across cuts
   clock: number;
   table?: React.ReactNode; // drawn over the body and under the arms, so the hands rest on it
-}> = ({ f, face: faceName, look: lookName, gesture: gestureName, mouth, girl, clock, table }) => {
+}> = ({ f, face: faceName, look: lookName, gesture: gestureName, mouth, girl, clock, table, toon }) => {
+  const who = toon && TOONS[toon] ? toon : girl ? "girl" : "kid";
+  const t = TOONS[who];
   const face = (faceName in FACES ? faceName : "deadpan") as Face;
   const look = (lookName in LOOK ? lookName : "viewer") as Look;
   const eyeRoll = face === "eye_roll" ? LOOK.up : null;
@@ -291,34 +373,34 @@ export const Kid: React.FC<{
     <g>
       {/* body: a saffron T-shirt, cut by the table */}
       <g transform={`translate(0 ${breathe * 0.5})`}>
-        <path d={`M300,${TABLE + 40} L312,1170 Q318,1080 420,1062 Q540,1046 660,1062 Q762,1080 768,1170 L780,${TABLE + 40} Z`} fill={SHIRT} stroke={INK} strokeWidth={9} strokeLinejoin="round" />
-        <path d={`M470,1058 Q540,1110 610,1058`} fill={SKIN} stroke={INK} strokeWidth={8} />
-        <path d={`M390,1200 Q400,1290 386,${TABLE}`} stroke={SHIRT_DARK} strokeWidth={10} fill="none" strokeLinecap="round" />
-        <path d={`M690,1200 Q680,1290 694,${TABLE}`} stroke={SHIRT_DARK} strokeWidth={10} fill="none" strokeLinecap="round" />
+        <path d={`M300,${TABLE + 40} L312,1170 Q318,1080 420,1062 Q540,1046 660,1062 Q762,1080 768,1170 L780,${TABLE + 40} Z`} fill={t.shirt} stroke={INK} strokeWidth={9} strokeLinejoin="round" />
+        <path d={`M470,1058 Q540,1110 610,1058`} fill={t.skin} stroke={INK} strokeWidth={8} />
+        <path d={`M390,1200 Q400,1290 386,${TABLE}`} stroke={t.shirtDark} strokeWidth={10} fill="none" strokeLinecap="round" />
+        <path d={`M690,1200 Q680,1290 694,${TABLE}`} stroke={t.shirtDark} strokeWidth={10} fill="none" strokeLinecap="round" />
+        {t.dupatta && <path d={`M330,1120 Q420,1090 470,1066 L560,1066 Q470,1200 760,${TABLE + 40} L700,${TABLE + 40} Q440,1240 330,1180 Z`} fill={t.dupatta} stroke={INK} strokeWidth={8} strokeLinejoin="round" />}
+        {t.tie && <path d={`M520,1080 L560,1080 L548,1110 L580,1300 L540,1340 L500,1300 L532,1110 Z`} fill={t.tie} stroke={INK} strokeWidth={7} strokeLinejoin="round" />}
       </g>
       {/* the head */}
       <g transform={`translate(0 ${bob * 0.4 + jolt + breathe * 0.3}) rotate(${tilt} ${HEAD.x} ${HEAD.y + 200})`}>
-        {girl && <Hair girl />}
-        <ellipse cx={HEAD.x - HEAD.rx + 6} cy={HEAD.y + 30} rx={36} ry={50} fill={SKIN} stroke={INK} strokeWidth={8} />
-        <ellipse cx={HEAD.x + HEAD.rx - 6} cy={HEAD.y + 30} rx={36} ry={50} fill={SKIN} stroke={INK} strokeWidth={8} />
-        <path d={`M${HEAD.x - HEAD.rx + 16},${HEAD.y + 22} q14,-12 18,8 M${HEAD.x + HEAD.rx - 16},${HEAD.y + 22} q-14,-12 -18,8`} stroke={SKIN_DARK} strokeWidth={7} fill="none" strokeLinecap="round" />
-        <ellipse cx={HEAD.x} cy={HEAD.y} rx={HEAD.rx} ry={HEAD.ry} fill={SKIN} stroke={INK} strokeWidth={10} />
-        {!girl && <Hair />}
-        {girl && (
-          <path d={`M${HEAD.x - 196},${HEAD.y - 120} Q${HEAD.x - 120},${HEAD.y - 250} ${HEAD.x + 10},${HEAD.y - 222} Q${HEAD.x + 150},${HEAD.y - 240} ${HEAD.x + 206},${HEAD.y - 110} Q${HEAD.x + 110},${HEAD.y - 168} ${HEAD.x + 20},${HEAD.y - 150} Q${HEAD.x - 100},${HEAD.y - 176} ${HEAD.x - 196},${HEAD.y - 120} Z`}
-            fill="#2a1b17" stroke={INK} strokeWidth={8} strokeLinejoin="round" />
-        )}
+        <HairBack t={t} />
+        <ellipse cx={HEAD.x - HEAD.rx + 6} cy={HEAD.y + 30} rx={36} ry={50} fill={t.skin} stroke={INK} strokeWidth={8} />
+        <ellipse cx={HEAD.x + HEAD.rx - 6} cy={HEAD.y + 30} rx={36} ry={50} fill={t.skin} stroke={INK} strokeWidth={8} />
+        <path d={`M${HEAD.x - HEAD.rx + 16},${HEAD.y + 22} q14,-12 18,8 M${HEAD.x + HEAD.rx - 16},${HEAD.y + 22} q-14,-12 -18,8`} stroke={t.skinDark} strokeWidth={7} fill="none" strokeLinecap="round" />
+        <ellipse cx={HEAD.x} cy={HEAD.y} rx={HEAD.rx} ry={HEAD.ry} fill={t.skin} stroke={INK} strokeWidth={10} />
+        <HairFront t={t} />
+        {t.earrings && [HEAD.x - HEAD.rx + 6, HEAD.x + HEAD.rx - 6].map((x) => <circle key={x} cx={x} cy={HEAD.y + 90} r={14} fill="#fcc419" stroke={INK} strokeWidth={5} />)}
         {(face === "happy" || face === "nervous" || face === "smug") && (
           <>
             <ellipse cx={HEAD.x - 150} cy={HEAD.y + 98} rx={34} ry={18} fill={PINK} opacity={0.55} />
             <ellipse cx={HEAD.x + 158} cy={HEAD.y + 98} rx={34} ry={18} fill={PINK} opacity={0.55} />
           </>
         )}
-        <Eye c={EYE_L} side={-1} face={face} look={pupil} blink={blink} id="kid-eye-l" f={f} />
-        <Eye c={EYE_R} side={1} face={face} look={pupil} blink={blink} id="kid-eye-r" f={f} />
+        <Eye c={EYE_L} side={-1} face={face} look={pupil} blink={blink} id={`${who}-eye-l`} f={f} skin={t.skin} />
+        <Eye c={EYE_R} side={1} face={face} look={pupil} blink={blink} id={`${who}-eye-r`} f={f} skin={t.skin} />
         <Brow c={EYE_L} side={-1} inner={brow.brows[0]} outer={brow.brows[1]} raise={raise} />
         <Brow c={EYE_R} side={1} inner={browR[0]} outer={browR[1]} raise={raise} />
-        <path d={`M${HEAD.x + 8},${HEAD.y + 70} q16,10 2,22`} stroke={SKIN_DARK} strokeWidth={8} fill="none" strokeLinecap="round" />
+        <path d={`M${HEAD.x + 8},${HEAD.y + 70} q16,10 2,22`} stroke={t.skinDark} strokeWidth={8} fill="none" strokeLinecap="round" />
+        <FaceExtras t={t} />
         <Mouth face={face} open={mouth} f={f} />
         {face === "cry" && (
           <g opacity={0.9}>
@@ -335,8 +417,8 @@ export const Kid: React.FC<{
         )}
       </g>
       {table}
-      <Arm sh={SHOULDER_L} pose={pose.l} side={-1} />
-      <Arm sh={SHOULDER_R} pose={pose.r} side={1} />
+      <Arm sh={SHOULDER_L} pose={pose.l} side={-1} t={t} />
+      <Arm sh={SHOULDER_R} pose={pose.r} side={1} t={t} />
     </g>
   );
 };
