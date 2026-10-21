@@ -150,5 +150,32 @@ class VoiceTest(unittest.TestCase):
             voice.gemini_voice([('narrator', 'एक'), ('other', 'दो')], 'mother', Path(tmp) / 'v.wav', style='comic')
         self.assertIn('never a voice actor, a cartoon', calls[0][0])
         self.assertEqual(calls[0][1], 'Zubenelgenubi')
-        self.assertIn('calling from another room', calls[1][0])
+        self.assertEqual([who for who, _, _ in calls[1][0]], ['Narrator', 'Other'])
+        self.assertIn('calling from another room', calls[1][0][1][2])
         self.assertEqual(calls[1][2], {'Narrator': 'Zubenelgenubi', 'Other': 'Sulafat'})
+
+    def test_dialogue_is_sent_as_speaker_tagged_parts(self):
+        sent = {}
+
+        def call(kind, body):
+            sent.update(body)
+            return {'candidates': [{'content': {'parts': [{'inlineData': {'data': '', 'mimeType': 'audio/L16'}}]}}]}, 'tts'
+        with mock.patch.object(voice.gemini, 'call', call):
+            voice.gemini.speech_call([('Narrator', 'एक', 'dry'), ('Other', 'दो', '')], 'Puck', {'Narrator': 'Puck', 'Other': 'Kore'})
+        self.assertEqual(sent['contents'][0]['parts'], [{'text': 'एक', 'speechMetadata': {'speaker': 'Narrator', 'style': 'dry'}},
+                                                        {'text': 'दो', 'speechMetadata': {'speaker': 'Other'}}])
+        names = [c['speaker'] for c in sent['generationConfig']['speechConfig']['multiSpeakerVoiceConfig']['speakerVoiceConfigs']]
+        self.assertEqual(names, ['Narrator', 'Other'])
+
+    def test_the_punchline_gets_a_beat_before_it(self):
+        calls = []
+
+        def speech(prompt, voice_name, speakers=None):
+            calls.append(prompt)
+            return {'mimeType': 'audio/L16;rate=24000', 'data': base64.b64encode(b'\x00\x00' * 24000).decode()}, 'tts'
+        turns = script.spoken_turns(comic.clean(SAMPLE))
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(voice.gemini, 'speech_call', speech):
+            voice.gemini_voice(turns, 'mother', Path(tmp) / 'v.wav', style='comic')
+        styles = [style for _, _, style in calls[0]]
+        self.assertTrue(styles[-2].endswith(voice.COMIC_PUNCH))
+        self.assertEqual(sum(s.endswith(voice.COMIC_PUNCH) for s in styles), 1)

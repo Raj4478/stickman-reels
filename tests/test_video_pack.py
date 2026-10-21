@@ -62,8 +62,9 @@ class DialogueTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, mock.patch.object(gemini, 'speech_call', fake):
             record = voice.gemini_voice([('narrator', 'एक'), ('other', 'दो'), ('hero', 'तीन')], 'mother', Path(tmp) / 'v.wav')
         self.assertEqual(sent['speakers'], {'Narrator': voice.DEFAULT_VOICE, 'Other': 'Sulafat'})
-        self.assertIn('Other: दो', sent['prompt'])
-        self.assertIn('Narrator: तीन', sent['prompt'])  # the narrator voices the hero
+        # one part per line, tagged with its speaker (the 3.8 speech models refuse a "Name: text" transcript)
+        self.assertEqual([(who, text) for who, text, _ in sent['prompt']], [('Narrator', 'एक'), ('Other', 'दो'), ('Narrator', 'तीन')])
+        self.assertIn('mother', sent['prompt'][1][2])  # the other person's delivery style
         self.assertEqual(record['speakers']['Other'], 'Sulafat')
 
 

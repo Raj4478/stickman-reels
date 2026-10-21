@@ -60,15 +60,17 @@ Language and accent: Hindi, with a natural Indian accent.
 Read only the transcript below, exactly as written. Never read these notes, headings or labels aloud.
 #### TRANSCRIPT
 {transcript}"""
-DIALOGUE = """# AUDIO PROFILE: An animated Hindi Reel with a narrator and a {who}
-### DIRECTOR'S NOTES
-Narrator: the hero, telling their own story in first person, sincere and personal; when they say their
-own words in a scene they act them, with feeling.
-Other: the {who}, speaking naturally and in character, with real emotion.
-Pacing: brisk but clear, with a short, clear pause between lines. Language: Hindi, natural Indian accent.
-Read only the conversation below, exactly as written. Never read these notes or the speaker names aloud.
-#### CONVERSATION
-{transcript}"""
+# A dialogue goes to Gemini as one part per line, each tagged with its speaker and a delivery style (the 3.8
+# speech models refuse a "Narrator: ..." transcript). The style takes the place of the director's notes.
+DIALOGUE_STYLES = {
+    'story': ('Sincere and personal, the hero telling their own story to a close friend in natural Hindi; their own '
+              'words in a scene are acted with feeling',
+              'The {who}, speaking naturally and in character, with real emotion, in natural Hindi'),
+    'comic': ('Completely natural and conversational, like a real person venting to a friend, never a voice actor or '
+              'a cartoon voice: dry, deadpan and a bit tired of life, with small breaths, in everyday Hindi',
+              'The {who}, calling from another room: real, exasperated and natural, the way family shouts at home'),
+}
+COMIC_PUNCH = ', after a beat of silence, said flat and matter-of-fact'  # the punchline's delivery
 COMIC_NOTES = """# AUDIO PROFILE: A real young person from a small Indian town, venting to a friend about their own life
 ## THE SCENE: Sitting at the desk at home, talking into a phone camera, unscripted. Nobody is performing.
 ### DIRECTOR'S NOTES
@@ -83,19 +85,9 @@ actually talk at home.
 Read only the transcript below, exactly as written. Never read these notes, headings or labels aloud.
 #### TRANSCRIPT
 {transcript}"""
-COMIC_DIALOGUE = """# AUDIO PROFILE: A real Indian home: a young person venting to the camera, and their {who} calling from another room
-### DIRECTOR'S NOTES
-Narrator: completely natural and conversational, like a real person, never a voice actor or a cartoon voice;
-dry, deadpan and a bit tired of life, with small breaths and a beat of silence before the last line.
-Other: the {who}, calling from another room: real, exasperated and natural, the way family actually shouts at home.
-Pacing: normal talking speed, with a short pause between lines. Language: everyday Hindi, natural Indian accent.
-Read only the conversation below, exactly as written. Never read these notes or the speaker names aloud.
-#### CONVERSATION
-{transcript}"""
 COMIC_SHORT = ('Say this naturally, like a real person casually venting to a friend: dry, deadpan and conversational, '
                'in everyday Hindi, with a short pause between lines:\n\n{transcript}')
 SHORT = 'Say in a warm, friendly Hindi storytelling voice, with a short pause between lines:\n\n{transcript}'
-SHORT_DIALOGUE = 'TTS the following Hindi conversation between Narrator and Other, with a short pause between lines:\n\n{transcript}'
 WHO = {'mother': 'mother', 'father': 'father', 'boss': 'strict boss', 'friend': 'close friend', 'partner': 'partner',
        'child': 'young child', 'stranger': 'stranger', 'teacher': 'strict school teacher'}
 
@@ -144,9 +136,14 @@ def gemini_voice(turns, other, path, style='story'):
     dialogue = any(who == 'other' for who, _ in turns)
     if dialogue:
         speakers = {'Narrator': voice, 'Other': cast_voice(other)}
-        transcript = '\n'.join(f"{'Other' if who == 'other' else 'Narrator'}: {speakable(text)}" for who, text in turns)
-        prompts = ((COMIC_DIALOGUE if comic else DIALOGUE).format(who=WHO.get(other, 'friend'), transcript=transcript),
-                   SHORT_DIALOGUE.format(transcript=transcript))
+        hero_style, other_style = DIALOGUE_STYLES['comic' if comic else 'story']
+        other_style = other_style.format(who=WHO.get(other, 'friend'))
+        # the comic punchline is the line before the closing question
+        punch = len(turns) - 2 if comic else -1
+        tagged = [('Other', speakable(text), other_style) if who == 'other' else
+                  ('Narrator', speakable(text), hero_style + (COMIC_PUNCH if i == punch else '')) for i, (who, text) in enumerate(turns)]
+        # with the delivery styles first, then plain turns if the recording runs long
+        prompts = (tagged, [(who, text, '') for who, text, _ in tagged])
     else:
         speakers = None
         transcript = '\n\n'.join(speakable(line) for line in lines)
