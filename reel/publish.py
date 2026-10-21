@@ -86,12 +86,19 @@ def detail(exc):
 # further than a long list (more than 15 makes YouTube ignore them all).
 CHANNEL_TAGS = ['#hindikahani', '#lifelessons', '#seekhsketch']
 SEARCH_PHRASE = 'ज़िंदगी की सीख'  # what people type when looking for this kind of video
+# comic Reels (reel/comic.py) are found through comedy searches instead
+COMIC_TAGS = ['#hindicomedy', '#desicomedy', '#seekhsketch']
+COMIC_PHRASE = 'देसी कॉमेडी'
+
+
+def comic(story):
+    return story.get('style') == 'comic'
 
 
 def hashtag_list(story, limit=6):
     """The channel's niche tags, then the story's own, without repeats or near-repeats."""
     seen, out = set(), []
-    for tag in CHANNEL_TAGS + (story.get('hashtags') or []):
+    for tag in (COMIC_TAGS if comic(story) else CHANNEL_TAGS) + (story.get('hashtags') or []):
         key = tag.lower().lstrip('#').replace('_', '')
         if key and key not in seen:
             seen.add(key)
@@ -124,12 +131,14 @@ def texts(story):
     handle = os.getenv('REEL_HANDLE', '').strip()
     caption = '\n\n'.join(x for x in (story['title'] + part, story.get('instagram_caption') or story['lesson'],
                                       story.get('ask', ''), ' '.join(tags)) if x)
-    title = f"{story['title']}{part} | {SEARCH_PHRASE}"
+    title = f"{story['title']}{part} | {COMIC_PHRASE if comic(story) else SEARCH_PHRASE}"
     title = (title if len(title) <= 80 else (story['title'] + part)[:80]) + ' #shorts'
-    subscribe = '🔔 रोज़ एक नई सीख के लिए Subscribe करें' + (f' {handle}' if handle else '')
-    description = '\n\n'.join(x for x in (story.get('hook', ''), story.get('instagram_caption') or '', 'सीख: ' + story['lesson'],
+    subscribe = ('🔔 रोज़ हँसी के लिए Subscribe करें' if comic(story) else '🔔 रोज़ एक नई सीख के लिए Subscribe करें') + (f' {handle}' if handle else '')
+    ending = story['lesson'] if comic(story) else 'सीख: ' + story['lesson']  # a comic Reel ends on its punchline
+    description = '\n\n'.join(x for x in (story.get('hook', ''), story.get('instagram_caption') or '', ending,
                                           story.get('ask', ''), subscribe, ' '.join(tags + ['#shorts'])) if x)
-    keywords = [t.lstrip('#') for t in tags] + ['stickman animation', 'hindi stories', 'life lessons', 'हिंदी कहानी', 'moral stories']
+    keywords = [t.lstrip('#') for t in tags] + (['hindi comedy', 'cartoon comedy', 'desi comedy', 'funny cartoon', 'हिंदी कॉमेडी']
+                                                if comic(story) else ['stickman animation', 'hindi stories', 'life lessons', 'हिंदी कहानी', 'moral stories'])
     return {'caption': caption[:2200], 'title': title[:100], 'description': description[:4900],
             'tags': list(dict.fromkeys(keywords))[:20]}
 

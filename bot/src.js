@@ -4,6 +4,7 @@
 //                         voice, music, how many → Make it
 //   any plain message     your own lesson: the menu continues with voice, music and how many
 //   /reel <lesson>        make it straight away with the usual settings
+//   /comic [situation]    a comic Reel: a cartoon kid's deadpan rant with a punchline (reel/comic.py)
 //   /batch [n]  /series <lesson>  /status  /report  /ideas
 //   ⚙️ Settings / /settings   on/off switches (auto-post, best time, carousel, hook test, daily Reel, festivals),
 //                         saved as repository variables
@@ -18,6 +19,7 @@ export const HELP = `🎬 Stickman Reels
 Tap 🎬 New Reel and choose the topic, voice and music, or just send me a life lesson (for example "गुस्से में फैसले मत लो").
 
 /reel <lesson> - make it straight away
+/comic - a funny cartoon Reel (or /comic <situation>, e.g. /comic gym membership)
 /batch 3 - three Reels on fresh lessons
 /series <lesson> - a two-part story
 /status - what is running
@@ -32,9 +34,10 @@ const RUNS = { 'Make a Reel': 'Making Reels', 'Post a Reel': 'Posting', 'Weekly 
 
 // ---- the New Reel menu -------------------------------------------------------------------------------
 // Each button carries every choice made so far, so the bot needs no memory between taps:
-//   w:<stage>:<source>:<theme>:<voice>:<music>:<count>
+//   w:<stage>:<source>:<theme>:<voice>:<music>:<count>:<style>
 // source r random, i ideas, o festival, t theme, l your lesson · theme index · voice m/f · music a/w/t/o ·
-// count 1/2/3/5 or s (two-part series) · "-" = not chosen yet
+// count 1/2/3/5 or s (two-part series) · style s story, c comic · "-" = not chosen yet (style "-" follows the
+// usual style in Settings). Buttons sent before the style field existed still work.
 export const THEMES = [['love', '💘 प्यार'], ['family', '👨‍👩‍👧 परिवार'], ['money', '💰 पैसा'], ['health', '💪 सेहत'], ['study', '📚 पढ़ाई'],
   ['friendship', '🤝 दोस्ती'], ['work', '💼 काम'], ['self_respect', '👑 आत्मसम्मान'], ['relationships', '❤️ रिश्ते'],
   ['habits', '🔁 आदतें'], ['time', '⏰ समय']];
@@ -42,17 +45,19 @@ const SOURCES = { r: '🎲 Fresh random lesson', i: '💡 From viewer ideas', o:
 const VOICES = { m: '👨 Male voice', f: '👩 Female voice' };
 const MUSIC = { a: '🤖 Music: auto', w: '🎵 Music: warm', t: '⚡ Music: tense', o: '🔇 No music' };
 const COUNTS = { 1: '1 Reel', 2: '2 Reels', 3: '3 Reels', 5: '5 Reels', s: '📖 2-part story' };
+const STYLES = { s: '📖 Story', c: '😂 Comic' };
 const STAGES = ['s', 'h', 'v', 'm', 'c', 'k'];
 
 export function encode(stage, st) {
-  return `w:${stage}:${st.src || '-'}:${st.theme ?? '-'}:${st.voice || '-'}:${st.music || '-'}:${st.count || '-'}`;
+  return `w:${stage}:${st.src || '-'}:${st.theme ?? '-'}:${st.voice || '-'}:${st.music || '-'}:${st.count || '-'}:${st.style || '-'}`;
 }
 
 export function decode(data) {
-  const m = /^w:([shvmckx]):([-rioltc]):(-|\d{1,2}):([-mf]):([-awto]):([-1235s])$/.exec(data);
+  const m = /^w:([shvmckx]):([-rioltc]):(-|\d{1,2}):([-mf]):([-awto]):([-1235s])(?::([-sc]))?$/.exec(data);
   if (!m) return null;
-  const v = (x) => (x === '-' ? undefined : x);
-  return { stage: m[1], st: { src: v(m[2]), theme: v(m[3]) === undefined ? undefined : Number(m[3]), voice: v(m[4]), music: v(m[5]), count: v(m[6]) } };
+  const v = (x) => (x === '-' || x === undefined ? undefined : x);
+  return { stage: m[1], st: { src: v(m[2]), theme: v(m[3]) === undefined ? undefined : Number(m[3]), voice: v(m[4]), music: v(m[5]), count: v(m[6]),
+    style: v(m[7]) } };
 }
 
 const rowsOf = (items, per = 2) => items.reduce((rows, b, i) => (i % per ? rows[rows.length - 1].push(b) : rows.push([b]), rows), []);
@@ -60,7 +65,7 @@ const button = (text, data) => ({ text, callback_data: data });
 
 export function summary(st) {
   const topic = st.src === 't' ? `📚 ${THEMES[st.theme]?.[1] || ''}` : SOURCES[st.src] || '';
-  return [topic, VOICES[st.voice], MUSIC[st.music], COUNTS[st.count]].filter(Boolean).join(' · ');
+  return [STYLES[st.style], topic, VOICES[st.voice], MUSIC[st.music], COUNTS[st.count]].filter(Boolean).join(' · ');
 }
 
 // The message and buttons for one stage of the menu
@@ -71,7 +76,8 @@ export function screen(stage, st = {}) {
     return { text: '🎬 New Reel\n\nWhat should it be about?', keys: [
       ...rowsOf(['r', 'i', 'o', 't'].map((s) => button(SOURCES[s], encode(s === 't' ? 'h' : 'v', { ...st, src: s })))),
       [button('✍️ My own lesson', 'w:type')],
-      [button('⚡ Random Reel now, usual settings', encode('k', { src: 'r', voice: 'm', music: 'a', count: '1' }).replace('w:k:', 'w:g:'))]] };
+      [button('⚡ Random Reel now, usual settings', encode('k', { src: 'r', voice: 'm', music: 'a', count: '1' }).replace('w:k:', 'w:g:'))],
+      [button('😂 Comic Reel now', encode('k', { src: 'r', voice: 'm', music: 'a', count: '1', style: 'c' }).replace('w:k:', 'w:g:'))]] };
   }
   if (stage === 'h') {
     return { text: '📚 Pick a theme', keys: [...rowsOf(THEMES.map(([, label], i) => button(label, encode('v', { ...st, src: 't', theme: i })))), [back('s'), cancel]] };
@@ -88,7 +94,9 @@ export function screen(stage, st = {}) {
     const counts = st.src === 'l' ? ['1', 's'] : ['1', '2', '3', '5', 's'];
     return { text: `${summary(st)}\n\n🔢 How many?`, keys: [...rowsOf(counts.map((k) => button(COUNTS[k], encode('k', { ...st, count: k }))), 3), [back('m'), cancel]] };
   }
-  return { text: `Ready:\n${summary(st)}`, keys: [[button('✅ Make it', encode('k', st).replace('w:k:', 'w:g:'))], [back('c'), cancel]] };
+  // a two-part series is always a story; anything else can switch between story and comic here
+  const flip = st.count === 's' ? [] : [[button(st.style === 'c' ? '📖 Make it a story instead' : '😂 Make it comic instead', encode('k', { ...st, style: st.style === 'c' ? 's' : 'c' }))]];
+  return { text: `Ready:\n${summary(st)}`, keys: [[button('✅ Make it', encode('k', st).replace('w:k:', 'w:g:'))], ...flip, [back('c'), cancel]] };
 }
 
 // The Make a Reel inputs for the final choices (`lesson` is the typed lesson, when the source is l)
@@ -96,7 +104,8 @@ export function makeInputs(st, lesson = '') {
   const options = [st.src === 't' && THEMES[st.theme] ? `theme=${THEMES[st.theme][0]}` : '',
     { r: 'source=random', i: 'source=ideas', o: 'source=occasion' }[st.src] || '',
     st.voice === 'f' ? 'voice=female' : st.voice === 'm' ? 'voice=male' : '',
-    { w: 'music=warm', t: 'music=tense', o: 'music=off' }[st.music] || ''].filter(Boolean).join(' ');
+    { w: 'music=warm', t: 'music=tense', o: 'music=off' }[st.music] || '',
+    { c: 'style=comic', s: 'style=story' }[st.style] || ''].filter(Boolean).join(' ');
   const inputs = { ...(options ? { options } : {}), ...(lesson ? { topic: lesson.slice(0, 200) } : {}) };
   if (st.count === 's') inputs.series = 'true';
   else if (st.count && st.count !== '1') inputs.count = st.count;
@@ -111,9 +120,18 @@ export const SETTINGS = [
   ['HOOK_TEST', '🧪 Test a second hook', 'true'],
   ['DAILY_REEL', '📅 A Reel every day, 9 am', 'true'],
   ['OCCASIONS', '🎉 Festival topics', 'off'], // on unless set to "off"
+  ['REEL_STYLE', '😂 Comic style by default', 'comic'], // "comic" or "story": the usual style of a Reel
 ];
-export const isOn = (name, value) => (name === 'OCCASIONS' ? String(value || '').toLowerCase() !== 'off' : String(value || '').toLowerCase() === 'true');
-export const flipped = (name, value) => (name === 'OCCASIONS' ? (isOn(name, value) ? 'off' : 'on') : isOn(name, value) ? 'false' : 'true');
+export const isOn = (name, value) => {
+  const v = String(value || '').toLowerCase();
+  if (name === 'OCCASIONS') return v !== 'off';
+  return name === 'REEL_STYLE' ? v === 'comic' : v === 'true';
+};
+export const flipped = (name, value) => {
+  if (name === 'OCCASIONS') return isOn(name, value) ? 'off' : 'on';
+  if (name === 'REEL_STYLE') return isOn(name, value) ? 'story' : 'comic';
+  return isOn(name, value) ? 'false' : 'true';
+};
 
 export function settingsKeys(values) {
   return SETTINGS.map(([name, label], i) => [button(`${isOn(name, values[name]) ? '✅' : '⬜'} ${label}`, `set:${i}`)]);
@@ -164,6 +182,12 @@ export function route(text, data) {
   m = /^\/series(?:@\w+)?\s*([\s\S]*)$/i.exec(t);
   if (m) return { workflow: 'make-reel.yml', inputs: { series: 'true', topic: m[1].trim().slice(0, 200) }, reply: '📚 Making a two-part story (about 12 minutes)...' };
   if (t === '🎬 New Reel' || /^\/(reel|new)(?:@\w+)?\s*$/i.test(t)) return { menu: 's', st: {} };
+  m = /^\/comic(?:@\w+)?\s*([\s\S]*)$/i.exec(t);
+  if (m) {
+    const situation = m[1].trim().slice(0, 200);
+    return { workflow: 'make-reel.yml', inputs: { options: 'style=comic', ...(situation ? { topic: situation } : {}) },
+      reply: `😂 Making a comic Reel${situation ? ` about "${situation.slice(0, 80)}"` : ''} (about 6 minutes)...` };
+  }
   m = /^\/reel(?:@\w+)?\s+([\s\S]+)$/i.exec(t);
   if (m) return { workflow: 'make-reel.yml', inputs: { topic: m[1].trim().slice(0, 200) }, reply: `🎬 Making a Reel about "${m[1].trim().slice(0, 80)}" (about 7 minutes)...` };
   if (t.startsWith('/')) return { reply: HELP, menu_keyboard: true };

@@ -1,0 +1,59 @@
+{
+  "style": "comic",
+  "topic": "A two-year computer course that taught nothing useful",
+  "name": "गोलू",
+  "title": "Computer Course",
+  "title_b": "2 साल का कोर्स",
+  "emoji": "sob",
+  "place": "bedroom",
+  "other": "mother",
+  "hooks": [
+    "दो साल कंप्यूटर कोर्स किया, आज तक एक दिन काम नहीं आया।"
+  ],
+  "hook": {
+    "line": "दो साल कंप्यूटर कोर्स किया, आज तक एक दिन काम नहीं आया।",
+    "face": "deadpan",
+    "gesture": "type",
+    "look": "screen",
+    "speaker": "hero"
+  },
+  "lines": [
+    {
+      "line": "सर बोले थे, पंद्रह हज़ार की नौकरी पक्की।",
+      "face": "side_eye",
+      "gesture": "talk",
+      "look": "viewer",
+      "speaker": "hero"
+    },
+    {
+      "line": "गोलू! कुछ काम-धाम करेगा या नहीं?",
+      "face": "nervous",
+      "gesture": "type",
+      "look": "side",
+      "speaker": "other"
+    },
+    {
+      "line": "चार साल से घर पे बैठे हैं।",
+      "face": "sad",
+      "gesture": "shrug",
+      "look": "viewer",
+      "speaker": "hero"
+    }
+  ],
+  "punchline": {
+    "line": "पूरे कोर्स में बस एक चीज़ सीखी, गाना और फिलम चलाना।",
+    "face": "smug",
+    "gesture": "point_self",
+    "look": "viewer",
+    "speaker": "hero"
+  },
+  "ask": "तुमने कौन सा कोर्स किया था?",
+  "instagram_caption": "कोर्स दो साल का, सीख दो मिनट की 😭\nटैग करो उस दोस्त को जिसने भी यही किया।",
+  "hashtags": [
+    "#comedy",
+    "#relatable",
+    "#desihumour",
+    "#computercourse",
+    "#हिंदीकॉमेडी"
+  ]
+}

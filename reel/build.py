@@ -27,6 +27,10 @@ def segments(script, starts, speech_end, words=None):
         segment.update(start=shift(start), end=shift(end))
         if words:
             segment['words'] = [shift(t) for t in words[i]]
+    if script.get('style') == 'comic':
+        # how the kid acts the setup and the punchline (the rant lines carry their own face, gesture and look)
+        for segment, key in ((out[0], 'hook'), (out[-2], 'punch')):
+            segment.update({k: script.get(f'{key}_{k}') for k in ('face', 'gesture', 'look') if script.get(f'{key}_{k}')})
     out[0]['start'] = 0.0
     out[-1]['end'] = round(speech_end + LEAD + TAIL, 3)
     return out
@@ -54,7 +58,8 @@ def build(script, out, public, narrate=True, music=True, prefix=''):
     record, audio, heard, mouth = {'narration': 'none'}, None, None, []
     if narrate:
         try:
-            record = voice.synthesize(scripts.spoken_turns(script), out, script.get('other_voice', 'friend'))
+            record = voice.synthesize(scripts.spoken_turns(script), out, script.get('other_voice', 'friend'),
+                                      style=script.get('style', 'story'))
             if record.get('starts'):  # the Edge backup knows exactly where each line starts
                 starts, speech_end = record.pop('starts'), record.pop('speech_end')
             else:
@@ -78,6 +83,8 @@ def build(script, out, public, narrate=True, music=True, prefix=''):
     words = voice.word_times(lines, starts, speech_end, heard)
     props = {'audio': audio, 'music': None, 'lead': LEAD, 'handle': os.getenv('REEL_HANDLE', '').strip(),
              'mouth': mouth, 'hero': script.get('hero', 'boy'), 'segments': segments(script, starts, speech_end, words)}
+    if script.get('style') == 'comic':
+        props.update(style='comic', place=script.get('place', 'bedroom'), emoji=script.get('emoji', 'sob'))
     props['duration'] = props['segments'][-1]['end']
     if music:
         sounds.write_music(public / 'music.wav', props['duration'], script.get('music', 'warm'), script['title'])

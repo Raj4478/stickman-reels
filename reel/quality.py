@@ -28,7 +28,9 @@ would notice:
 - text cut off at an edge of the frame, or overlapping other text
 - text covering the stick figure's face, or unreadable text (too small, low contrast)
 - a figure accidentally cut off by the frame, or an empty-looking frame
-Hindi in Devanagari is expected. A small pencil cursor on the end card is intentional. Be brief."""
+Hindi in Devanagari is expected. A small pencil cursor on the end card is intentional. In comic Reels a big-headed
+cartoon kid sits behind a table, so only the upper body shows, and a short Roman-letter title strip sits at the
+top: both are intentional. Be brief."""
 
 
 def probe(video):
@@ -48,11 +50,11 @@ def loudness(video):
     return float(found.group(1)) if found else None
 
 
-def hard_checks(video, narrated=True):
+def hard_checks(video, narrated=True, shortest=20):
     info = probe(video)
     issues = []
-    if not 20 <= info['duration'] <= 60:
-        issues.append(f"length is {info['duration']:.0f}s (best 20-60s)")
+    if not shortest <= info['duration'] <= 60:
+        issues.append(f"length is {info['duration']:.0f}s (best {shortest}-60s)")
     if (info['width'], info['height']) != (1080, 1920):
         issues.append(f"size is {info['width']}x{info['height']} (expected 1080x1920)")
     if not info['audio']:
@@ -83,7 +85,8 @@ def check(folder, video):
     """Write folder/quality.json and return it: {'ok', 'issues', 'looked': bool}."""
     folder, video = Path(folder), Path(video)
     props = json.loads((folder / 'props.json').read_text(encoding='utf-8'))
-    info, issues = hard_checks(video, narrated=bool(props.get('audio')))
+    # a comic rant is meant to be short (15-25 seconds)
+    info, issues = hard_checks(video, narrated=bool(props.get('audio')), shortest=12 if props.get('style') == 'comic' else 20)
     looked = False
     try:
         with tempfile.TemporaryDirectory() as tmp:

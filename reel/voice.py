@@ -36,11 +36,17 @@ EDGE = {'narrator': ('hi-IN-MadhurNeural', '+0Hz', '+12%'), 'hero': ('hi-IN-Madh
 GAP = 0.42  # seconds of silence between lines in the Edge backup
 # The bot's voice choice (NARRATOR=male/female): the Gemini narrator, and the Edge backup's narrator and hero
 NARRATORS = {'male': ('Achird', 'hi-IN-MadhurNeural'), 'female': ('Sulafat', 'hi-IN-SwaraNeural')}
+# Comic Reels (reel/comic.py): Gemini's casual, easy-going voices, which sound like a real person talking rather
+# than a performer. The Edge backup keeps its natural pitch (pitching it up sounds robotic), only a little faster.
+COMIC_NARRATORS = {'male': ('Zubenelgenubi', 'hi-IN-MadhurNeural'), 'female': ('Callirrhoe', 'hi-IN-SwaraNeural')}
+COMIC_EDGE = {'male': ('+0Hz', '+8%'), 'female': ('+0Hz', '+6%')}
+COMIC_GAP = 0.3  # a rant runs on: shorter pauses than a story
 
 
-def narrator():
+def narrator(style='story'):
     """(Gemini voice, Edge voice) of the storyteller: REEL_VOICE wins, then NARRATOR, then male."""
-    choice = NARRATORS.get(os.getenv('NARRATOR', '').strip().lower(), NARRATORS['male'])
+    voices = COMIC_NARRATORS if style == 'comic' else NARRATORS
+    choice = voices.get(os.getenv('NARRATOR', '').strip().lower(), voices['male'])
     return os.getenv('REEL_VOICE', '').strip() or choice[0], choice[1]
 
 NOTES = """# AUDIO PROFILE: A young Indian person telling a short story from their own life
@@ -63,6 +69,31 @@ Pacing: brisk but clear, with a short, clear pause between lines. Language: Hind
 Read only the conversation below, exactly as written. Never read these notes or the speaker names aloud.
 #### CONVERSATION
 {transcript}"""
+COMIC_NOTES = """# AUDIO PROFILE: A real young person from a small Indian town, venting to a friend about their own life
+## THE SCENE: Sitting at the desk at home, talking into a phone camera, unscripted. Nobody is performing.
+### DIRECTOR'S NOTES
+Style: completely natural and conversational, exactly like a real person talking, never a voice actor, a cartoon
+voice or an announcer. Dry, deadpan and a bit tired of life, with a hint of sarcasm. They are not trying to be
+funny, and that is what makes it funny. Real speech: small breaths, a slight drag on words like "बस" and "अब", a
+little sigh where it fits, natural rises and falls instead of a sing-song pattern, the odd word said a touch faster.
+Pacing: normal talking speed, relaxed but never slow, with a short pause between lines and a beat of silence
+before the last line, which is said flat and matter-of-fact.
+Language and accent: everyday Hindi with a natural Indian accent and a light UP/Bihar flavour, the way people
+actually talk at home.
+Read only the transcript below, exactly as written. Never read these notes, headings or labels aloud.
+#### TRANSCRIPT
+{transcript}"""
+COMIC_DIALOGUE = """# AUDIO PROFILE: A real Indian home: a young person venting to the camera, and their {who} calling from another room
+### DIRECTOR'S NOTES
+Narrator: completely natural and conversational, like a real person, never a voice actor or a cartoon voice;
+dry, deadpan and a bit tired of life, with small breaths and a beat of silence before the last line.
+Other: the {who}, calling from another room: real, exasperated and natural, the way family actually shouts at home.
+Pacing: normal talking speed, with a short pause between lines. Language: everyday Hindi, natural Indian accent.
+Read only the conversation below, exactly as written. Never read these notes or the speaker names aloud.
+#### CONVERSATION
+{transcript}"""
+COMIC_SHORT = ('Say this naturally, like a real person casually venting to a friend: dry, deadpan and conversational, '
+               'in everyday Hindi, with a short pause between lines:\n\n{transcript}')
 SHORT = 'Say in a warm, friendly Hindi storytelling voice, with a short pause between lines:\n\n{transcript}'
 SHORT_DIALOGUE = 'TTS the following Hindi conversation between Narrator and Other, with a short pause between lines:\n\n{transcript}'
 WHO = {'mother': 'mother', 'father': 'father', 'boss': 'strict boss', 'friend': 'close friend', 'partner': 'partner',
@@ -105,19 +136,22 @@ def write_pcm(path, data, rate):
         wav.writeframes(data)
 
 
-def gemini_voice(turns, other, path):
+def gemini_voice(turns, other, path, style='story'):
     """Record with Gemini (one call). Returns the record, or raises GeminiError."""
-    voice = narrator()[0]
+    voice = narrator(style)[0]
+    comic = style == 'comic'
     lines = [text for _, text in turns]
     dialogue = any(who == 'other' for who, _ in turns)
     if dialogue:
         speakers = {'Narrator': voice, 'Other': cast_voice(other)}
         transcript = '\n'.join(f"{'Other' if who == 'other' else 'Narrator'}: {speakable(text)}" for who, text in turns)
-        prompts = (DIALOGUE.format(who=WHO.get(other, 'friend'), transcript=transcript), SHORT_DIALOGUE.format(transcript=transcript))
+        prompts = ((COMIC_DIALOGUE if comic else DIALOGUE).format(who=WHO.get(other, 'friend'), transcript=transcript),
+                   SHORT_DIALOGUE.format(transcript=transcript))
     else:
         speakers = None
         transcript = '\n\n'.join(speakable(line) for line in lines)
-        prompts = (NOTES.format(transcript=transcript), SHORT.format(transcript=transcript))
+        prompts = ((COMIC_NOTES if comic else NOTES).format(transcript=transcript),
+                   (COMIC_SHORT if comic else SHORT).format(transcript=transcript))
     limit = expected_seconds(lines) * 1.6 + 2
     for prompt in prompts:
         audio, model = gemini.speech_call(prompt, voice, speakers)
@@ -130,7 +164,7 @@ def gemini_voice(turns, other, path):
     raise gemini.GeminiError('the speech model kept reading its instructions aloud')
 
 
-def edge_voice(turns, other, path, rate=24000):
+def edge_voice(turns, other, path, rate=24000, style='story'):
     """Record each line with free Edge voices and join them with short pauses. Returns the record with exact starts."""
     import edge_tts  # only needed for the backup
 
@@ -138,43 +172,46 @@ def edge_voice(turns, other, path, rate=24000):
         await edge_tts.Communicate(text, voice, rate=speed, pitch=pitch).save(str(target))
 
     pcm, starts, t = b'', [], 0.0
-    silence = b'\x00\x00' * int(rate * GAP)
+    gap = COMIC_GAP if style == 'comic' else GAP
+    silence = b'\x00\x00' * int(rate * gap)
     with tempfile.TemporaryDirectory() as tmp:
         for i, (who, text) in enumerate(turns):
             voice, pitch, speed = edge_cast(other) if who == 'other' else EDGE.get(who, EDGE['narrator'])
             if who in ('narrator', 'hero'):
-                voice = narrator()[1]
+                voice = narrator(style)[1]
+                if style == 'comic':
+                    pitch, speed = COMIC_EDGE['female' if girl_hero() else 'male']
             mp3 = Path(tmp) / f'{i}.mp3'
             asyncio.run(say(speakable(text), voice, pitch, speed, mp3))
             raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(mp3), '-ac', '1', '-ar', str(rate), '-f', 's16le', '-'],
                                  capture_output=True, check=True, timeout=120).stdout
             starts.append(round(t, 3))
             pcm += raw + silence
-            t += len(raw) / 2 / rate + GAP
+            t += len(raw) / 2 / rate + gap
     write_pcm(path, pcm, rate)
-    return {'model': 'edge-tts', 'voice': narrator()[1], 'seconds': round(duration(path), 2), 'starts': starts,
-            'speech_end': round(t - GAP, 3)}
+    return {'model': 'edge-tts', 'voice': narrator(style)[1], 'seconds': round(duration(path), 2), 'starts': starts,
+            'speech_end': round(t - gap, 3)}
 
 
-def synthesize(turns, out, other='friend'):
+def synthesize(turns, out, other='friend', style='story'):
     """Write out/voice.wav for `turns` [(speaker, text)] where speaker is narrator, hero or other.
 
     Returns a record of the service and voices used; it has exact 'starts' when the Edge backup recorded it.
     """
     path = out / 'voice.wav'
     try:
-        return gemini_voice(turns, other, path)
+        return gemini_voice(turns, other, path, style)
     except (gemini.GeminiError, OSError) as exc:
         if any(who == 'other' for who, _ in turns):
             # Gemini still comes first: if only its two-voice dialogue failed, use its single storyteller voice
             try:
-                record = gemini_voice([('narrator', text) for _, text in turns], other, path)
+                record = gemini_voice([('narrator', text) for _, text in turns], other, path, style)
                 record['dialogue'] = f'one voice (two voices failed: {str(exc)[:120]})'
                 return record
             except (gemini.GeminiError, OSError) as single:
                 exc = single
         try:
-            record = edge_voice(turns, other, path)
+            record = edge_voice(turns, other, path, style=style)
         except Exception as backup:  # noqa: BLE001 - any failure here means no narration
             raise gemini.GeminiError(f'Gemini speech failed ({exc}) and so did the Edge backup ({backup})') from None
         gemini.note('Edge voices (hi-IN Madhur/Swara)', f'Gemini speech failed: {exc}')

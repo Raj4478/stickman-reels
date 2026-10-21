@@ -43,6 +43,32 @@ Hindi life-lesson Reels for Instagram, acted out by a stick figure and filmed li
    - the three best Reels;
    - a tip on what to make more of.
 
+## 😂 Comic Reels
+
+A second style, made for the cartoon-meme Reels that go viral in India: one room, one cheeky cartoon kid behind a
+table, talking straight to the viewer about a painfully relatable situation, ending on a punchline. The kid is
+the channel's own character, not any TV cartoon, so nothing is copied.
+
+- **The script** ([`reel/comic.py`](reel/comic.py)): Gemini writes a 15–25 second rant in everyday Hindi (a light
+  UP/Bihar flavour is welcome). It has a setup line that hooks in two seconds, 2–3 lines that escalate, and a
+  punchline whose twist sits in its last words. A second Gemini pass, the comedy editor, sharpens the setup,
+  makes the punchline land and cuts every extra word.
+  - Each line says how the kid acts it: a **face** (deadpan, side eye, smug, shock, eye roll, angry, cry, happy, nervous, sad), a **gesture** (typing, talking, shrug, facepalm, pointing, arms crossed, slamming the table, phone, chai, thinking, scratching the head) and where the kid **looks**.
+  - At most one line may come from someone off screen (मम्मी calling from the kitchen, पापा, the teacher, the boss). It gets its own voice, and the kid looks towards it.
+  - Situations come from [`comic_topics.txt`](comic_topics.txt), a chosen theme, viewer ideas or the next festival, told the funny way.
+- **The look** ([`remotion/src/comic/`](remotion/src/comic)):
+  - **The kid:** a big round head, huge eyes and thick eyebrows that do the acting, a saffron T-shirt. A boy has a spiky tuft; a girl (female voice) has a ponytail and a bow.
+  - **The room:** bedroom, classroom, kitchen, office or living room.
+  - **On screen:** a white title strip with two emoji at the top ("Computer Course 😭😭"), subtitles at the bottom, a medium or close framing for each line like a sitcom, and a snap zoom on the punchline followed by a "ba-dum-tss".
+- **The voice:** Gemini reads it like a real person venting to a friend: dry, deadpan, small breaths and a beat before the punchline. It uses its casual voices (`Zubenelgenubi`, or `Callirrhoe` for a girl; `REEL_VOICE` overrides). The Edge backup keeps its natural pitch, only a little faster.
+- **The ending:** the question for the comments, then Like, Subscribe, Follow and Share.
+
+**Make one:**
+- **From Telegram:** tap **😂 Comic Reel now**, use **😂 Make it comic instead** on the last step of the menu, or send `/comic` (or `/comic gym membership`).
+- **Always:** switch on **😂 Comic style by default** in ⚙️ Settings, which sets `REEL_STYLE=comic`. The daily Reel and plain `/reel` are then comic too.
+- **Make again** keeps the style. A two-part series is always a story.
+- **From GitHub:** Make a Reel with `style=comic` in *options*. With *sample* ticked, that renders [`examples/comic.json`](examples/comic.json) without Gemini.
+
 ## Growth features
 
 | Feature | What it does | Switch |
@@ -87,7 +113,7 @@ Every backup used is named in the Telegram caption, so you know when Gemini didn
     **⚡ Random Reel now** skips the questions.
   - **Send any lesson as a message**, and the menu continues with voice, music and count. `/reel <lesson>` makes it straight away with the usual settings.
   - **⚙️ Settings** shows on/off switches for auto-post, posting at the best time, carousel, hook test, the daily Reel and festival topics. Each tap saves the repository variable; `GH_DISPATCH_TOKEN` needs *Variables: Read and write*.
-  - **Other commands:** `/batch 3`, `/series <lesson>`, `/status`, `/report`, `/ideas`.
+  - **Other commands:** `/comic [situation]`, `/batch 3`, `/series <lesson>`, `/status`, `/report`, `/ideas`.
 - **From GitHub:** go to Actions → **Make a Reel** → Run workflow.
   - Type a lesson, or leave it empty for a fresh random line of [`topics.txt`](topics.txt). The last 25 topics are skipped.
   - **count** makes up to 5 Reels on different topics in one run.
@@ -135,6 +161,7 @@ A Reel takes about 6–8 minutes, including installing everything.
 | `CAROUSEL` | `true` also posts a 5-slide carousel of every Reel |
 | `YOUTUBE_PRIVACY` | `public` (default), `unlisted` or `private` |
 | `LOVE_SHARE` | The share of Reels without a chosen topic that are love stories, from `0` to `1` (default `0.4`) |
+| `REEL_STYLE` | `comic` makes comic Reels by default (the bot's 😂 switch); `story` or empty for stick-figure stories |
 | `REEL_VOICE` | Gemini voice name (default `Achird`; try `Sulafat`, `Charon`, `Kore`) |
 | `GEMINI_MODEL`, `GEMINI_TTS_MODEL` | Override the text or speech model |
 
@@ -143,6 +170,7 @@ A Reel takes about 6–8 minutes, including installing everything.
 ```bash
 pip install -r requirements.txt
 python -m reel make --sample examples/sample.json --silent
+python -m reel make --sample examples/comic.json --silent   # a comic Reel
 cd remotion
 npm ci
 npm run studio
@@ -159,6 +187,7 @@ python -m unittest discover -s tests -t .
 | File | Role |
 | --- | --- |
 | `reel/script.py` | The writer and director prompts, and the lists of actions, props, characters, places, shots and transitions. Also checks Gemini's answers and keeps the topic history. |
+| `reel/comic.py` | Comic Reels: the comedy writer and editor prompts, and the kid's faces, gestures, looks and rooms |
 | `reel/voice.py` | Hindi narration, line timing (pauses) and word timing (Whisper) |
 | `reel/sounds.py` | Sound effects and the music bed, made in code |
 | `reel/build.py` | Writes each Reel's `props.json`: segments, word times, music |
@@ -175,9 +204,10 @@ python -m unittest discover -s tests -t .
 | `remotion/src/actions.tsx` | The 26 actions, the characters and the props |
 | `remotion/src/places.tsx` | The six places, drawn in layers |
 | `remotion/src/engine/` | Stick-figure rig and effects (adapted from nispa/stickman-video, MIT) |
+| `remotion/src/comic/` | Comic Reels: the cartoon kid (`Kid.tsx`), the rooms, the drawn emoji and the Reel itself (`ComicReel.tsx`) |
 
-**Adding an action, place, shot or character:**
-1. Add it to the list in `reel/script.py`.
+**Adding an action, place, shot or character** (or a comic face, gesture, room or emoji):
+1. Add it to the list in `reel/script.py` (or `reel/comic.py`).
 2. Draw it in the matching template file.
 
 Tests check that the two always match.

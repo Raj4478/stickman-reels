@@ -86,6 +86,14 @@ def limit_info(exc):
     return (float(found.group(1)) if found else None), daily
 
 
+def refusal(exc):
+    """Gemini's own words for a 400/404 answer, e.g. "Multi-speaker voice config is not supported"."""
+    try:
+        return str(json.loads(exc.read() or b'{}').get('error', {}).get('message', ''))[:300]
+    except (ValueError, OSError):
+        return ''
+
+
 def call(kind, body):
     """Run `body` on the first model and key that answer. Returns (response, model).
 
@@ -117,7 +125,11 @@ def call(kind, body):
                         print(f'Gemini {kind}: key {index + 1} has used its {"daily " if daily else ""}quota on {model}; trying the next one')
                         break
                     if exc.code in (400, 404):
-                        break  # this model does not take this request or key: try the next
+                        # this model does not take this request: say why (Gemini's message never holds the key)
+                        reason = refusal(exc)
+                        print(f'Gemini {kind}: {model} refused the request (HTTP {exc.code}): {reason}')
+                        last += f': {reason[:160]}' if reason else ''
+                        break
                     if exc.code in (500, 502, 503, 504):
                         break  # still failing after retries: try the next key or model
                     raise GeminiError(f'Gemini refused the {kind} request ({last}). Check the GEMINI_API_KEY secret.') from None

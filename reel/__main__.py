@@ -9,7 +9,7 @@
     python -m reel slides out/1 remotion/out/reel-1.mp4   (carousel slides)
     python -m reel compile reels.json out/week.mp4        (the weekly compilation)
     python -m reel refresh-token (renews the Instagram token; prints it for the workflow to save)
-    python -m reel topic out/1   (prints the lesson of a Reel, for "Make again")
+    python -m reel topic out/1   (prints the lesson of a Reel, for "Make again"; --style prints story or comic)
     python -m reel sounds        (rewrites remotion/public/sfx/*.wav)
 
 `make` writes each Reel to out/<n>/ and its media to remotion/public/reels/<n>/, and lists the numbers in
@@ -43,8 +43,14 @@ def caption(story, record, folder=None):
 
 
 def stories(args):
+    from . import comic
     if args.sample:
-        yield script.clean(json.loads(args.sample.read_text(encoding='utf-8')))
+        raw = json.loads(args.sample.read_text(encoding='utf-8'))
+        yield (comic.clean if raw.get('style') == 'comic' else script.clean)(raw)
+        return
+    if args.style == 'comic' and not args.series:
+        for _ in range(args.count):
+            yield comic.write(args.topic, theme=args.theme, source=args.source)
         return
     if args.series:
         first = script.write(args.topic, part='1/2', theme=args.theme, source=args.source)
@@ -57,7 +63,14 @@ def stories(args):
         yield script.write(args.topic, theme=args.theme, source=args.source)
 
 
-OPTIONS = {'theme': tuple(script.THEMES), 'source': script.SOURCES, 'voice': ('male', 'female'), 'music': ('auto', 'warm', 'tense', 'off')}
+OPTIONS = {'theme': tuple(script.THEMES), 'source': script.SOURCES, 'voice': ('male', 'female'), 'music': ('auto', 'warm', 'tense', 'off'),
+           'style': script.STYLES}
+
+
+def style_of(chosen):
+    """The bot's choice, else the REEL_STYLE variable (the usual style, set in the bot's Settings), else story."""
+    usual = os.getenv('REEL_STYLE', '').strip().lower()
+    return chosen.get('style') or (usual if usual in script.STYLES else 'story')
 
 
 def parse_options(text):
@@ -151,7 +164,7 @@ def main(argv=None):
     make_cmd.add_argument('--silent', action='store_true', help='skip the narration (timing from word counts)')
     make_cmd.add_argument('--no-music', action='store_true', help='leave out the music bed')
     make_cmd.add_argument('--options', default='', help='the bot\'s choices: theme=<%s> source=<random|ideas|occasion> '
-                          'voice=<male|female> music=<auto|warm|tense|off>' % '|'.join(script.THEMES))
+                          'voice=<male|female> music=<auto|warm|tense|off> style=<story|comic>' % '|'.join(script.THEMES))
     make_cmd.add_argument('--out', type=Path, default=ROOT / 'out')
     make_cmd.add_argument('--public', type=Path, default=ROOT / 'remotion' / 'public')
     send = commands.add_parser('send', help='send a rendered Reel (and its cover) to Telegram')
@@ -184,6 +197,7 @@ def main(argv=None):
     qc.add_argument('video', type=Path)
     topic = commands.add_parser('topic', help="print a Reel's lesson")
     topic.add_argument('folder', type=Path)
+    topic.add_argument('--style', action='store_true', help="print the Reel's style (story or comic) instead")
     commands.add_parser('sounds', help='regenerate the sound effects in remotion/public/sfx')
     args = parser.parse_args(argv)
 
@@ -191,6 +205,9 @@ def main(argv=None):
         args.count = max(1, min(args.count, 5))
         chosen = parse_options(args.options)
         args.theme, args.source, args.music = chosen.get('theme', ''), chosen.get('source', ''), chosen.get('music', 'auto')
+        args.style = style_of(chosen)
+        if args.style == 'comic' and args.series:
+            print('Two-part stories are story Reels; making a story series')
         if args.music == 'off':
             args.no_music = True
         if chosen.get('voice'):
@@ -238,7 +255,8 @@ def main(argv=None):
     elif args.command == 'report':
         telegram.send_message(report.weekly())
     elif args.command == 'topic':
-        print(json.loads((args.folder / 'script.json').read_text(encoding='utf-8'))['topic'])
+        story = json.loads((args.folder / 'script.json').read_text(encoding='utf-8'))
+        print(story.get('style', 'story') if args.style else story['topic'])
     else:
         story = json.loads((args.folder / 'script.json').read_text(encoding='utf-8'))
         record_path = args.folder / 'voice-record.json'
