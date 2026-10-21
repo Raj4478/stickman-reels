@@ -50,11 +50,13 @@ def next_time(slot, now=None):
 
 
 def post_now(now=None, slot=None):
-    """True when posting at once is fine: POST_AT_PEAK is off, or the best slot is less than 45 minutes away."""
+    """True when posting at once is fine: POST_AT_PEAK is off, the best slot is less than 45 minutes away, or it
+    passed less than 2 hours ago (the next one is 22+ hours away: longer than Instagram keeps an upload, and
+    posting now is still close to the best time)."""
     if os.getenv('POST_AT_PEAK', '').strip().lower() != 'true':
         return True
     wait = next_time(slot or best_slot(), now) - (now or dt.datetime.now(dt.timezone.utc))
-    return wait <= dt.timedelta(minutes=45)
+    return wait <= dt.timedelta(minutes=45) or wait > dt.timedelta(hours=22)
 
 
 # --- learning from the numbers --------------------------------------------------------------

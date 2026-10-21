@@ -192,6 +192,8 @@ def main(argv=None):
     commands.add_parser('refresh-token', help='renew the Instagram token')
     commands.add_parser('youtube-check', help='check the YouTube sign-in; save a renewed token; warn before it ends')
     commands.add_parser('report', help='send the weekly numbers to Telegram')
+    posted_cmd = commands.add_parser('posted', help='exit 0 when a receipt (publish.json) shows the Reel went out')
+    posted_cmd.add_argument('receipt', type=Path)
     qc = commands.add_parser('check', help='quality-check a rendered Reel (length, sound, text and framing)')
     qc.add_argument('folder', type=Path)
     qc.add_argument('video', type=Path)
@@ -226,11 +228,20 @@ def main(argv=None):
         telegram.send_message(publish.summary(story, receipt))
         return 1 if any(r.get('status') == 'failed' for r in receipt['platforms'].values()) else 0
     elif args.command == 'publish-queued':
-        receipt, done = publish.publish_queued(args.folder)
-        if done:
+        receipt, done, failed = publish.publish_queued(args.folder)
+        if done or failed:
             story = json.loads((args.folder / 'script.json').read_text(encoding='utf-8'))
-            telegram.send_message(publish.summary(story, receipt))
-        print('still waiting' if publish.waiting(receipt) else 'done')
+            text = publish.summary(story, receipt)
+            if failed:
+                # the upload cannot be retried from here (Instagram keeps it for 24 hours only): say so, loudly
+                text = ('⚠️ The scheduled Instagram post did not go out.\n' + text +
+                        '\n\nPost it by hand in the Instagram app: the copy button under the Reel has the caption.')
+                print(f"::error::Scheduled Instagram post failed: {'; '.join(receipt['platforms'][n].get('error', '') for n in failed)}")
+            telegram.send_message(text)
+        print('still waiting' if publish.waiting(receipt) else 'failed' if failed else 'done')
+    elif args.command == 'posted':
+        receipt = json.loads(args.receipt.read_text(encoding='utf-8')) if args.receipt.exists() else {}
+        sys.exit(0 if publish.posted(receipt) else 1)
     elif args.command == 'slides':
         print([str(x) for x in carousel.slides(args.folder, args.video)])
     elif args.command == 'compile':

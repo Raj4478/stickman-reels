@@ -109,11 +109,11 @@ class QueueTest(unittest.TestCase):
         self.assertEqual(again['platforms']['instagram']['container'], 'c1')  # not uploaded twice
         self.assertIn('goes live 16 Oct 07:00 PM IST', publish.summary(STORY, receipt))
         with mock.patch.object(publish, 'instagram_finish', return_value={'id': 'm', 'url': 'https://ig/m'}) as finish:
-            _, done = publish.publish_queued(self.folder, now=ist(16, 12))
+            _, done, _ = publish.publish_queued(self.folder, now=ist(16, 12))
             self.assertEqual(done, [])  # not yet
-            receipt, done = publish.publish_queued(self.folder, now=ist(16, 19, 2))
+            receipt, done, failed = publish.publish_queued(self.folder, now=ist(16, 19, 2))
         finish.assert_called_once_with('c1')
-        self.assertEqual(done, ['instagram'])
+        self.assertEqual((done, failed), (['instagram'], []))
         self.assertFalse(publish.waiting(receipt))
 
     def test_trial_and_carousel_skip_without_their_files(self):

@@ -44,8 +44,10 @@ on:
 permissions:
   contents: read
   actions: read
+# Only the daily run shares a group (so two never overlap). Every request from the bot gets its own group: GitHub
+# keeps just one pending run per group and cancels the rest, which silently dropped taps made close together.
 concurrency:
-  group: make-reel
+  group: make-reel-${{ github.event_name == 'schedule' && 'daily' || github.run_id }}
   cancel-in-progress: false
 jobs:
   reel:
