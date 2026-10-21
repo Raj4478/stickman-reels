@@ -59,6 +59,13 @@ the channel's own character, not any TV cartoon, so nothing is copied.
 - **The look** ([`remotion/src/comic/`](remotion/src/comic)):
   - **The kid:** a big round head, huge eyes and thick eyebrows that do the acting, a saffron T-shirt. A boy has a spiky tuft; a girl (female voice) has a ponytail and a bow.
   - **The room:** bedroom, classroom, kitchen, office or living room.
+  - **The picture follows the words:** each line has its own visual, chosen by the writer:
+    - **the kid** talking;
+    - **a person** saying the line in their own room (मम्मी in the kitchen, पापा, सर in the classroom, the boss, a friend), or a sepia **फ्लैशबैक** when the kid quotes them ("सर बोले थे...");
+    - **a daydream** in a thought bubble;
+    - **a cutaway:** the computer screen (song, video, job site, search, error), calendar pages flying, a salary slip, a certificate gathering cobwebs, a spinning clock, a phone chat or an exam result. The kid keeps talking in a corner bubble during a cutaway.
+
+    The setup always shows the kid, and at least half the lines show a character.
   - **On screen:** a white title strip with two emoji at the top ("Computer Course 😭😭"), subtitles at the bottom, a medium or close framing for each line like a sitcom, and a snap zoom on the punchline followed by a "ba-dum-tss".
 - **The voice:** Gemini reads it like a real person venting to a friend: dry, deadpan, small breaths and a beat before the punchline. It uses its casual voices (`Zubenelgenubi`, or `Callirrhoe` for a girl; `REEL_VOICE` overrides). The Edge backup keeps its natural pitch, only a little faster.
 - **The ending:** the question for the comments, then Like, Subscribe, Follow and Share.

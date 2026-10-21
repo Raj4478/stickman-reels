@@ -36,6 +36,10 @@ export type Segment = {
   face?: string; // comic Reels (comic/ComicReel.tsx): how the kid acts the line
   gesture?: string;
   look?: string;
+  visual?: string; // comic: what the picture shows (kid, person, dream or a cutaway)
+  visual_text?: string;
+  screen?: string;
+  who?: string;
 };
 export type ReelProps = {
   audio: string | null; music?: string | null; lead: number; handle: string; duration: number; segments: Segment[];

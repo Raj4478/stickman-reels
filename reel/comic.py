@@ -1,9 +1,11 @@
 """Comic Reels: a cheeky cartoon kid with a big head and huge eyes rants about one relatable desi situation,
 deadpan, straight to the viewer, and the last line is the punchline (the bot's "😂 Comic" style).
 
-The look and rhythm follow viral Hindi cartoon-meme Reels: one room, one character who barely moves but whose
-eyes and eyebrows do the acting, a short title strip with two emoji at the top, 15-25 seconds of talking, and a
-twist at the end. The kid is our own character (not any TV cartoon), so nothing is copied.
+The look and rhythm follow viral Hindi cartoon-meme Reels: a character whose eyes and eyebrows do the acting, a
+short title strip with two emoji at the top, 15-25 seconds of talking, and a twist at the end. The picture follows
+the words: each line has a visual (VISUALS), so the Reel cuts from the kid to the teacher being quoted, मम्मी in the
+kitchen, calendar pages flying, the salary slip or the computer screen, with the kid still talking in a corner
+bubble. The kid is our own character (not any TV cartoon), so nothing is copied.
 
 Two Gemini passes, both answering in SCHEMA: the comedy writer drafts the rant, then a comedy editor punches it
 up (a sharper setup, a punchline whose last words carry the twist, shorter lines). `clean()` turns the answer
@@ -57,9 +59,25 @@ ROOMS = {
 }
 # Who may speak from off screen (one line at most); the kid looks at them
 OTHERS = {k: v for k, v in stories.CAST.items() if k in ('none', 'mother', 'father', 'teacher', 'boss', 'friend')}
+# What the picture shows on a line (remotion/src/comic/ComicReel.tsx and cutaways.tsx draw each one)
+VISUALS = {
+    'kid': 'the kid at the table, talking to the viewer (the default; always for the setup)',
+    'person': 'the person in `who` on screen in their own room: they say the line themselves (speaker other), or it '
+              'is a flashback of what they once said ("सर बोले थे...")',
+    'dream': 'the kid daydreaming, with visual_text in a thought bubble (hopes, plans, "what I thought would happen")',
+    'screen': 'close-up of the computer screen showing `screen` (music, video, jobs, search, error) with visual_text',
+    'calendar': 'calendar pages flying off, stopping on visual_text (years or months passing, "4 साल")',
+    'clock': 'a clock spinning fast, then visual_text ("घंटों बाद...", time wasted)',
+    'money': 'a salary slip with the amount in visual_text, coins falling (salary, fees, prices)',
+    'certificate': 'a framed certificate with visual_text as the course name, a spider web growing on it (useless degrees)',
+    'chat': 'a phone chat: typing dots, then visual_text as the reply, then "Seen" (texts, replies, being ignored)',
+    'result': 'an answer sheet with visual_text as the marks circled in red ("2/100")',
+}
+SCREENS = ('music', 'video', 'jobs', 'search', 'error')
 EMOJI = {'sob': 'loudly crying face', 'joy': 'laughing with tears', 'skull': 'skull ("I am dead")',
          'facepalm': 'facepalm face', 'clown': 'clown face', 'none': 'no emoji'}
-LIMITS = {'title': 32, 'title_b': 32, 'hook': 110, 'line': 120, 'lesson': 120, 'ask': 90, 'name': 16}
+LIMITS = {'title': 32, 'title_b': 32, 'hook': 110, 'line': 120, 'lesson': 120, 'ask': 90, 'name': 16, 'visual_text': 24}
+PEOPLE = tuple(k for k in OTHERS if k != 'none')  # who can be on screen
 
 LINE = {
     'type': 'object',
@@ -69,8 +87,13 @@ LINE = {
         'gesture': {'type': 'string', 'enum': list(GESTURES)},
         'look': {'type': 'string', 'enum': list(LOOKS)},
         'speaker': {'type': 'string', 'enum': ['hero', 'other'], 'description': 'hero (the kid) on almost every line'},
+        'visual': {'type': 'string', 'enum': list(VISUALS), 'description': 'What the picture shows on this line'},
+        'visual_text': {'type': 'string', 'description': 'At most 3 words or a number drawn in the picture (₹15,000, 4 साल, '
+                                                         'गाना.mp3), or "" for kid and person'},
+        'screen': {'type': 'string', 'enum': list(SCREENS), 'description': 'What the computer shows (only for visual screen)'},
+        'who': {'type': 'string', 'enum': list(PEOPLE), 'description': 'Who is on screen (only for visual person)'},
     },
-    'required': ['line', 'face', 'gesture', 'look', 'speaker'],
+    'required': ['line', 'face', 'gesture', 'look', 'speaker', 'visual', 'visual_text', 'screen', 'who'],
 }
 SCHEMA = {
     'type': 'object',
@@ -132,8 +155,16 @@ them), plus a question of at most 8 words.
 {face_list}
   Gestures:
 {gesture_list}
-- Optional: ONE line from someone off screen (`other`: {others}), e.g. मम्मी shouting from the kitchen; set that
-  line's speaker to "other" and the kid's look to "side". Otherwise other is "none" and every speaker is "hero".
+- Optional: ONE line said by someone else (`other`: {others}), e.g. मम्मी shouting from the kitchen; set that
+  line's speaker to "other". Otherwise other is "none" and every speaker is "hero".
+- MAKE THE PICTURE FOLLOW THE WORDS: for every line pick a `visual`, so the video shows what is being said:
+{visuals}
+  The setup is always "kid". At least half the lines show a character (kid, person or dream: the faces are
+  the stars), and use 1-3 cutaways where a line names something you can show: a person quoted or speaking (person + who), a salary
+  (money), years passing (calendar), the computer (screen), a degree (certificate), a reply (chat), marks
+  (result), a hope (dream). The punchline may reveal its twist as a cutaway (e.g. the screen playing a song).
+  visual_text is the 1-3 words or number drawn in that picture, taken from the line. The face is for whoever is
+  on screen (the kid keeps reacting in a corner bubble during cutaways).
 - place: the one room where the kid sits for the whole Reel:
 {rooms}
 - title: the strip at the top, 1-3 words that name the situation ("Computer Course"), plus an emoji: {emoji}.
@@ -157,6 +188,9 @@ Do all of this:
 3. Cut every word that does not earn its place; at most 14 words a line; it must sound natural spoken aloud.
 4. Acting: the face, gesture and look of each line must fit it; never the same face three lines in a row; the
    punchline gets the most expressive face of the Reel.
+4b. Pictures: every line's visual must show what it says (a quoted person -> person, a salary -> money, years ->
+   calendar...). The setup is "kid", at least half the lines show a character (kid, person or dream), and
+   visual_text is short and taken from the line. Visuals: {visual_names}.
 5. Keep first person ({hero}, {forms} verb forms), Devanagari only in spoken lines, and at most one off-screen line.
 6. Keep the title short (1-3 words) and give title_b a clearly different angle."""
 
@@ -175,10 +209,37 @@ def clean_line(raw, other):
     if not stories.DEVANAGARI.search(line):
         return None
     speaker = 'other' if raw.get('speaker') == 'other' and other != 'none' else 'narrator'
+    visual = pick(raw.get('visual'), VISUALS, 'kid')
+    who = other if speaker == 'other' else pick(raw.get('who'), PEOPLE, 'teacher')
+    if speaker == 'other' and visual == 'kid':
+        visual = 'person'  # show who is talking, in their own room
+    text = short(raw.get('visual_text'), LIMITS['visual_text'])
+    if visual in CUTAWAYS + ('dream',) and not text:
+        visual = 'kid'  # a cutaway needs something to show
     return {'line': line, 'caption': '', 'keyword': '', 'sticker': 'none',
             'face': pick(raw.get('face'), FACES, 'deadpan'), 'gesture': pick(raw.get('gesture'), GESTURES, 'talk'),
-            'look': 'side' if speaker == 'other' else pick(raw.get('look'), LOOKS, 'viewer'),
-            'speaker': speaker, 'with': other if speaker == 'other' else 'none'}
+            'look': pick(raw.get('look'), LOOKS, 'viewer'),
+            'speaker': speaker, 'with': other if speaker == 'other' else 'none',
+            'visual': visual, 'visual_text': text if visual not in ('kid', 'person') else '',
+            'screen': pick(raw.get('screen'), SCREENS, 'music'), 'who': who if visual == 'person' else 'none'}
+
+
+CUTAWAYS = ('screen', 'calendar', 'clock', 'money', 'certificate', 'chat', 'result')
+
+
+def keep_the_kid(lines):
+    """At least half of the lines show a character (the kid, a person or the kid's daydream): the last extra
+    cutaways go back to the kid."""
+    for line in reversed(lines):
+        if sum(x['visual'] not in CUTAWAYS for x in lines) * 2 >= len(lines):
+            break
+        if line['visual'] in CUTAWAYS:
+            line['visual'], line['visual_text'], line['who'] = 'kid', '', 'none'
+    return lines
+
+
+# How a line is acted and shown (the setup and punchline keep these as hook_<key> and punch_<key>)
+ACTED = ('face', 'gesture', 'look', 'visual', 'visual_text', 'screen', 'who')
 
 
 def clean(raw):
@@ -193,6 +254,8 @@ def clean(raw):
     if hook is None:
         first = next((h for h in raw.get('hooks') or [] if stories.DEVANAGARI.search(str(h))), '')
         hook = clean_line({'line': first, 'face': 'deadpan', 'gesture': 'type', 'look': 'viewer'}, 'none')
+    if hook is not None:
+        hook.update(visual='kid', visual_text='', who='none')  # the first frame shows the kid and the title
     punch = clean_line(raw.get('punchline') or {}, 'none')
     if hook is None or punch is None:
         raise ValueError('the setup or the punchline is not in Hindi')
@@ -205,14 +268,15 @@ def clean(raw):
         lines.append(line)
     if not lines:
         raise ValueError('the rant has no usable Hindi lines between the setup and the punchline')
+    keep_the_kid([hook, *lines, punch])
     if not script['title']:
         raise ValueError('the title strip is empty')
     if script['title_b'] == script['title']:
         script['title_b'] = ''
     script.update({
-        'hook': hook['line'], 'hook_face': hook['face'], 'hook_gesture': hook['gesture'], 'hook_look': hook['look'],
+        'hook': hook['line'], **{f'hook_{k}': hook[k] for k in ACTED},
         'scenes': [{**line, 'place': script['place']} for line in lines],
-        'lesson': punch['line'], 'punch_face': punch['face'], 'punch_gesture': punch['gesture'], 'punch_look': punch['look'],
+        'lesson': punch['line'], **{f'punch_{k}': punch[k] for k in ACTED},
         'ask': short(raw.get('ask'), LIMITS['ask']), 'music': 'comic', 'other_voice': other if spoken else 'friend',
         'part': '', 'instagram_caption': str(raw.get('instagram_caption') or '').strip()[:1500],
     })
@@ -255,7 +319,7 @@ def write(topic=None, theme='', source=''):
         name_hint=name_hint, topic=topic, n=random.choice((2, 3)), rules=COMEDY_RULES, hero=person, forms=forms,
         faces=', '.join(FACES), gestures=', '.join(GESTURES), looks=', '.join(LOOKS), face_list=stories.catalog(FACES),
         gesture_list=stories.catalog(GESTURES), others=', '.join(k for k in OTHERS if k != 'none'),
-        rooms=stories.catalog(ROOMS), emoji=', '.join(EMOJI),
+        rooms=stories.catalog(ROOMS), emoji=', '.join(EMOJI), visuals=stories.catalog(VISUALS),
         avoid='\n'.join(x for x in (f'- Do not repeat these recent titles or their angle: {", ".join(recent)}' if recent else '',
                                     growth.lessons_learned(), occasions.note(occasion) if occasion else '') if x))
     # no first-person check here: a rant often drops the "मैं" ("दो साल का कोर्स किया...") and is still the kid's own
@@ -270,7 +334,8 @@ def write(topic=None, theme='', source=''):
             continue
         try:
             edited, _ = gemini.json_call(EDITOR.format(draft=json.dumps(draft, ensure_ascii=False, indent=1), rules=COMEDY_RULES,
-                                                       hero=person, forms=forms), SCHEMA, temperature=0.7)
+                                                       hero=person, forms=forms, visual_names=', '.join(VISUALS)),
+                                        SCHEMA, temperature=0.7)
             script = clean(edited)
             script['directed'] = True
         except (ValueError, gemini.GeminiError) as exc:

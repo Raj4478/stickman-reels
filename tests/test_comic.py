@@ -179,3 +179,55 @@ class VoiceTest(unittest.TestCase):
         styles = [style for _, _, style in calls[0]]
         self.assertTrue(styles[-2].endswith(voice.COMIC_PUNCH))
         self.assertEqual(sum(s.endswith(voice.COMIC_PUNCH) for s in styles), 1)
+
+
+class VisualsTest(unittest.TestCase):
+    def line(self, **k):
+        return {'line': 'ये तो होना ही था।', 'face': 'sad', 'gesture': 'talk', 'look': 'viewer', 'speaker': 'hero',
+                'visual': 'kid', 'visual_text': '', 'screen': 'music', 'who': 'teacher', **k}
+
+    def test_sample_follows_the_words(self):
+        s = comic.clean(SAMPLE)
+        self.assertEqual(s['hook_visual'], 'kid')
+        self.assertEqual([(b['visual'], b['who']) for b in s['scenes']], [('person', 'teacher'), ('person', 'mother'), ('calendar', 'none')])
+        self.assertEqual((s['punch_visual'], s['punch_screen'], s['punch_visual_text']), ('screen', 'music', 'गाना.mp3'))
+
+    def test_visual_rules(self):
+        raw = copy(hook=self.line(visual='money', visual_text='₹5'))
+        raw['lines'] = [self.line(speaker='other', visual='kid'),  # a person speaking is shown
+                        self.line(visual='calendar', visual_text=''),  # nothing to show: back to the kid
+                        self.line(visual='rocket')]
+        s = comic.clean(raw)
+        self.assertEqual(s['hook_visual'], 'kid')  # the first frame is always the kid and the title
+        self.assertEqual([(b['visual'], b['who']) for b in s['scenes']], [('person', 'mother'), ('kid', 'none'), ('kid', 'none')])
+
+    def test_at_least_half_the_lines_show_a_character(self):
+        raw = copy()
+        raw['lines'] = [self.line(visual=v, visual_text='4 साल') for v in ('calendar', 'money', 'clock')]
+        raw['punchline'] = self.line(visual='result', visual_text='2/100')
+        s = comic.clean(raw)
+        visuals = [s['hook_visual'], *(b['visual'] for b in s['scenes']), s['punch_visual']]
+        self.assertGreaterEqual(sum(v not in comic.CUTAWAYS for v in visuals) * 2, len(visuals))
+        self.assertEqual(s['scenes'][0]['visual'], 'calendar')  # the first cutaways stay
+
+    def test_build_passes_the_visuals(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            props, _ = build.build(comic.clean(SAMPLE), Path(tmp) / 'o', Path(tmp) / 'p', narrate=False, music=False)
+        punch = props['segments'][-2]
+        self.assertEqual((punch['visual'], punch['screen'], punch['visual_text']), ('screen', 'music', 'गाना.mp3'))
+        self.assertEqual(props['segments'][1]['who'], 'teacher')
+
+    def test_every_visual_screen_and_person_is_drawn(self):
+        cut = (COMIC / 'cutaways.tsx').read_text(encoding='utf-8')
+        self.assertLessEqual(set(comic.CUTAWAYS), set(re.findall(r'case "(\w+)"', cut)))
+        for name in comic.SCREENS:
+            self.assertRegex(cut, rf'\n  {name}: \{{ title', name)
+        reel = (COMIC / 'ComicReel.tsx').read_text(encoding='utf-8')
+        kid = (COMIC / 'Kid.tsx').read_text(encoding='utf-8')
+        self.assertEqual(set(comic.VISUALS), set(comic.CUTAWAYS) | {'kid', 'person', 'dream'})
+        for who in comic.PEOPLE:
+            self.assertRegex(kid, rf'\n  {who}: \{{ \.\.\.', who)
+            self.assertIn(f'{who}: "', reel)  # the room they are found in
+        sounds_used = set(re.findall(r'\[\d+, "([a-z_]+)", [0-9.]+\]', cut))
+        self.assertTrue(sounds_used)
+        self.assertLessEqual(sounds_used, set(sounds.effects()))
