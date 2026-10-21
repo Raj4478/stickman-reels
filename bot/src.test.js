@@ -59,7 +59,10 @@ test('every menu button fits Telegram and decodes back', () => {
       }
     }
   }
-  assert.deepEqual(decode(encode('m', { src: 't', theme: 4, voice: 'f' })), { stage: 'm', st: { src: 't', theme: 4, voice: 'f', music: undefined, count: undefined } });
+  assert.deepEqual(decode(encode('m', { src: 't', theme: 4, voice: 'f' })), { stage: 'm', st: { src: 't', theme: 4, voice: 'f', music: undefined, count: undefined, style: undefined } });
+  // buttons sent before the style field existed still decode
+  assert.equal(decode('w:k:r:-:m:a:1').st.count, '1');
+  assert.equal(decode('w:k:r:-:m:a:1:c').st.style, 'c');
 });
 
 test('menu walks topic → theme → voice → music → count → make', () => {
@@ -147,4 +150,23 @@ test('post, again, skip, ideas and compilation buttons', () => {
   assert.deepEqual(route('', 'idea:55:2').inputs, { idea_of: '55:2' });
   assert.deepEqual(route('', 'comp:77').inputs, { from_run: '77' });
   assert.match(route('', 'post:abc:1').reply, /expired/);
+});
+
+test('comic style: quick button, switch, inputs, /comic and the usual-style setting', () => {
+  const quick = screen('s').keys.flat().find((b) => b.text.startsWith('😂'));
+  const go = route('', quick.callback_data).go;
+  assert.equal(go.style, 'c');
+  assert.equal(makeInputs(go).options, 'source=random voice=male style=comic');
+  const ready = screen('k', { src: 'r', voice: 'f', music: 'a', count: '1' });
+  const flip = ready.keys.flat().find((b) => b.text.includes('comic'));
+  const back = route('', flip.callback_data);
+  assert.deepEqual([back.menu, back.st.style], ['k', 'c']);
+  assert.ok(screen('k', back.st).keys.flat().some((b) => b.text.includes('story')));
+  assert.ok(!screen('k', { src: 'r', count: 's' }).keys.flat().some((b) => b.text.includes('comic')), 'a series is always a story');
+  assert.match(summary(back.st), /Comic/);
+  assert.deepEqual(route('/comic').inputs, { options: 'style=comic' });
+  assert.deepEqual(route('/comic@StickBot gym membership').inputs, { options: 'style=comic', topic: 'gym membership' });
+  assert.ok(isOn('REEL_STYLE', 'comic') && !isOn('REEL_STYLE', 'story') && !isOn('REEL_STYLE', ''));
+  assert.equal(flipped('REEL_STYLE', ''), 'comic');
+  assert.equal(flipped('REEL_STYLE', 'comic'), 'story');
 });

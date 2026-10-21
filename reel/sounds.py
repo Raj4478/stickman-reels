@@ -88,6 +88,22 @@ def effects():
     zap = tone(sweep(1400, 200, 0.25), 0.25, 'saw')
     out['angry'] = lowpass(zap, 2500) * envelope(len(zap), 0.002, 0.12) * 0.6
     out['swoosh_up'] = out['whoosh'][::-1].copy()
+    # comic Reels: "ba-dum-tss" after the punchline, a cartoon boing for a shock, keyboard clicks while typing
+    tom = lambda f: tone(sweep(f, f * 0.6, 0.18), 0.18) * envelope(int(RATE * 0.18), 0.002, 0.07)  # noqa: E731
+    n = noise(0.9, 6)
+    cymbal = (n - lowpass(n, 6000)) * envelope(len(n), 0.002, 0.35)
+    out['rimshot'] = np.concatenate([tom(220) + lowpass(noise(0.18, 7), 3000) * envelope(int(RATE * 0.18), 0.001, 0.03) * 0.5,
+                                     np.zeros(int(RATE * 0.05)), tom(165) * 1.1, np.zeros(int(RATE * 0.04)), cymbal * 1.6])
+    s = np.arange(int(RATE * 0.55)) / RATE
+    out['boing'] = np.sin(2 * np.pi * np.cumsum(220 + 160 * np.sin(2 * np.pi * 14 * s) * np.exp(-s * 5) + 140 * s) / RATE) * envelope(len(s), 0.003, 0.2)
+    keys = np.zeros(int(RATE * 1.2))
+    rng = np.random.default_rng(8)
+    for at in np.cumsum(rng.uniform(0.07, 0.16, 10)):
+        click = lowpass(noise(0.025, int(at * 1000)), 4500) * envelope(int(RATE * 0.025), 0.0005, 0.005) * rng.uniform(0.6, 1)
+        start = int(at * RATE)
+        if start + len(click) < len(keys):
+            keys[start:start + len(click)] += click
+    out['typing'] = keys
     return out
 
 
@@ -108,9 +124,12 @@ def write_effects(folder):
     return sorted(p.name for p in folder.glob('*.wav'))
 
 
-SCALES = {'warm': (0, 2, 4, 7, 9), 'tense': (0, 3, 5, 7, 10)}
+SCALES = {'warm': (0, 2, 4, 7, 9), 'tense': (0, 3, 5, 7, 10), 'comic': (0, 2, 4, 7, 9)}
 # vi-IV-I-V (emotional, lifts at the end) or i-VI-III-VII (tense); semitones from the key's root
-PROGRESSIONS = {'warm': ((9, 'm'), (5, ''), (0, ''), (7, '')), 'tense': ((0, 'm'), (8, ''), (3, ''), (10, ''))}
+# or I-vi-IV-V, bouncy and light, for comic Reels
+PROGRESSIONS = {'warm': ((9, 'm'), (5, ''), (0, ''), (7, '')), 'tense': ((0, 'm'), (8, ''), (3, ''), (10, '')),
+                'comic': ((0, ''), (9, 'm'), (5, ''), (7, ''))}
+BPM = {'comic': 112}
 
 
 def chord(root, quality):
@@ -164,7 +183,7 @@ def music(seconds, mood='warm', seed='reel', bpm=84):
 
 
 def write_music(path, seconds, mood='warm', seed='reel'):
-    write(path, music(seconds, mood, seed))
+    write(path, music(seconds, mood if mood in PROGRESSIONS else 'warm', seed, BPM.get(mood, 84)))
     return path
 
 

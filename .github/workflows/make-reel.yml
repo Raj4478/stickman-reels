@@ -1,8 +1,9 @@
 name: Make a Reel
-run-name: "Stickman Reel: ${{ inputs.topic || (inputs.remake_of && format('again {0}', inputs.remake_of)) || (github.event_name == 'schedule' && 'daily') || 'random topic' }}${{ inputs.series && ' (2-part series)' || '' }}"
+run-name: "Stickman Reel: ${{ inputs.topic || (inputs.remake_of && format('again {0}', inputs.remake_of)) || (github.event_name == 'schedule' && 'daily') || 'random topic' }}${{ inputs.series && ' (2-part series)' || '' }}${{ contains(inputs.options, 'style=comic') && ' (comic)' || '' }}"
 # Writes Hindi life-lesson stories with Gemini (free tier: a writer pass, then a director pass for hooks and
 # camera shots), records the narration, times every word with Whisper, renders the stick-figure Reels with
-# Remotion and sends each video and its cover to Telegram for review. Nothing is posted to Instagram yet.
+# Remotion and sends each video and its cover to Telegram for review. With options "style=comic" (or the
+# REEL_STYLE variable set to comic) it makes a comic Reel instead: a cartoon kid's deadpan rant (reel/comic.py).
 on:
   workflow_dispatch:
     inputs:
@@ -30,11 +31,11 @@ on:
         required: false
         type: string
       options:
-        description: 'Choices from the bot, e.g. "theme=money voice=female music=off source=ideas"'
+        description: 'Choices from the bot, e.g. "theme=money voice=female music=off source=ideas style=comic"'
         required: false
         type: string
       sample:
-        description: Render examples/sample.json without Gemini (to test the template)
+        description: Render examples/sample.json (or examples/comic.json with style=comic) without Gemini
         required: false
         type: boolean
         default: false
@@ -101,6 +102,7 @@ jobs:
           IDEA_OF: ${{ inputs.idea_of }}
           OCCASIONS: ${{ vars.OCCASIONS }}
           LOVE_SHARE: ${{ vars.LOVE_SHARE }}
+          REEL_STYLE: ${{ vars.REEL_STYLE }}
           OPTIONS: ${{ inputs.options }}
           HOOK_TEST: ${{ vars.HOOK_TEST }}
           GH_TOKEN: ${{ github.token }}
@@ -109,6 +111,7 @@ jobs:
             [[ "$REMAKE_OF" =~ ^[0-9]+:[0-9]+$ ]] || { echo 'remake_of must look like 123456:1'; exit 1; }
             gh run download "${REMAKE_OF%%:*}" --repo "$GITHUB_REPOSITORY" --name "reel-${REMAKE_OF%%:*}" --dir earlier
             TOPIC=$(python -m reel topic "earlier/out/${REMAKE_OF##*:}")
+            OPTIONS="$OPTIONS style=$(python -m reel topic --style "earlier/out/${REMAKE_OF##*:}")"  # same style again
             echo "Making again: $TOPIC"
           fi
           if [ -n "$IDEA_OF" ]; then
@@ -118,7 +121,8 @@ jobs:
             echo "Making idea: $TOPIC"
           fi
           if [ "$SAMPLE" = "true" ]; then
-            python -m reel make --sample examples/sample.json
+            case " $OPTIONS " in *" style=comic "*) SAMPLE_FILE=examples/comic.json ;; *) SAMPLE_FILE=examples/sample.json ;; esac
+            python -m reel make --sample "$SAMPLE_FILE"
           elif [ "$SERIES" = "true" ]; then
             python -m reel make --series --topic "$TOPIC" --options "$OPTIONS"
           else

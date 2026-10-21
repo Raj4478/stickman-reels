@@ -3,6 +3,10 @@ import { Composition } from "remotion";
 import { Card, CardProps } from "./Card";
 import { LogoAvatar, LogoBanner, LogoLockup, LogoMark } from "./Logo";
 import { ReelProps, StickReel } from "./StickReel";
+import { ComicReel } from "./comic/ComicReel";
+
+// The workflow renders "StickReel" for every Reel; a comic script's props (style "comic") get the comic look
+const Reel: React.FC<ReelProps> = (p) => (p.style === "comic" ? <ComicReel {...p} /> : <StickReel {...p} />);
 
 // Sample timing for Remotion Studio (`npm run studio`). Real renders pass public/reels/<n>/props.json instead.
 const DEMO: ReelProps = {
@@ -19,6 +23,19 @@ const DEMO: ReelProps = {
     { kind: "scene", text: "आखिरी दिन मैंने हिम्मत की, और गुलाब लेकर उसके सामने बैठ गया।", caption: "आखिरी मौका", action: "propose", prop: "none", mood: "happy", with: "partner", place: "park", shot: "two_shot", transition: "zoom", start: 12, end: 17 },
     { kind: "lesson", text: "जो दिल में है, वक्त रहते कह दो।", start: 17, end: 21 },
     { kind: "ask", text: "आपने कभी किसी से दिल की बात कही?", start: 21, end: 26 },
+  ],
+};
+
+// A comic Reel for the Studio (`examples/comic.json` is the same script)
+const COMIC: ReelProps = {
+  audio: null, music: null, lead: 0.3, handle: "", duration: 22, hero: "boy", style: "comic", place: "bedroom", emoji: "sob",
+  segments: [
+    { kind: "hook", text: "दो साल कंप्यूटर कोर्स किया, आज तक एक दिन काम नहीं आया।", title: "Computer Course", face: "deadpan", gesture: "type", look: "screen", start: 0, end: 4 },
+    { kind: "scene", text: "सर बोले थे, पंद्रह हज़ार की नौकरी पक्की।", face: "side_eye", gesture: "talk", look: "viewer", speaker: "narrator", start: 4, end: 8 },
+    { kind: "scene", text: "गोलू! कुछ काम-धाम करेगा या नहीं?", face: "nervous", gesture: "type", look: "side", speaker: "other", with: "mother", start: 8, end: 11.5 },
+    { kind: "scene", text: "चार साल से घर पे बैठे हैं।", face: "sad", gesture: "shrug", look: "viewer", speaker: "narrator", start: 11.5, end: 15 },
+    { kind: "lesson", text: "पूरे कोर्स में बस एक चीज़ सीखी, गाना और फिलम चलाना।", face: "smug", gesture: "point_self", look: "viewer", start: 15, end: 19.5 },
+    { kind: "ask", text: "तुमने कौन सा कोर्स किया था?", start: 19.5, end: 22 },
   ],
 };
 
@@ -40,8 +57,18 @@ export const RemotionRoot: React.FC = () => (
     defaultProps={CARD}
   />
   <Composition
+    id="ComicReel"
+    component={ComicReel}
+    width={1080}
+    height={1920}
+    fps={30}
+    durationInFrames={Math.ceil(COMIC.duration * 30)}
+    defaultProps={COMIC}
+    calculateMetadata={({ props }) => ({ durationInFrames: Math.ceil(props.duration * 30) })}
+  />
+  <Composition
     id="StickReel"
-    component={StickReel}
+    component={Reel}
     width={1080}
     height={1920}
     fps={30}

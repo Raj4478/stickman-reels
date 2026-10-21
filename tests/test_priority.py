@@ -91,7 +91,7 @@ class VoiceOrderTest(unittest.TestCase):
     def test_two_voice_failure_keeps_gemini_single_voice(self):
         tried = []
 
-        def gemini_voice(turns, other, path):
+        def gemini_voice(turns, other, path, style='story'):
             tried.append([who for who, _ in turns])
             if any(who == 'other' for who, _ in turns):
                 raise gemini.GeminiError('multi-speaker refused')

@@ -33,11 +33,17 @@ export type Segment = {
   speaker?: string; // narrator, hero or other: who says this line (dialogue beats move that figure's mouth)
   keyword?: string; // the caption word that bounces
   sticker?: string;
+  face?: string; // comic Reels (comic/ComicReel.tsx): how the kid acts the line
+  gesture?: string;
+  look?: string;
 };
 export type ReelProps = {
   audio: string | null; music?: string | null; lead: number; handle: string; duration: number; segments: Segment[];
   mouth?: number[]; // narration loudness per video frame from the start of the voice (0..1)
   hero?: "boy" | "girl"; // who tells the story (follows the narrator's voice)
+  style?: "story" | "comic"; // comic: rendered by comic/ComicReel.tsx
+  place?: string; // comic: the room
+  emoji?: string; // comic: the emoji after the title strip
 };
 
 // The mouth curve and where the voice starts, for the talking figures
@@ -148,7 +154,7 @@ const Top: React.FC<{ seg: Segment; f: number; dark: boolean }> = ({ seg, f, dar
 };
 
 // Spoken words, a few at a time, with the word being spoken highlighted (Whisper word times when available)
-const Subtitle: React.FC<{ seg: Segment; f: number; fps: number; speakerName?: string }> = ({ seg, f, fps, speakerName = "मैं" }) => {
+export const Subtitle: React.FC<{ seg: Segment; f: number; fps: number; speakerName?: string; top?: number }> = ({ seg, f, fps, speakerName = "मैं", top = 1395 }) => {
   const words = seg.text.split(/\s+/).filter(Boolean);
   if (!words.length) return null;
   const now = seg.start + f / fps;
@@ -177,7 +183,7 @@ const Subtitle: React.FC<{ seg: Segment; f: number; fps: number; speakerName?: s
   const who = seg.speaker === "hero" ? speakerName : seg.speaker === "other" && seg.with ? CAST[seg.with]?.label : undefined;
   const whoColor = seg.speaker === "other" && seg.with ? CAST[seg.with]?.color ?? COL.blue : COL.ink;
   return (
-    <div style={{ position: "absolute", left: 60, right: 60, top: 1395, display: "flex", justifyContent: "center", opacity: ease(f, 0, 4) }}>
+    <div style={{ position: "absolute", left: 60, right: 60, top, display: "flex", justifyContent: "center", opacity: ease(f, 0, 4) }}>
       {who && (
         <div style={{ position: "absolute", top: -46, left: "50%", transform: "translateX(-50%)", background: whoColor, color: "#fff",
           fontFamily: FONT.hindi, fontWeight: 800, fontSize: 36, padding: "2px 22px", borderRadius: 20, border: `5px solid ${COL.ink}`, zIndex: 1 }}>
@@ -208,7 +214,7 @@ const ICONS: Record<string, string[]> = {
 const CTA: [string, string, string][] = [["like", "लाइक", "#e5322d"], ["bell", "सब्सक्राइब", "#e5322d"], ["follow", "फ़ॉलो", "#2b7de9"], ["share", "शेयर", "#2fa84f"]];
 const TAP = 9; // frames between the cursor's taps
 
-const Follow: React.FC<{ f: number; handle: string; part?: string }> = ({ f, handle, part }) => {
+export const Follow: React.FC<{ f: number; handle: string; part?: string; line?: string }> = ({ f, handle, part, line }) => {
   const tapAt = (i: number) => 14 + i * TAP;
   const cursor = Math.min(CTA.length - 1, Math.max(0, Math.floor((f - 10) / TAP)));
   return (
@@ -238,7 +244,7 @@ const Follow: React.FC<{ f: number; handle: string; part?: string }> = ({ f, han
       </div>
       <div style={{ opacity: ease(f, 40, 48), fontFamily: FONT.hindi, fontWeight: 800, fontSize: 40, color: COL.ink, background: "rgba(255,255,255,.88)",
         padding: "6px 22px", borderRadius: 16 }}>
-        {part === "1/2" ? "भाग 2 जल्द आ रहा है · फ़ॉलो करें" : "रोज़ एक नई सीख"}{handle ? ` · ${handle}` : ""}
+        {part === "1/2" ? "भाग 2 जल्द आ रहा है · फ़ॉलो करें" : line ?? "रोज़ एक नई सीख"}{handle ? ` · ${handle}` : ""}
       </div>
     </div>
   );
