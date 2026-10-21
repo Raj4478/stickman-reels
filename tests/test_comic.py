@@ -198,7 +198,7 @@ class VisualsTest(unittest.TestCase):
                         self.line(visual='calendar', visual_text=''),  # nothing to show: back to the kid
                         self.line(visual='rocket')]
         s = comic.clean(raw)
-        self.assertEqual(s['hook_visual'], 'kid')  # the first frame is always the kid and the title
+        self.assertEqual((s['hook_visual'], s['hook_visual_text']), ('money', '₹5'))  # the first shot follows its words too
         self.assertEqual([(b['visual'], b['who']) for b in s['scenes']], [('person', 'mother'), ('kid', 'none'), ('kid', 'none')])
 
     def test_at_least_half_the_lines_show_a_character(self):
@@ -231,3 +231,41 @@ class VisualsTest(unittest.TestCase):
         sounds_used = set(re.findall(r'\[\d+, "([a-z_]+)", [0-9.]+\]', cut))
         self.assertTrue(sounds_used)
         self.assertLessEqual(sounds_used, set(sounds.effects()))
+
+
+class WhisperRetryTest(unittest.TestCase):
+    def test_listens_again_without_the_hint_when_most_words_are_missed(self):
+        import sys
+        import types
+        prompts = []
+
+        class Model:
+            def __init__(self, *a, **k):
+                pass
+
+            def transcribe(self, audio, initial_prompt=None, **k):
+                prompts.append(initial_prompt)
+                n = 1 if initial_prompt else 9
+                word = types.SimpleNamespace(start=0.0, end=0.1)
+                return [types.SimpleNamespace(words=[word] * n)], None
+        fake = types.ModuleType('faster_whisper')
+        fake.WhisperModel = Model
+        with mock.patch.dict(sys.modules, {'faster_whisper': fake}), \
+                mock.patch.object(voice.subprocess, 'run', return_value=types.SimpleNamespace(stdout=b'\x00' * 64)):
+            heard = voice.heard_words(Path('v.wav'), 'एक दो तीन चार पाँच छह सात आठ नौ दस')
+        self.assertEqual(len(heard), 9)
+        self.assertEqual(prompts, ['एक दो तीन चार पाँच छह सात आठ नौ दस', None])
+
+
+class PlacesTest(unittest.TestCase):
+    line = VisualsTest.line
+
+    def test_each_line_has_its_own_place(self):
+        raw = copy(place='gym')
+        raw['lines'] = [self.line(place='street'), self.line(place='moon')]
+        s = comic.clean(raw)
+        self.assertEqual([b['place'] for b in s['scenes']], ['street', 'gym'])  # unknown -> the Reel's place
+        self.assertEqual(s['hook_place'], 'bedroom')  # the sample's setup says bedroom
+        with tempfile.TemporaryDirectory() as tmp:
+            props, _ = build.build(s, Path(tmp) / 'o', Path(tmp) / 'p', narrate=False, music=False)
+        self.assertEqual([seg.get('place') for seg in props['segments'][:3]], ['bedroom', 'street', 'gym'])

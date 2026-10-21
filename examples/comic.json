@@ -19,7 +19,8 @@
     "visual": "kid",
     "visual_text": "",
     "screen": "music",
-    "who": "teacher"
+    "who": "teacher",
+    "place": "bedroom"
   },
   "lines": [
     {
@@ -31,7 +32,8 @@
       "visual": "person",
       "visual_text": "",
       "screen": "music",
-      "who": "teacher"
+      "who": "teacher",
+      "place": "bedroom"
     },
     {
       "line": "गोलू! कुछ काम-धाम करेगा या नहीं?",
@@ -42,7 +44,8 @@
       "visual": "person",
       "visual_text": "",
       "screen": "music",
-      "who": "mother"
+      "who": "mother",
+      "place": "bedroom"
     },
     {
       "line": "चार साल से घर पे बैठे हैं।",
@@ -53,7 +56,8 @@
       "visual": "calendar",
       "visual_text": "4 साल",
       "screen": "music",
-      "who": "teacher"
+      "who": "teacher",
+      "place": "bedroom"
     }
   ],
   "punchline": {
@@ -65,7 +69,8 @@
     "visual": "screen",
     "visual_text": "गाना.mp3",
     "screen": "music",
-    "who": "teacher"
+    "who": "teacher",
+    "place": "bedroom"
   },
   "ask": "तुमने कौन सा कोर्स किया था?",
   "instagram_caption": "कोर्स दो साल का, सीख दो मिनट की 😭\nटैग करो उस दोस्त को जिसने भी यही किया।",

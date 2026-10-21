@@ -56,6 +56,8 @@ ROOMS = {
     'kitchen': 'the home kitchen: shelves and a stove behind, a dining table with a plate and a glass',
     'office': 'an office: window blinds, a plant and a wall clock behind, a desk with a laptop',
     'living_room': 'the living room: a sofa, a TV and a wall clock behind, a small table in front',
+    'gym': 'a gym: dumbbell racks and a mirror behind, a bench with a dumbbell and a shaker in front',
+    'street': 'a street corner: shop fronts behind, a chai stall counter with a kettle and glasses in front',
 }
 # Who may speak from off screen (one line at most); the kid looks at them
 OTHERS = {k: v for k, v in stories.CAST.items() if k in ('none', 'mother', 'father', 'teacher', 'boss', 'friend')}
@@ -92,8 +94,9 @@ LINE = {
                                                          'गाना.mp3), or "" for kid and person'},
         'screen': {'type': 'string', 'enum': list(SCREENS), 'description': 'What the computer shows (only for visual screen)'},
         'who': {'type': 'string', 'enum': list(PEOPLE), 'description': 'Who is on screen (only for visual person)'},
+        'place': {'type': 'string', 'enum': list(ROOMS), 'description': 'Where the kid is on this line (kid and dream)'},
     },
-    'required': ['line', 'face', 'gesture', 'look', 'speaker', 'visual', 'visual_text', 'screen', 'who'],
+    'required': ['line', 'face', 'gesture', 'look', 'speaker', 'visual', 'visual_text', 'screen', 'who', 'place'],
 }
 SCHEMA = {
     'type': 'object',
@@ -104,7 +107,7 @@ SCHEMA = {
                                                    'letters is fine (e.g. "Computer Course", "Monday Office", "बोर्ड एग्ज़ाम")'},
         'title_b': {'type': 'string', 'description': 'A second title strip with a different angle (for an A/B test)'},
         'emoji': {'type': 'string', 'enum': list(EMOJI), 'description': 'Shown twice after the title'},
-        'place': {'type': 'string', 'enum': list(ROOMS)},
+        'place': {'type': 'string', 'enum': list(ROOMS), 'description': 'Where the kid mostly is (each line may move)'},
         'other': {'type': 'string', 'enum': list(OTHERS), 'description': 'Who speaks from off screen, or none'},
         'hooks': {'type': 'array', 'items': {'type': 'string'}, 'minItems': 1, 'maxItems': 3,
                   'description': 'Three different Hindi setup lines (the first spoken line), at most 14 words each'},
@@ -159,13 +162,17 @@ them), plus a question of at most 8 words.
   line's speaker to "other". Otherwise other is "none" and every speaker is "hero".
 - MAKE THE PICTURE FOLLOW THE WORDS: for every line pick a `visual`, so the video shows what is being said:
 {visuals}
-  The setup is always "kid". At least half the lines show a character (kid, person or dream: the faces are
-  the stars), and use 1-3 cutaways where a line names something you can show: a person quoted or speaking (person + who), a salary
+  The setup's picture follows its words too: it is the first frame, so show the situation at once (the kid
+  in the gym for a gym joke, a person, or a cutaway), never a default computer. At least half the lines show a
+  character (kid, person or dream: the faces are the stars), and use 1-3 cutaways where a line names something
+  you can show: a person quoted or speaking (person + who), a salary
   (money), years passing (calendar), the computer (screen), a degree (certificate), a reply (chat), marks
   (result), a hope (dream). The punchline may reveal its twist as a cutaway (e.g. the screen playing a song).
   visual_text is the 1-3 words or number drawn in that picture, taken from the line. The face is for whoever is
   on screen (the kid keeps reacting in a corner bubble during cutaways).
-- place: the one room where the kid sits for the whole Reel:
+- place: where the kid is. Set the Reel's place to where the story mostly happens, and each line's place to
+  where that line happens (the kid may move: bedroom, then gym). Only the bedroom, office and screen visuals
+  show a computer, so pick the room that fits the words:
 {rooms}
 - title: the strip at the top, 1-3 words that name the situation ("Computer Course"), plus an emoji: {emoji}.
 - ask: one short question in character that viewers will answer in the comments ("तुमने कौन सा कोर्स किया था?").
@@ -189,8 +196,9 @@ Do all of this:
 4. Acting: the face, gesture and look of each line must fit it; never the same face three lines in a row; the
    punchline gets the most expressive face of the Reel.
 4b. Pictures: every line's visual must show what it says (a quoted person -> person, a salary -> money, years ->
-   calendar...). The setup is "kid", at least half the lines show a character (kid, person or dream), and
-   visual_text is short and taken from the line. Visuals: {visual_names}.
+   calendar...). The setup shows the situation at once (never a default computer), at least half the lines
+   show a character (kid, person or dream), each kid line's place is where it happens, and visual_text is short
+   and taken from the line. Visuals: {visual_names}.
 5. Keep first person ({hero}, {forms} verb forms), Devanagari only in spoken lines, and at most one off-screen line.
 6. Keep the title short (1-3 words) and give title_b a clearly different angle."""
 
@@ -203,7 +211,7 @@ def pick(value, allowed, default):
     return value if value in allowed else default
 
 
-def clean_line(raw, other):
+def clean_line(raw, other, place='bedroom'):
     raw = raw if isinstance(raw, dict) else {'line': raw}
     line = short(raw.get('line'), LIMITS['line'])
     if not stories.DEVANAGARI.search(line):
@@ -221,7 +229,8 @@ def clean_line(raw, other):
             'look': pick(raw.get('look'), LOOKS, 'viewer'),
             'speaker': speaker, 'with': other if speaker == 'other' else 'none',
             'visual': visual, 'visual_text': text if visual not in ('kid', 'person') else '',
-            'screen': pick(raw.get('screen'), SCREENS, 'music'), 'who': who if visual == 'person' else 'none'}
+            'screen': pick(raw.get('screen'), SCREENS, 'music'), 'who': who if visual == 'person' else 'none',
+            'place': pick(raw.get('place'), ROOMS, place)}
 
 
 CUTAWAYS = ('screen', 'calendar', 'clock', 'money', 'certificate', 'chat', 'result')
@@ -239,7 +248,7 @@ def keep_the_kid(lines):
 
 
 # How a line is acted and shown (the setup and punchline keep these as hook_<key> and punch_<key>)
-ACTED = ('face', 'gesture', 'look', 'visual', 'visual_text', 'screen', 'who')
+ACTED = ('face', 'gesture', 'look', 'visual', 'visual_text', 'screen', 'who', 'place')
 
 
 def clean(raw):
@@ -250,18 +259,17 @@ def clean(raw):
               'emoji': pick(raw.get('emoji'), EMOJI, 'sob'), 'place': pick(raw.get('place'), ROOMS, 'bedroom')}
     if not stories.DEVANAGARI.search(script['name']):
         script['name'] = ''
-    hook = clean_line(raw.get('hook') or {}, 'none')
+    place = script['place']
+    hook = clean_line(raw.get('hook') or {}, 'none', place)
     if hook is None:
         first = next((h for h in raw.get('hooks') or [] if stories.DEVANAGARI.search(str(h))), '')
-        hook = clean_line({'line': first, 'face': 'deadpan', 'gesture': 'type', 'look': 'viewer'}, 'none')
-    if hook is not None:
-        hook.update(visual='kid', visual_text='', who='none')  # the first frame shows the kid and the title
-    punch = clean_line(raw.get('punchline') or {}, 'none')
+        hook = clean_line({'line': first, 'face': 'deadpan', 'gesture': 'talk', 'look': 'viewer'}, 'none', place)
+    punch = clean_line(raw.get('punchline') or {}, 'none', place)
     if hook is None or punch is None:
         raise ValueError('the setup or the punchline is not in Hindi')
     lines, spoken = [], 0
     for item in (raw.get('lines') or [])[:5]:
-        line = clean_line(item, other)
+        line = clean_line(item, other, place)
         if line is None or (line['speaker'] == 'other' and spoken):
             continue  # one off-screen line per Reel
         spoken += line['speaker'] == 'other'
@@ -275,7 +283,7 @@ def clean(raw):
         script['title_b'] = ''
     script.update({
         'hook': hook['line'], **{f'hook_{k}': hook[k] for k in ACTED},
-        'scenes': [{**line, 'place': script['place']} for line in lines],
+        'scenes': lines,
         'lesson': punch['line'], **{f'punch_{k}': punch[k] for k in ACTED},
         'ask': short(raw.get('ask'), LIMITS['ask']), 'music': 'comic', 'other_voice': other if spoken else 'friend',
         'part': '', 'instagram_caption': str(raw.get('instagram_caption') or '').strip()[:1500],
