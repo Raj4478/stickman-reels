@@ -8,6 +8,7 @@ YouTube: YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET and YOUTUBE_REFRESH_TOKEN from
 Adapted from the infographic repo's publisher. A receipt (publish.json) records what went where, so a Reel is
 never posted twice to the same place.
 """
+import datetime as dt
 import json
 import os
 import time
@@ -51,21 +52,22 @@ def configured():
     return names
 
 
-def request(url, data=None, headers=None, method=None, timeout=120):
+def request(url, data=None, headers=None, method=None, timeout=120, attempts=3):
+    """JSON from `url`; 5xx answers and network errors are retried (`attempts=1` for calls that must not repeat)."""
     body = data if isinstance(data, (bytes, type(None))) else (
         json.dumps(data).encode() if headers and 'application/json' in headers.get('Content-Type', '')
         else urllib.parse.urlencode(data).encode())
-    for attempt in range(3):
+    for attempt in range(attempts):
         req = urllib.request.Request(url, data=body, headers=headers or {}, method=method)
         try:
             with urllib.request.urlopen(req, timeout=timeout) as response:
                 raw = response.read()
                 return (json.loads(raw) if raw.strip().startswith(b'{') else {}), response.headers
         except urllib.error.HTTPError as exc:
-            if exc.code not in (500, 502, 503, 504) or attempt == 2:
+            if exc.code not in (500, 502, 503, 504) or attempt == attempts - 1:
                 raise
         except (urllib.error.URLError, TimeoutError, ConnectionError):
-            if attempt == 2:
+            if attempt == attempts - 1:
                 raise
         time.sleep(3 * (attempt + 1))
 
@@ -231,12 +233,12 @@ def youtube_upload(video, story, ctx=None, title=None, description=None, shorts=
 
 # --- Instagram -------------------------------------------------------------------------------
 
-def instagram_call(path, fields=None, method='POST'):
+def instagram_call(path, fields=None, method='POST', attempts=3):
     params = {**(fields or {}), 'access_token': os.environ['INSTAGRAM_ACCESS_TOKEN'].strip()}
     try:
         if method == 'GET':
-            return request(f'{GRAPH}/{path}?' + urllib.parse.urlencode(params))[0]
-        return request(f'{GRAPH}/{path}', params)[0]
+            return request(f'{GRAPH}/{path}?' + urllib.parse.urlencode(params), attempts=attempts)[0]
+        return request(f'{GRAPH}/{path}', params, attempts=attempts)[0]
     except urllib.error.HTTPError as exc:
         _, message, error = detail(exc)
         if error.get('code') == 190:
@@ -260,12 +262,45 @@ def instagram_wait(container, wait=10, attempts=36):
     raise PublishError('Instagram was still processing after 6 minutes; nothing was published. Tap Post again later.')
 
 
+# Instagram keeps a processed upload for 24 hours; a Reel is only held for its best time when that is sooner
+INSTAGRAM_HOLD = dt.timedelta(hours=23)
+
+
+def container_status(container):
+    try:
+        return instagram_call(container, {'fields': 'status_code'}, 'GET').get('status_code', '')
+    except (PublishError, urllib.error.URLError, TimeoutError, OSError):
+        return ''
+
+
 def instagram_finish(container, user=None):
-    """Publish a processed container; returns its id and link."""
+    """Publish a processed container; returns its id and link.
+
+    The publish call is never repeated (a retry could post the Reel twice), and once it has gone through the Reel
+    counts as published even if the link cannot be fetched, so a failure is only reported when it is not live.
+    """
     user = user or instagram_user()
-    media = instagram_call(f'{user}/media_publish', {'creation_id': container})['id']
-    link = instagram_call(media, {'fields': 'permalink'}, 'GET').get('permalink', '')
+    try:
+        media = instagram_call(f'{user}/media_publish', {'creation_id': container}, attempts=1)['id']
+    except (PublishError, urllib.error.URLError, TimeoutError, OSError):
+        if container_status(container) == 'PUBLISHED':  # it went through; only the answer was lost
+            return {'id': '', 'url': '', 'note': 'Published (Instagram did not send the link back)'}
+        raise
+    try:
+        link = instagram_call(media, {'fields': 'permalink'}, 'GET').get('permalink', '')
+    except (PublishError, urllib.error.URLError, TimeoutError, OSError):
+        link = ''  # it is live: only the link is missing
     return {'id': media, 'url': link}
+
+
+def hold_until(ctx):
+    """When to publish an Instagram upload: ctx['publish_at'], unless that is too far away for Instagram to keep the
+    upload (then it is published at once)."""
+    at = ctx.get('publish_at')
+    if at and at - dt.datetime.now(dt.timezone.utc) > INSTAGRAM_HOLD:
+        print(f'Instagram keeps an upload for 24 hours only: publishing now instead of {at.isoformat()}')
+        return None
+    return at
 
 
 def instagram_reel(video, story, ctx, trial=False):
@@ -284,9 +319,10 @@ def instagram_reel(video, story, ctx, trial=False):
     except urllib.error.HTTPError as exc:
         raise PublishError(f'Instagram upload failed (HTTP {exc.code})') from None
     instagram_wait(container)
-    if ctx.get('publish_at') and not trial:
+    at = hold_until(ctx)
+    if at and not trial:
         # Instagram keeps a processed upload for 24 hours: the queue workflow publishes it at the best time
-        return {'status': 'queued', 'container': container, 'publish_at': ctx['publish_at'].isoformat()}
+        return {'status': 'queued', 'container': container, 'publish_at': at.isoformat()}
     return instagram_finish(container, user)
 
 
@@ -327,8 +363,9 @@ def carousel_upload(video, story, ctx=None):
     container = instagram_call(f'{user}/media', {'media_type': 'CAROUSEL', 'children': ','.join(children),
                                                  'caption': texts(story)['caption']})['id']
     instagram_wait(container, wait=4, attempts=30)
-    if ctx.get('publish_at'):
-        return {'status': 'queued', 'container': container, 'publish_at': ctx['publish_at'].isoformat()}
+    at = hold_until(ctx)
+    if at:
+        return {'status': 'queued', 'container': container, 'publish_at': at.isoformat()}
     return instagram_finish(container, user)
 
 
@@ -393,23 +430,31 @@ def publish(folder, video, platforms=None, video_b=None, publish_at=None):
 
 
 def publish_queued(folder, now=None):
-    """Publish the Instagram uploads of `folder` that were waiting for their time. Returns names published."""
-    import datetime as dt
+    """Publish the Instagram uploads of `folder` that were waiting for their time.
+
+    Returns (receipt, names published, names that failed).
+    """
     folder = Path(folder)
     receipt_path = folder / 'publish.json'
     receipt = json.loads(receipt_path.read_text(encoding='utf-8'))
     now = now or dt.datetime.now(dt.timezone.utc)
-    done = []
+    done, failed = [], []
     for name, result in receipt['platforms'].items():
         if result.get('status') != 'queued' or dt.datetime.fromisoformat(result['publish_at']) > now + dt.timedelta(minutes=10):
             continue
         try:
             receipt['platforms'][name] = {'status': 'published', **instagram_finish(result['container'])}
             done.append(name)
-        except (PublishError, urllib.error.URLError, KeyError) as exc:
+        except (PublishError, urllib.error.URLError, TimeoutError, OSError, KeyError) as exc:
             receipt['platforms'][name] = {**result, 'status': 'failed', 'error': str(exc)[:500]}
+            failed.append(name)
     receipt_path.write_text(json.dumps(receipt, indent=2, ensure_ascii=False), encoding='utf-8')
-    return receipt, done
+    return receipt, done, failed
+
+
+def posted(receipt):
+    """True when the Reel went out (or is scheduled to) on at least one platform: for the weekly compilation."""
+    return any(r.get('status') in ('published', 'queued', 'scheduled') for r in receipt.get('platforms', {}).values())
 
 
 def waiting(receipt):
@@ -417,7 +462,6 @@ def waiting(receipt):
 
 
 def summary(story, receipt):
-    import datetime as dt
     ist = dt.timezone(dt.timedelta(minutes=330))
     lines = [f"📢 {story['title']}"]
     if receipt.get('skipped'):

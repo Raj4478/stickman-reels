@@ -54,8 +54,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           since=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
-          gh run list --repo "$GITHUB_REPOSITORY" --workflow publish.yml --status success --limit 60 --json displayTitle,createdAt \
-            --jq ".[] | select(.createdAt >= \"$since\") | .displayTitle" | sed -nE 's/^Post Reel ([0-9]+) of run ([0-9]+)$/\2 \1/p' | sort -u | head -7 > posted.txt
+          : > found.txt
+          # 1. Reels posted with the ✅ Post button: each post run leaves its receipt (posted-<run>-<reel>), even when
+          #    one platform failed, so read the receipts rather than the runs' outcome
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" \
+            --jq ".artifacts[] | select(.expired == false and .created_at >= \"$since\" and (.name | startswith(\"posted-\"))) | \"\(.id) \(.name)\"" > receipts.txt || true
+          while read -r id name; do
+            mkdir -p "r/$name"
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$id/zip" > "r/$name.zip" && unzip -q -o "r/$name.zip" -d "r/$name" || continue
+            python -m reel posted "r/$name/publish.json" && echo "$name" | sed -E 's/^posted-([0-9]+)-([0-9]+)$/\1 \2/' >> found.txt
+          done < receipts.txt
+          # 2. Reels posted by AUTO_POST inside Make a Reel: their receipts are in the run's reel artifact
+          gh run list --repo "$GITHUB_REPOSITORY" --workflow make-reel.yml --limit 60 --json databaseId,createdAt \
+            --jq ".[] | select(.createdAt >= \"$since\") | .databaseId" > runs.txt || true
+          while read -r run; do
+            auto=$(gh run view "$run" --repo "$GITHUB_REPOSITORY" --json jobs --jq '[.jobs[].steps[] | select(.name == "Post them (AUTO_POST)") | .conclusion] | first // ""')
+            [ "$auto" = "success" ] || [ "$auto" = "failure" ] || continue
+            [ -d "src/$run" ] || gh run download "$run" --repo "$GITHUB_REPOSITORY" --name "reel-$run" --dir "src/$run" || continue
+            for receipt in src/$run/out/*/publish.json; do
+              [ -f "$receipt" ] && python -m reel posted "$receipt" && echo "$run $(basename "$(dirname "$receipt")")" >> found.txt
+            done
+          done < runs.txt
+          sort -u found.txt | head -7 > posted.txt
           echo "count=$(wc -l < posted.txt)" >> "$GITHUB_OUTPUT"
           while read -r run reel; do
             [ -d "src/$run" ] || gh run download "$run" --repo "$GITHUB_REPOSITORY" --name "reel-$run" --dir "src/$run" || true

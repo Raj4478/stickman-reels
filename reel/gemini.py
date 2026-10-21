@@ -106,6 +106,7 @@ def call(kind, body):
     if not available:
         raise GeminiError('No Gemini API key: add the GEMINI_API_KEY secret.')
     last = None
+    refused = set()  # keys answered 401/403
     wait_cap = float(os.getenv('GEMINI_MAX_WAIT', MAX_WAIT) or MAX_WAIT)
     for model in models(kind):
         for index, key in enumerate(available):
@@ -132,12 +133,19 @@ def call(kind, body):
                         break
                     if exc.code in (500, 502, 503, 504):
                         break  # still failing after retries: try the next key or model
+                    if exc.code in (401, 403):
+                        # this key is wrong, revoked or blocked: the next key may still work
+                        print(f'Gemini {kind}: key {index + 1} was refused (HTTP {exc.code}); trying the next one')
+                        refused.add(index)
+                        break
                     raise GeminiError(f'Gemini refused the {kind} request ({last}). Check the GEMINI_API_KEY secret.') from None
                 except (urllib.error.URLError, TimeoutError) as exc:
                     last = f'{model}: {getattr(exc, "reason", exc)}'
                     break
-            if last and last.startswith('HTTP 40') and not last.startswith('HTTP 429'):
+            if last and last.startswith(('HTTP 400', 'HTTP 404')):
                 break  # 400/404 is about the model, not the key: skip its other keys
+    if refused and len(refused) == len(available):
+        raise GeminiError(f'Gemini refused every key ({last}). Check the GEMINI_API_KEY secrets.')
     raise GeminiError(f'Gemini {kind} failed on every key and model ({last}). Free quotas reset daily.')
 
 
