@@ -1,5 +1,6 @@
-"""Comic Reels: a cheeky cartoon kid with a big head and huge eyes rants about one relatable desi situation,
-deadpan, straight to the viewer, and the last line is the punchline (the bot's "😂 Comic" style).
+"""Comic Reels: a cheeky, mischievous cartoon kid with a big head and huge eyes, full of naughty-kid cartoon
+energy, talks about one relatable desi situation straight to the viewer, back-talks मम्मी and lands a punchline
+(the bot's "😂 Comic" style). 6-9 lines and a camera cut every couple of seconds keep it lively.
 
 The look and rhythm follow viral Hindi cartoon-meme Reels: a character whose eyes and eyebrows do the acting, a
 short title strip with two emoji at the top, 15-25 seconds of talking, and a twist at the end. The picture follows
@@ -31,6 +32,7 @@ FACES = {
     'happy': 'a big smile, innocent and pleased',
     'nervous': 'wavy mouth, a sweat drop, caught out',
     'sad': 'droopy eyebrows, small frown',
+    'cheeky': 'a naughty grin, eyebrows wiggling, eyes half-shut with mischief (up to something, a sly comeback)',
 }
 # What the hands do (also in Kid.tsx)
 GESTURES = {
@@ -46,6 +48,8 @@ GESTURES = {
     'chai': 'sips tea from a small cup',
     'think': 'hand on the chin',
     'scratch_head': 'scratches the head, confused',
+    'dance': 'a silly victory dance: arms waving, head bobbing (a small win, showing off, celebrating nonsense)',
+    'panic': 'both hands flapping in the air, "no no no!" (caught out, mock drama)',
 }
 # Where the kid looks (the pupils): at the viewer, at the person off screen, at the screen or book, up, down
 LOOKS = ('viewer', 'side', 'screen', 'up', 'down')
@@ -84,7 +88,7 @@ PEOPLE = tuple(k for k in OTHERS if k != 'none')  # who can be on screen
 LINE = {
     'type': 'object',
     'properties': {
-        'line': {'type': 'string', 'description': 'One spoken Hindi line in Devanagari, at most 14 words'},
+        'line': {'type': 'string', 'description': 'One spoken Hindi line in Devanagari, at most 12 words'},
         'face': {'type': 'string', 'enum': list(FACES)},
         'gesture': {'type': 'string', 'enum': list(GESTURES)},
         'look': {'type': 'string', 'enum': list(LOOKS)},
@@ -113,7 +117,7 @@ SCHEMA = {
                   'description': 'Three different Hindi setup lines (the first spoken line), at most 14 words each'},
         'hook': {'type': 'object', 'properties': LINE['properties'], 'required': LINE['required'],
                  'description': 'The chosen setup line with how the kid looks while saying it'},
-        'lines': {'type': 'array', 'minItems': 2, 'maxItems': 5, 'items': LINE,
+        'lines': {'type': 'array', 'minItems': 4, 'maxItems': 8, 'items': LINE,
                   'description': 'The rant, building up to the punchline'},
         'punchline': {'type': 'object', 'properties': LINE['properties'], 'required': LINE['required'],
                       'description': 'The last line: the twist'},
@@ -126,15 +130,21 @@ SCHEMA = {
 }
 
 COMEDY_RULES = """Comedy rules (this is what makes cartoon-meme Reels go viral in India):
+  - ENERGY: lively and playful like a classic naughty-kid cartoon (our own kid, never a TV character): cheeky,
+    mischievous, quick-witted, a little shameless, with innocent-but-twisted kid logic. Reactions are big and
+    switch fast (smug -> shock -> fake crying -> a silly dance). Mix that with a few dry deadpan lines; the
+    contrast is the joke.
+  - BANTER: the best bits are back-and-forth with the person in `other` (usually मम्मी): they scold or ask, the
+    kid answers with a cheeky comeback that twists their words. Up to 3 of their lines, never two in a row.
   - ONE specific, painfully relatable situation from ordinary Indian life: a useless course, a relative asking
     about marks or salary, मम्मी's "बस पाँच मिनट", Monday at the office, an exam tomorrow, the WiFi, a wedding,
     a gym membership, online class, a group project. Real details make it funny: numbers, prices, years, names
     of everyday things ("पंद्रह हज़ार की नौकरी", "दो साल का कोर्स", "चार साल से घर पे").
-  - The kid talks straight to the viewer like a tired, deadpan desi adult roasting their own life: cheeky,
-    sarcastic, a bit dramatic, confidently wrong. The joke is never on other people's looks, caste, religion,
+  - The kid talks straight to the viewer, roasting their own life: cheeky, sarcastic, dramatic, confidently
+    wrong. The joke is never on other people's looks, caste, religion,
     region or gender; the kid is the butt of the joke.
-  - Structure: setup (states the situation in one breath) -> 1-3 lines that escalate (rule of three: expectation,
-    reality, worse reality) -> the punchline: a twist that makes the viewer laugh and replay. The twist sits in
+  - Structure: setup (states the situation in one breath) -> 5-7 short lines that escalate (expectation,
+    reality, worse reality, a comeback, a mini-twist) -> the punchline: a twist that makes the viewer laugh and replay. The twist sits in
     the LAST words of the punchline ("...बस गाना और फिलम चलाना सीखा।").
   - Short lines, spoken rhythm, no explaining the joke, no moral at the end, no "दोस्तों", no "आज मैं बताऊँगा".
   - The setup must hook in the first 2 seconds: start mid-complaint, with the number or the situation."""
@@ -144,22 +154,24 @@ cartoon kid with a big round head, huge eyes and thick eyebrows, who sits at a t
 
 Situation for this Reel: {topic}
 
-Write a 15-25 second rant: a setup line, {n} more lines, then the punchline; 40-55 spoken words in all (count
-them), plus a question of at most 8 words.
+Write a 30-40 second scene: a setup line, {n} more lines, then the punchline; 75-100 spoken words in all
+(count them), at most 12 words a line, plus a question of at most 8 words. Many short lines, each with its own
+picture and reaction, keep the Reel moving.
 {rules}
 - FIRST PERSON: the kid ({hero}) talks about their own life (मैंने, मेरा, हम), with {forms} verb forms.
 - Language: everyday spoken Hindi in Devanagari, the way people really talk at home; a light UP/Bihar flavour is
   welcome ("का बताएं", "हम", "बा", "ना") but every Hindi speaker must follow it. Common English words in
   Devanagari ("कोर्स", "जॉब", "सैलरी"). No Roman script, emoji or hashtags in the spoken lines.
 - For every line pick how the kid acts it: face ({faces}), gesture ({gestures}) and look ({looks}). The comedy is
-  in the eyes: deadpan and side_eye most of the time, a sudden shock or cry only where it is funny, and a
-  different face or gesture on the punchline.
+  in the eyes and the energy: a new face on almost every line, big switches (cheeky -> shock -> cry -> dance),
+  deadpan or side_eye for the dry lines, and the most expressive face and gesture on the punchline.
   Faces:
 {face_list}
   Gestures:
 {gesture_list}
-- Optional: ONE line said by someone else (`other`: {others}), e.g. मम्मी shouting from the kitchen; set that
-  line's speaker to "other". Otherwise other is "none" and every speaker is "hero".
+- Banter: up to 3 lines said by someone else (`other`: {others}), e.g. मम्मी shouting from the kitchen and the
+  kid's cheeky reply; set those lines' speaker to "other" (never two in a row). Otherwise other is "none" and
+  every speaker is "hero".
 - MAKE THE PICTURE FOLLOW THE WORDS: for every line pick a `visual`, so the video shows what is being said:
 {visuals}
   The setup's picture follows its words too: it is the first frame, so show the situation at once (the kid
@@ -192,14 +204,16 @@ Do all of this:
 1. Hook: pick the funniest of the setup options and sharpen it; it must make sense with zero context.
 2. Punchline: rewrite it so the twist lands in the last 2-4 words and is a real surprise. If the draft explains
    the joke, cut the explanation.
-3. Cut every word that does not earn its place; at most 14 words a line; it must sound natural spoken aloud.
+3. Keep it lively: 5-7 lines between the setup and the punchline, at most 12 words each, a cheeky comeback
+   in the banter, and cut every word that does not earn its place; it must sound natural spoken aloud.
 4. Acting: the face, gesture and look of each line must fit it; never the same face three lines in a row; the
    punchline gets the most expressive face of the Reel.
 4b. Pictures: every line's visual must show what it says (a quoted person -> person, a salary -> money, years ->
    calendar...). The setup shows the situation at once (never a default computer), at least half the lines
    show a character (kid, person or dream), each kid line's place is where it happens, and visual_text is short
    and taken from the line. Visuals: {visual_names}.
-5. Keep first person ({hero}, {forms} verb forms), Devanagari only in spoken lines, and at most one off-screen line.
+5. Keep first person ({hero}, {forms} verb forms), Devanagari only in spoken lines, and at most three
+   off-screen lines (never two in a row).
 6. Keep the title short (1-3 words) and give title_b a clearly different angle."""
 
 
@@ -234,6 +248,7 @@ def clean_line(raw, other, place='bedroom'):
 
 
 CUTAWAYS = ('screen', 'calendar', 'clock', 'money', 'certificate', 'chat', 'result')
+OTHER_LINES = 3  # how many lines the other person may say
 
 
 def keep_the_kid(lines):
@@ -268,10 +283,12 @@ def clean(raw):
     if hook is None or punch is None:
         raise ValueError('the setup or the punchline is not in Hindi')
     lines, spoken = [], 0
-    for item in (raw.get('lines') or [])[:5]:
+    for item in (raw.get('lines') or [])[:8]:
         line = clean_line(item, other, place)
-        if line is None or (line['speaker'] == 'other' and spoken):
-            continue  # one off-screen line per Reel
+        if line is None:
+            continue
+        if line['speaker'] == 'other' and (spoken >= OTHER_LINES or (lines and lines[-1]['speaker'] == 'other')):
+            continue  # banter: a few off-screen lines, each answered by the kid
         spoken += line['speaker'] == 'other'
         lines.append(line)
     if not lines:
@@ -324,7 +341,7 @@ def write(topic=None, theme='', source=''):
     person = person.replace('a young man', 'a cheeky boy').replace('a young woman', 'a cheeky girl')
     name_hint = 'a girl with a ponytail and a bow' if who == 'girl' else 'a boy with a spiky tuft of hair'
     prompt = WRITER.format(
-        name_hint=name_hint, topic=topic, n=random.choice((2, 3)), rules=COMEDY_RULES, hero=person, forms=forms,
+        name_hint=name_hint, topic=topic, n=random.choice((5, 6)), rules=COMEDY_RULES, hero=person, forms=forms,
         faces=', '.join(FACES), gestures=', '.join(GESTURES), looks=', '.join(LOOKS), face_list=stories.catalog(FACES),
         gesture_list=stories.catalog(GESTURES), others=', '.join(k for k in OTHERS if k != 'none'),
         rooms=stories.catalog(ROOMS), emoji=', '.join(EMOJI), visuals=stories.catalog(VISUALS),
