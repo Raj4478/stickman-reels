@@ -51,7 +51,7 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const mix = (a: Pt, b: Pt, t: number): Pt => ({ x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t) });
 
 // ---- eyes and faces ---------------------------------------------------------------------------------------
-export type Face = "deadpan" | "side_eye" | "smug" | "shock" | "eye_roll" | "angry" | "cry" | "happy" | "nervous" | "sad";
+export type Face = "deadpan" | "side_eye" | "smug" | "shock" | "eye_roll" | "angry" | "cry" | "happy" | "nervous" | "sad" | "cheeky";
 export type Look = "viewer" | "side" | "screen" | "up" | "down";
 
 // Where the pupils sit inside each eye, by look
@@ -69,6 +69,7 @@ const FACES: Record<Face, { lid: number; low: number; pupil: number; brows: [num
   happy: { lid: 0, low: 0.3, pupil: 16, brows: [-12, -12] },
   nervous: { lid: 0.05, low: 0, pupil: 10, brows: [-20, 8] },
   sad: { lid: 0.35, low: 0, pupil: 16, brows: [-22, 12] },
+  cheeky: { lid: 0.36, low: 0.2, pupil: 15, brows: [-4, -20], browR: [-30, -40] },
 };
 
 const Eye: React.FC<{ c: Pt; side: -1 | 1; face: Face; look: Pt; blink: number; id: string; f: number; skin: string }> = ({ c, side, face, look, blink, id, f, skin }) => {
@@ -135,6 +136,14 @@ const Mouth: React.FC<{ face: Face; open: number; f: number }> = ({ face, open, 
       return <path d={`M${x - 52},${y - 14} Q${x},${y + 42} ${x + 52},${y - 14} Z`} fill="#5a1d24" stroke={INK} strokeWidth={7} strokeLinejoin="round" />;
     case "smug":
       return <path d={`M${x - 34},${y + 4} Q${x + 4},${y + 14} ${x + 40},${y - 16}`} {...line} />;
+    case "cheeky":
+      // a wide, lopsided naughty grin with teeth
+      return (
+        <g>
+          <path d={`M${x - 58},${y - 18} Q${x - 4},${y + 46} ${x + 62},${y - 30} Q${x + 10},${y - 4} ${x - 58},${y - 18} Z`} fill="#5a1d24" stroke={INK} strokeWidth={7} strokeLinejoin="round" />
+          <path d={`M${x - 46},${y - 12} Q${x + 6},${y + 2} ${x + 52},${y - 24} L${x + 48},${y - 12} Q${x + 4},${y + 12} ${x - 42},${y - 2} Z`} fill="#fff" />
+        </g>
+      );
     case "shock":
       return <ellipse cx={x} cy={y + 8} rx={18} ry={26} fill="#5a1d24" stroke={INK} strokeWidth={6} />;
     case "angry":
@@ -244,7 +253,7 @@ const FaceExtras: React.FC<{ t: Toon }> = ({ t }) => (
 );
 
 // ---- arms and gestures ------------------------------------------------------------------------------------
-export type Gesture = "type" | "talk" | "shrug" | "facepalm" | "point_self" | "point_viewer" | "arms_crossed" | "slam" | "phone" | "chai" | "think" | "scratch_head";
+export type Gesture = "type" | "talk" | "shrug" | "facepalm" | "point_self" | "point_viewer" | "arms_crossed" | "slam" | "phone" | "chai" | "think" | "scratch_head" | "dance" | "panic";
 
 const REST_L: Pt = { x: 440, y: TABLE - 12 };
 const REST_R: Pt = { x: 640, y: TABLE - 12 };
@@ -284,6 +293,20 @@ export const gesture = (name: string, f: number): { l: ArmPose; r: ArmPose; hits
       return { l: { at: { x: 470, y: 1215 }, hand: "fist" }, r: { at: mix(REST_R, { x: 605, y: 1040 }, s(0, 8)), hand: "fist" }, hits: [] };
     case "scratch_head":
       return { l: { at: REST_L, hand: "fist" }, r: { at: mix(REST_R, { x: 735 + Math.sin(f * 1.1) * 14, y: 650 + Math.cos(f * 1.1) * 10 }, s(0, 9)), hand: "open" }, hits: [] };
+    case "dance": {
+      // a silly victory dance: arms up and waving in turn
+      const beat = Math.sin(f * 0.42);
+      return {
+        l: { at: mix(REST_L, { x: 270 - beat * 30, y: 930 + beat * 90 }, s(0, 6)), hand: "open" },
+        r: { at: mix(REST_R, { x: 810 - beat * 30, y: 930 - beat * 90 }, s(0, 6)), hand: "open" },
+        hits: [],
+      };
+    }
+    case "panic": {
+      // "no no no!": both hands flap beside the head
+      const flap = Math.sin(f * 1.3) * 34;
+      return { l: { at: mix(REST_L, { x: 260, y: 960 + flap }, s(0, 5)), hand: "open" }, r: { at: mix(REST_R, { x: 820, y: 960 - flap }, s(0, 5)), hand: "open" }, hits: [] };
+    }
     default: // talk: one hand on the table, the other explains
       return { l: { at: REST_L, hand: "fist" }, r: { at: mix(REST_R, { x: 800 + wave * 20, y: 1170 + Math.cos(f * 0.17) * 22 }, s(0, 7)), hand: "open" }, hits: [] };
   }
@@ -363,11 +386,13 @@ export const Kid: React.FC<{
   const pose = gesture(gestureName, f);
   // talking: the head nods a little with the voice; shock jolts it back
   const bob = mouth * 10 + Math.sin(clock * 0.05) * 3;
-  const tilt = face === "smug" ? -5 : face === "sad" ? 4 : face === "side_eye" ? -3 : Math.sin(clock * 0.031) * 1.2;
+  const dancing = gestureName === "dance" ? Math.sin(f * 0.42) : 0;
+  const panicking = gestureName === "panic" ? Math.sin(f * 1.3) : 0;
+  const tilt = dancing * 9 + panicking * 3 + (face === "smug" || face === "cheeky" ? -5 : face === "sad" ? 4 : face === "side_eye" ? -3 : Math.sin(clock * 0.031) * 1.2);
   const jolt = face === "shock" ? interpolate(f, [0, 4, 10], [0, -30, -12], clamp) : 0;
   const brow = FACES[face];
   const browR = brow.browR ?? brow.brows;
-  const raise = face === "shock" ? interpolate(f, [0, 5], [0, 14], clamp) : 0;
+  const raise = face === "shock" ? interpolate(f, [0, 5], [0, 14], clamp) : face === "cheeky" ? Math.max(0, Math.sin(f * 0.7)) * 16 : 0;
   const breathe = Math.sin(clock * 0.06) * 4;
   return (
     <g>
@@ -381,7 +406,7 @@ export const Kid: React.FC<{
         {t.tie && <path d={`M520,1080 L560,1080 L548,1110 L580,1300 L540,1340 L500,1300 L532,1110 Z`} fill={t.tie} stroke={INK} strokeWidth={7} strokeLinejoin="round" />}
       </g>
       {/* the head */}
-      <g transform={`translate(0 ${bob * 0.4 + jolt + breathe * 0.3}) rotate(${tilt} ${HEAD.x} ${HEAD.y + 200})`}>
+      <g transform={`translate(${dancing * 18} ${bob * 0.4 + jolt + breathe * 0.3 - Math.abs(dancing) * 16}) rotate(${tilt} ${HEAD.x} ${HEAD.y + 200})`}>
         <HairBack t={t} />
         <ellipse cx={HEAD.x - HEAD.rx + 6} cy={HEAD.y + 30} rx={36} ry={50} fill={t.skin} stroke={INK} strokeWidth={8} />
         <ellipse cx={HEAD.x + HEAD.rx - 6} cy={HEAD.y + 30} rx={36} ry={50} fill={t.skin} stroke={INK} strokeWidth={8} />
@@ -389,7 +414,7 @@ export const Kid: React.FC<{
         <ellipse cx={HEAD.x} cy={HEAD.y} rx={HEAD.rx} ry={HEAD.ry} fill={t.skin} stroke={INK} strokeWidth={10} />
         <HairFront t={t} />
         {t.earrings && [HEAD.x - HEAD.rx + 6, HEAD.x + HEAD.rx - 6].map((x) => <circle key={x} cx={x} cy={HEAD.y + 90} r={14} fill="#fcc419" stroke={INK} strokeWidth={5} />)}
-        {(face === "happy" || face === "nervous" || face === "smug") && (
+        {(face === "happy" || face === "nervous" || face === "smug" || face === "cheeky") && (
           <>
             <ellipse cx={HEAD.x - 150} cy={HEAD.y + 98} rx={34} ry={18} fill={PINK} opacity={0.55} />
             <ellipse cx={HEAD.x + 158} cy={HEAD.y + 98} rx={34} ry={18} fill={PINK} opacity={0.55} />

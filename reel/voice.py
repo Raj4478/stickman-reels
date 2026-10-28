@@ -66,26 +66,26 @@ DIALOGUE_STYLES = {
     'story': ('Sincere and personal, the hero telling their own story to a close friend in natural Hindi; their own '
               'words in a scene are acted with feeling',
               'The {who}, speaking naturally and in character, with real emotion, in natural Hindi'),
-    'comic': ('Completely natural and conversational, like a real person venting to a friend, never a voice actor or '
-              'a cartoon voice: dry, deadpan and a bit tired of life, with small breaths, in everyday Hindi',
+    'comic': ('A real, natural person (never a cartoon dub) with cheeky, playful energy: quick, expressive and a '
+              'little mischievous, mock-dramatic where it is funny and dry on the deadpan lines, in everyday Hindi',
               'The {who}, calling from another room: real, exasperated and natural, the way family shouts at home'),
 }
-COMIC_PUNCH = ', after a beat of silence, said flat and matter-of-fact'  # the punchline's delivery
+COMIC_PUNCH = ', after a tiny pause, with a cheeky, pleased-with-yourself grin in the voice'  # the punchline
 COMIC_NOTES = """# AUDIO PROFILE: A real young person from a small Indian town, venting to a friend about their own life
 ## THE SCENE: Sitting at the desk at home, talking into a phone camera, unscripted. Nobody is performing.
 ### DIRECTOR'S NOTES
 Style: completely natural and conversational, exactly like a real person talking, never a voice actor, a cartoon
-voice or an announcer. Dry, deadpan and a bit tired of life, with a hint of sarcasm. They are not trying to be
-funny, and that is what makes it funny. Real speech: small breaths, a slight drag on words like "बस" and "अब", a
+voice or an announcer. Lively and cheeky: playful, quick and a little mischievous, with mock-dramatic moments
+(a fake sob, an outraged "क्या?!") and dry, deadpan lines in between; the switches are what make it funny. Real speech: small breaths, a slight drag on words like "बस" and "अब", a
 little sigh where it fits, natural rises and falls instead of a sing-song pattern, the odd word said a touch faster.
-Pacing: normal talking speed, relaxed but never slow, with a short pause between lines and a beat of silence
-before the last line, which is said flat and matter-of-fact.
+Pacing: brisk, lively talking speed, never slow, with a short pause between lines and a tiny pause before the
+last line, which is said with a cheeky grin in the voice.
 Language and accent: everyday Hindi with a natural Indian accent and a light UP/Bihar flavour, the way people
 actually talk at home.
 Read only the transcript below, exactly as written. Never read these notes, headings or labels aloud.
 #### TRANSCRIPT
 {transcript}"""
-COMIC_SHORT = ('Say this naturally, like a real person casually venting to a friend: dry, deadpan and conversational, '
+COMIC_SHORT = ('Say this naturally, like a real, cheeky person talking to a friend: lively, playful and conversational, '
                'in everyday Hindi, with a short pause between lines:\n\n{transcript}')
 SHORT = 'Say in a warm, friendly Hindi storytelling voice, with a short pause between lines:\n\n{transcript}'
 WHO = {'mother': 'mother', 'father': 'father', 'boss': 'strict boss', 'friend': 'close friend', 'partner': 'partner',

@@ -37,17 +37,22 @@ class CleanTest(unittest.TestCase):
 
     def test_unknown_names_fall_back(self):
         raw = copy(place='moon', emoji='rocket', other='alien')
-        raw['lines'] = [{'line': 'ये तो होना ही था।', 'face': 'laughing', 'gesture': 'dance', 'look': 'sky', 'speaker': 'other'}]
+        raw['lines'] = [{'line': 'ये तो होना ही था।', 'face': 'laughing', 'gesture': 'moonwalk', 'look': 'sky', 'speaker': 'other'}]
         s = comic.clean(raw)
         self.assertEqual((s['place'], s['emoji']), ('bedroom', 'sob'))
         self.assertEqual({k: s['scenes'][0][k] for k in ('face', 'gesture', 'look', 'speaker', 'with')},
                          {'face': 'deadpan', 'gesture': 'talk', 'look': 'viewer', 'speaker': 'narrator', 'with': 'none'})
 
-    def test_only_one_off_screen_line(self):
-        raw = copy()
-        raw['lines'].append({'line': 'और सुन, दूध भी ले आना!', 'face': 'sad', 'gesture': 'talk', 'look': 'side', 'speaker': 'other'})
+    def test_banter_has_at_most_three_off_screen_lines_never_two_in_a_row(self):
+        mom = lambda text: {'line': text, 'face': 'angry', 'gesture': 'talk', 'look': 'side', 'speaker': 'other'}  # noqa: E731
+        kid = lambda text: {'line': text, 'face': 'cheeky', 'gesture': 'dance', 'look': 'viewer', 'speaker': 'hero'}  # noqa: E731
+        raw = copy(lines=[mom('गोलू, उठ जा!'), mom('सुना नहीं?'), kid('सुन लिया मम्मी।'), mom('दूध ले आ!'), kid('ला रहा हूँ।'),
+                          mom('अभी!'), kid('अभी तो सो रहा हूँ।'), mom('गोलू!')])
         s = comic.clean(raw)
-        self.assertEqual(sum(b['speaker'] == 'other' for b in s['scenes']), 1)
+        speakers = [b['speaker'] for b in s['scenes']]
+        self.assertEqual(speakers.count('other'), 3)
+        self.assertNotIn(('other', 'other'), list(zip(speakers, speakers[1:])))
+        self.assertEqual((s['scenes'][1]['face'], s['scenes'][1]['gesture']), ('cheeky', 'dance'))
 
     def test_english_punchline_or_empty_rant_is_rejected(self):
         with self.assertRaises(ValueError):

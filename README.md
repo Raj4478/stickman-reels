@@ -3,8 +3,9 @@
 Hindi life-lesson Reels for Instagram, acted out by a stick figure and filmed like a short film. Each Reel is written, directed, narrated and rendered on GitHub Actions for free, then sent to Telegram for review.
 
 **How a Reel is made:**
-1. **Writer:** Gemini (free tier) drafts a tiny Hindi story about one life lesson. It includes three hook options, 4–6 beats, the lesson and a question for the comments. Each beat names an action, the place, who else is in frame and a prop.
+1. **Writer:** Gemini (free tier) drafts a tiny Hindi story about one life lesson. It includes three hook options, 5–8 short beats (at most 12 words each), the lesson and a question for the comments. Each beat names an action, the place, who else is in frame and a prop.
    - **First person:** the hero tells their own story ("उस दिन मैंने पहली बार उसे देखा..."), never "he did". A draft told in the third person is sent back, and the director keeps it in first person.
+   - **Lively:** every story has at least two comic moments (an over-the-top reaction, a cheeky comeback, a silly misunderstanding) on the way to its lesson.
    - **Love first:** love stories (a crush, waiting for a reply, a breakup, a proposal) are the channel's favourite. About 40% of Reels without a chosen topic are love stories; change the share with the `LOVE_SHARE` variable.
 2. **Director:** a second Gemini pass acts as a Reels motion director.
    - It picks and sharpens the strongest hook, using proven patterns: a surprising number, a mistake you make, a contrast, a mystery.
@@ -16,6 +17,7 @@ Hindi life-lesson Reels for Instagram, acted out by a stick figure and filmed li
    - FFmpeg finds the pauses between lines.
    - Whisper (`small` model, given the script as a hint) times every word, so the subtitle highlight lands on the word being spoken.
 4. **Animation:** [Remotion](https://www.remotion.dev) renders a 1080×1920 Reel with:
+   - **More shots:** a scene longer than 3 seconds cuts to a second camera angle halfway, on a word (wide to medium, medium to close, a push-in to an extreme close-up…).
    - **The hook:** on screen from the very first frame, over the story's most dramatic action and a push-in.
    - **The hero:** the same figure every time, named in the hook: a boy in a cap, or a girl with a ponytail and a bow.
    - **Cartoon faces:** big white heads with an outline, eyes with pupils and a shine that blink every few seconds, eyebrows that carry the emotion, and a black open mouth (with a tongue) that moves with the voice.
@@ -49,12 +51,13 @@ A second style, made for the cartoon-meme Reels that go viral in India: one room
 table, talking straight to the viewer about a painfully relatable situation, ending on a punchline. The kid is
 the channel's own character, not any TV cartoon, so nothing is copied.
 
-- **The script** ([`reel/comic.py`](reel/comic.py)): Gemini writes a 15–25 second rant in everyday Hindi (a light
-  UP/Bihar flavour is welcome). It has a setup line that hooks in two seconds, 2–3 lines that escalate, and a
-  punchline whose twist sits in its last words. A second Gemini pass, the comedy editor, sharpens the setup,
+- **The script** ([`reel/comic.py`](reel/comic.py)): Gemini writes a 30–40 second scene in everyday Hindi (a light
+  UP/Bihar flavour is welcome), with naughty-kid cartoon energy: cheeky, mischievous, big reactions that switch
+  fast, a silly dance, and dry deadpan lines in between. It has a setup line that hooks in two seconds, 5–7 short
+  lines that escalate, and a punchline whose twist sits in its last words. A second Gemini pass, the comedy editor, sharpens the setup,
   makes the punchline land and cuts every extra word.
-  - Each line says how the kid acts it: a **face** (deadpan, side eye, smug, shock, eye roll, angry, cry, happy, nervous, sad), a **gesture** (typing, talking, shrug, facepalm, pointing, arms crossed, slamming the table, phone, chai, thinking, scratching the head) and where the kid **looks**.
-  - At most one line may come from someone off screen (मम्मी calling from the kitchen, पापा, the teacher, the boss). It gets its own voice, and the kid looks towards it.
+  - Each line says how the kid acts it: a **face** (deadpan, side eye, smug, cheeky, shock, eye roll, angry, cry, happy, nervous, sad), a **gesture** (typing, talking, shrug, facepalm, pointing, arms crossed, slamming the table, phone, chai, thinking, scratching the head, a victory dance, panicking) and where the kid **looks**.
+  - **Banter:** up to three lines may come from someone else (मम्मी calling from the kitchen, पापा, the teacher, the boss), never two in a row, so the kid answers each with a cheeky comeback. They get their own voice.
   - Situations come from [`comic_topics.txt`](comic_topics.txt), a chosen theme, viewer ideas or the next festival, told the funny way.
 - **The look** ([`remotion/src/comic/`](remotion/src/comic)):
   - **The kid:** a big round head, huge eyes and thick eyebrows that do the acting, a saffron T-shirt. A boy has a spiky tuft; a girl (female voice) has a ponytail and a bow.
@@ -66,8 +69,8 @@ the channel's own character, not any TV cartoon, so nothing is copied.
     - **a cutaway:** the computer screen (song, video, job site, search, error), calendar pages flying, a salary slip, a certificate gathering cobwebs, a spinning clock, a phone chat or an exam result. The kid keeps talking in a corner bubble during a cutaway.
 
     The first shot follows its words too (no default computer), and at least half the lines show a character.
-  - **On screen:** a white title strip with two emoji at the top ("Computer Course 😭😭"), subtitles at the bottom, a medium or close framing for each line like a sitcom, and a snap zoom on the punchline followed by a "ba-dum-tss".
-- **The voice:** Gemini reads it like a real person venting to a friend: dry, deadpan, small breaths and a beat before the punchline. It uses its casual voices (`Zubenelgenubi`, or `Callirrhoe` for a girl; `REEL_VOICE` overrides). The Edge backup keeps its natural pitch, only a little faster.
+  - **On screen:** a white title strip with two emoji at the top ("Computer Course 😭😭"), subtitles at the bottom, and a new camera angle about every 2 seconds, cut on a word like a sitcom editor would (medium, close, left, tight, right). A cutaway or another person's line cuts back to the kid reacting on every other shot. There's and a snap zoom on the punchline followed by a "ba-dum-tss".
+- **The voice:** Gemini reads it like a real, cheeky person talking to a friend: lively and playful, mock-dramatic where it's funny, dry on the deadpan lines, and a grin in the voice on the punchline. It uses its casual voices (`Zubenelgenubi`, or `Callirrhoe` for a girl; `REEL_VOICE` overrides). The Edge backup keeps its natural pitch, only a little faster.
 - **The ending:** the question for the comments, then Like, Subscribe, Follow and Share.
 
 **Make one:**

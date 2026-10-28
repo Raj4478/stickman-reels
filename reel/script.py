@@ -131,7 +131,7 @@ DEVANAGARI = re.compile(r'[ऀ-ॿ]')
 BEAT = {
     'type': 'object',
     'properties': {
-        'line': {'type': 'string', 'description': 'Hindi narration for this beat, at most 20 words'},
+        'line': {'type': 'string', 'description': 'Hindi narration for this beat, at most 12 words'},
         'caption': {'type': 'string', 'description': 'Hindi on-screen words for this beat, at most 5 words'},
         'action': {'type': 'string', 'enum': list(ACTIONS)},
         'prop': {'type': 'string', 'enum': list(PROPS)},
@@ -157,7 +157,7 @@ SCHEMA = {
         'title': {'type': 'string', 'description': 'Hindi on-screen hook text shown from the first frame, at most 5 words'},
         'title_b': {'type': 'string', 'description': 'A second on-screen hook text with a different angle, at most 5 words (for an A/B test)'},
         'hook_action': {'type': 'string', 'enum': list(ACTIONS), 'description': 'The most dramatic action of the story, shown during the hook'},
-        'scenes': {'type': 'array', 'minItems': 4, 'maxItems': 6, 'items': BEAT},
+        'scenes': {'type': 'array', 'minItems': 5, 'maxItems': 8, 'items': BEAT},
         'lesson': {'type': 'string', 'description': 'Hindi spoken and on-screen takeaway, at most 12 words'},
         'ask': {'type': 'string', 'description': 'Hindi question to the viewer for the comments, at most 10 words'},
         'music': {'type': 'string', 'enum': list(MUSIC)},
@@ -181,9 +181,13 @@ WRITER = """You write scripts for a Hindi Instagram Reels channel where a simple
 
 Lesson for this Reel: {topic}
 {series}
-Write one tiny story (30-40 seconds when spoken), told as {beats} beats, about a real-feeling moment from
-ordinary Indian life (school, college, home, office, tiffin time, a bus, a phone call), with a small funny or
-emotional twist.
+Write one tiny story (40-50 seconds when spoken, about 110 words), told as {beats} short beats of at most 12
+words each, about a real-feeling moment from ordinary Indian life (school, college, home, office, tiffin time, a
+bus, a phone call). Many short beats, each with its own action and place or shot, keep the Reel moving.
+- Tone: lively and funny like a cartoon, with naughty-kid energy: at least 2 comic moments (an over-the-top
+  reaction, a cheeky comeback, a silly misunderstanding, a facepalm moment) on the way to the lesson. The comedy
+  is gentle and on the hero, never on other people's looks, caste, religion, region or gender; the ending still
+  lands the lesson with real feeling.
 - FIRST PERSON: the hero ({hero}, named in `name`) tells their OWN story, like confiding in a friend. Every
   narration line uses मैं / मैंने / मेरा / मेरी / मुझे ("उस दिन मैंने पहली बार उसे देखा..."), never "वह", "उसने"
   or the hero's name for the hero. Other people are "वो", "माँ", "पापा", "टीचर". Use {forms} verb forms for the
@@ -246,7 +250,8 @@ Do all of this:
    - Transitions: cut by default; whip for energy or "months later"; zoom into a realisation; flash for a shock.
    Shots: {shot_names}
 4. Places: keep a believable continuity (the same place for beats that happen together), from: {place_names}.
-5. Tighten every spoken line (at most 20 words) so it sounds natural when read aloud; keep the story's meaning.
+5. Tighten every spoken line (at most 12 words) so it sounds natural when read aloud; keep the story's meaning,
+   its 2+ comic moments and its lively pace (5-8 beats).
    Keep 1-2 dialogue beats (speaker hero, or speaker other with `with` set; only ONE other person speaks in the
    Reel); dialogue is the spoken words only, in character. Pick each caption's `keyword` (copied exactly) and
    a sticker only where it adds punch.
@@ -318,7 +323,7 @@ def clean(raw):
     if not DEVANAGARI.search(script['name']):
         script['name'] = ''
     scenes, last_shot, voice_of = [], None, None
-    for beat in (raw.get('scenes') or [])[:6]:
+    for beat in (raw.get('scenes') or [])[:8]:
         line = short(beat.get('line'), LIMITS['line'])
         if not DEVANAGARI.search(line):
             continue
@@ -458,7 +463,7 @@ def write(topic=None, part='', previous=None, theme='', source=''):
     who = hero()
     person, forms = HEROES[who]
     prompt = WRITER.format(
-        hero=person, forms=forms, topic=topic, beats=random.choice((4, 5)), hook_rules=HOOK_RULES, two=', '.join(TWO_PERSON),
+        hero=person, forms=forms, topic=topic, beats=random.choice((6, 7)), hook_rules=HOOK_RULES, two=', '.join(TWO_PERSON),
         actions=catalog(ACTIONS), cast=catalog(CAST), props=catalog(PROPS), places=catalog(PLACES), shots=catalog(SHOTS),
         series=series_note(part, previous), speakers=catalog(SPEAKERS), stickers=', '.join(STICKERS),
         avoid='\n'.join(x for x in (f'- Do not repeat these recent titles or their angle: {", ".join(recent)}' if recent else '',

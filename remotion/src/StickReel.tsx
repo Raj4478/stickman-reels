@@ -272,7 +272,22 @@ const beatOf = (seg: Segment) => ({
   place: seg.kind === "scene" ? seg.place : "plain",
 });
 
+// The second camera angle of a long beat: a cut to a complementary shot halfway through, so the Reel has twice
+// the shots (a two-shot widens instead of cutting a person out)
+const SECOND: Record<string, string> = {
+  wide: "medium", medium: "close", close: "medium", extreme_close: "medium", low_angle: "close", high_angle: "close",
+  dutch: "close", push_in: "extreme_close", pull_out: "medium", pan: "close", two_shot: "wide",
+};
+// The frame of that cut: on the start of the word nearest the middle of a scene longer than 3 seconds
+export const midCut = (seg: Segment, fps: number, dur: number): number | null => {
+  if (seg.kind !== "scene" || dur < 3 * fps) return null;
+  const marks = (seg.words ?? []).map((t) => Math.round((t - seg.start) * fps)).filter((m) => m > fps && dur - m > fps);
+  if (!marks.length) return Math.round(dur / 2);
+  return marks.reduce((best, m) => (Math.abs(m - dur / 2) < Math.abs(best - dur / 2) ? m : best));
+};
+
 const World: React.FC<{ seg: Segment; f: number; dur: number }> = ({ seg, f, dur }) => {
+  const { fps } = useVideoConfig();
   const beat = beatOf(seg);
   const level = useMouth(seg, f);
   const { hero } = useContext(Voice);
@@ -290,7 +305,10 @@ const World: React.FC<{ seg: Segment; f: number; dur: number }> = ({ seg, f, dur
       {prop === "rain_cloud" && <PropView prop={prop} x={0} f={f} dur={dur} head={j.headC} />}
     </>
   );
-  const cam = cameraAt(beat.shot, f, dur, a.hits);
+  const cut = midCut(seg, fps, dur);
+  const cam = cut !== null && f >= cut
+    ? cameraAt(SECOND[beat.shot] ?? "medium", f - cut, dur - cut, a.hits.map((h) => h - cut))
+    : cameraAt(beat.shot, f, cut ?? dur, a.hits);
   const enter = entrance(seg.kind === "scene" ? seg.transition : "cut", f);
   const shake = shakeAt(f, a.hits, 16);
   const c = { ...cam, x: cam.x - enter.x, z: cam.z * enter.z };

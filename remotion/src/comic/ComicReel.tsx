@@ -37,7 +37,15 @@ const shotOf = (seg: Segment, i: number): { from: Cam; to: Cam; snap?: boolean }
   return i % 2 ? { from: CLOSE, to: { ...CLOSE, z: 1.38 } } : { from: MEDIUM, to: { ...MEDIUM, z: 1.15 } };
 };
 
-const camAt = (seg: Segment, i: number, f: number, dur: number): Cam => {
+// Later shots inside one line: a new framing at every cut, like a sitcom editor cutting between cameras
+const ANGLES: Cam[] = [CLOSE, { x: 470, y: 925, z: 1.24 }, { ...TIGHT, z: 1.45 }, MEDIUM, { x: 612, y: 925, z: 1.24 }];
+
+const camAt = (seg: Segment, i: number, f: number, dur: number, part = 0): Cam => {
+  if (part > 0) {
+    const c = ANGLES[(i + part * 2) % ANGLES.length];
+    const t = interpolate(f, [0, dur], [0, 1], { ...clamp, easing: Easing.inOut(Easing.quad) });
+    return { ...c, z: c.z * (1 + 0.05 * t) };
+  }
   const s = shotOf(seg, i);
   const t = s.snap
     ? interpolate(f, [0, 6], [0, 1], { ...clamp, easing: Easing.out(Easing.back(1.6)) })
@@ -60,6 +68,17 @@ const actOf = (seg: Segment) => ({
   visual: seg.kind === "ask" ? "kid" : seg.visual ?? "kid",
 });
 const CHARACTERS = ["kid", "person", "dream"];
+
+// Where a line cuts to its next shot (frames from the line's start): about every 2 seconds, always on the start
+// of a word, never leaving a last shot under a second. The punchline and the question stay one shot.
+export const cutsOf = (seg: Segment, fps: number, dur: number): number[] => {
+  if (seg.kind === "lesson" || seg.kind === "ask") return [0];
+  const every = 2 * fps;
+  const marks = seg.words?.length ? seg.words.map((t) => Math.round((t - seg.start) * fps)) : Array.from({ length: Math.floor(dur / every) }, (_, k) => (k + 1) * every);
+  const cuts = [0];
+  for (const m of marks) if (m - cuts[cuts.length - 1] >= every * 0.85 && dur - m >= fps) cuts.push(m);
+  return cuts;
+};
 // Where each person is found (reel/comic.py PEOPLE)
 const ROOM_OF: Record<string, string> = { mother: "kitchen", father: "living_room", teacher: "classroom", boss: "office", friend: "living_room" };
 
@@ -168,15 +187,24 @@ const Line: React.FC<{ p: ReelProps; seg: Segment; i: number; dur: number; sound
   const start = Math.round(seg.start * fps);
   const voice = Math.min(1, (p.mouth ?? [])[start + f - leadFrames] ?? 0);
   const act = actOf(seg);
-  const person = act.visual === "person" && seg.who && seg.who !== "none" ? seg.who : null;
+  // more shots: the line cuts to a new framing every couple of seconds, and a cutaway or another person's line
+  // cuts back to the kid reacting on every other shot
+  const cuts = cutsOf(seg, fps, dur);
+  const part = cuts.filter((c) => c <= f).length - 1;
+  const partF = f - cuts[part];
+  const partDur = (cuts[part + 1] ?? dur) - cuts[part];
+  const reacting = part % 2 === 1 && act.visual !== "kid" && act.visual !== "dream";
+  const visual = reacting ? "kid" : act.visual;
+  const face = reacting && seg.speaker === "other" ? "side_eye" : act.face;
+  const person = visual === "person" && seg.who && seg.who !== "none" ? seg.who : null;
   // the person on screen moves their mouth to the voice: their own line, or the words the kid quotes
   const level = person ? voice : seg.speaker === "other" ? 0 : voice;
   const flashback = person !== null && seg.speaker !== "other";
   // the kid is where the line happens; the computer is only on the desk when the line is about it
   const computer = act.gesture === "type" || act.look === "screen";
   const where = room(person ? ROOM_OF[person] : seg.place ?? p.place, start + f, computer);
-  const cam = camAt(seg, i, f, dur);
-  const cutaway = !CHARACTERS.includes(act.visual) && act.visual !== "person";
+  const cam = part > 0 ? camAt(seg, i, partF, partDur, part) : camAt(seg, i, f, cuts.length > 1 ? partDur : dur);
+  const cutaway = !CHARACTERS.includes(visual) && visual !== "person";
   const shake = shakeAt(f, [...(cutaway ? [] : hitsOf(act.gesture)), ...(seg.kind === "lesson" ? [3] : [])], 14);
   const girl = p.hero === "girl";
   return (
@@ -184,7 +212,7 @@ const Line: React.FC<{ p: ReelProps; seg: Segment; i: number; dur: number; sound
       {cutaway ? (
         <AbsoluteFill style={{ transform: `translate(540px, 800px) scale(${interpolate(f, [0, dur], [1, 1.05], clamp)}) translate(-540px, -800px)` }}>
           <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute" }}>
-            <Cutaway name={act.visual} text={seg.visual_text ?? ""} screen={seg.screen} f={f} dur={dur} />
+            <Cutaway name={visual} text={seg.visual_text ?? ""} screen={seg.screen} f={f} dur={dur} />
           </svg>
         </AbsoluteFill>
       ) : (
@@ -194,14 +222,14 @@ const Line: React.FC<{ p: ReelProps; seg: Segment; i: number; dur: number; sound
           </AbsoluteFill>
           <AbsoluteFill style={{ transform: view(cam, 1, shake), transformOrigin: "0 0" }}>
             <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", overflow: "visible" }}>
-              <Kid f={f} clock={start + f} face={act.face} look={person ? "viewer" : act.look} gesture={act.gesture} mouth={level} girl={girl} toon={person ?? undefined} table={where.table} />
+              <Kid f={f} clock={start + f} face={face} look={person ? "viewer" : reacting ? "side" : act.look} gesture={act.gesture} mouth={level} girl={girl} toon={person ?? undefined} table={where.table} />
             </svg>
           </AbsoluteFill>
         </AbsoluteFill>
       )}
       <AbsoluteFill style={{ background: `radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) ${flashback ? 48 : 62}%, rgba(0,0,0,${flashback ? 0.35 : 0.16}) 100%)` }} />
-      {seg.speaker === "other" && act.visual === "kid" && <Shout f={f} />}
-      {act.visual === "dream" && <Thought text={seg.visual_text ?? ""} f={f} />}
+      {seg.speaker === "other" && visual === "kid" && <Shout f={f} />}
+      {visual === "dream" && <Thought text={seg.visual_text ?? ""} f={f} />}
       {flashback && <FlashbackTag f={f} />}
       {cutaway && <Bubble face={act.face} look="viewer" mouth={seg.speaker === "other" ? 0 : voice} girl={girl} f={f} clock={start + f} />}
       {seg.kind === "ask" ? <AskCard text={seg.text} f={f} /> : <TitleStrip title={p.segments[0].title ?? ""} emoji={p.emoji ?? "sob"} f={seg.kind === "hook" ? f : 99} />}
