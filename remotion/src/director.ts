@@ -30,12 +30,18 @@ export const SHOTS: Record<string, { from: Cam; to: Cam; ease?: (t: number) => n
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
-// handheld drift: tiny continuous motion so no shot ever feels frozen
-const drift = (f: number) => ({ x: Math.sin(f * 0.031) * 5 + Math.sin(f * 0.077) * 2, y: Math.cos(f * 0.027) * 4, r: Math.sin(f * 0.019) * 0.35 });
+// Mr Omi's glide (smootherstep): symmetric ease in and out, no overshoot
+export const glide = (u: number) => {
+  const x = Math.min(1, Math.max(0, u));
+  return x * x * x * (x * (6 * x - 15) + 10);
+};
+
+// no handheld drift: a locked-off camera with slow creeping moves reads as "filmed"; drift reads as floating paper
+const drift = (_f: number) => ({ x: 0, y: 0, r: 0 });
 
 export const cameraAt = (shot: string, f: number, dur: number, hits: number[] = []): Cam => {
   const s = SHOTS[shot] ?? SHOTS.medium;
-  const t = (s.ease ?? Easing.inOut(Easing.quad))(interpolate(f, [0, Math.max(1, dur)], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
+  const t = (s.ease ?? glide)(interpolate(f, [0, Math.max(1, dur)], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
   const d = drift(f);
   // impact punch-in: the camera jumps closer on a hit and settles back
   const punch = hits.reduce((acc, h) => (f >= h && f < h + 10 ? acc + 0.07 * (1 - (f - h) / 10) ** 2 : acc), 0);

@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import {
   AbsoluteFill, Audio, Freeze, Sequence, continueRender, delayRender, interpolate, staticFile, useCurrentFrame, useVideoConfig,
 } from "remotion";
+import { duckCurve } from "./duck";
+import { SafeZones } from "./SafeZones";
 import { Act, CAST, CX, Figure, GROUND, H, HERO, HIP, PropView, S, W, act, heroLook, hipFor, watcher } from "./actions";
 import { cameraAt, entrance, layerTransform, tiltTransform } from "./director";
 import { COL, FONT, ease, shakeAt } from "./engine/fx";
@@ -48,6 +50,12 @@ export type ReelProps = {
   style?: "story" | "comic"; // comic: rendered by comic/ComicReel.tsx
   place?: string; // comic: the room
   emoji?: string; // comic: the emoji after the title strip
+  visemes?: string; // one mouth shape per video frame of the whole Reel: A, O, E, M or " " (P0-14)
+  audience?: "kids" | "family" | "adult"; // comic: who the jokes are written for
+  cover_text?: string; // comic: up to 3 words for the cover image
+  engine?: "svg" | "three"; // comic: the 2.5D three.js rooms
+  ink?: "plum"; // comic: the plum ink A/B test (REEL_INK)
+  guides?: boolean; // draw the Instagram safe zones (Studio and look-book stills only)
 };
 
 // The mouth curve and where the voice starts, for the talking figures
@@ -158,7 +166,7 @@ const Top: React.FC<{ seg: Segment; f: number; dark: boolean }> = ({ seg, f, dar
 };
 
 // Spoken words, a few at a time, with the word being spoken highlighted (Whisper word times when available)
-export const Subtitle: React.FC<{ seg: Segment; f: number; fps: number; speakerName?: string; top?: number }> = ({ seg, f, fps, speakerName = "मैं", top = 1395 }) => {
+export const Subtitle: React.FC<{ seg: Segment; f: number; fps: number; speakerName?: string; top?: number }> = ({ seg, f, fps, speakerName = "मैं", top = 1340 }) => {
   const words = seg.text.split(/\s+/).filter(Boolean);
   if (!words.length) return null;
   const now = seg.start + f / fps;
@@ -181,9 +189,21 @@ export const Subtitle: React.FC<{ seg: Segment; f: number; fps: number; speakerN
       }
     }
   }
-  const CHUNK = 5;
-  const start = Math.floor(current / CHUNK) * CHUNK;
-  const chunk = words.slice(start, start + CHUNK);
+  // pages of at most ~22 characters (one line at 52 px on a 960 px box), never splitting a word, so the box never
+  // grows down into the phone's UI
+  const MAX = 22;
+  const pages: number[] = [0];
+  let len = 0;
+  words.forEach((w, i) => {
+    if (i > pages[pages.length - 1] && len + w.length + 1 > MAX) {
+      pages.push(i);
+      len = 0;
+    }
+    len += w.length + 1;
+  });
+  const page = pages.filter((p) => p <= current).length - 1;
+  const start = pages[page];
+  const chunk = words.slice(start, pages[page + 1] ?? words.length);
   const who = seg.speaker === "hero" ? speakerName : seg.speaker === "other" && seg.with ? CAST[seg.with]?.label : undefined;
   const whoColor = seg.speaker === "other" && seg.with ? CAST[seg.with]?.color ?? COL.blue : COL.ink;
   return (
@@ -222,7 +242,7 @@ export const Follow: React.FC<{ f: number; handle: string; part?: string; line?:
   const tapAt = (i: number) => 14 + i * TAP;
   const cursor = Math.min(CTA.length - 1, Math.max(0, Math.floor((f - 10) / TAP)));
   return (
-    <div style={{ position: "absolute", left: 0, right: 0, top: 1380, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+    <div style={{ position: "absolute", left: 0, right: 0, top: 1290, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
       <div style={{ display: "flex", gap: 18, position: "relative" }}>
         {CTA.map(([icon, label, color], i) => {
           const d = f - (6 + i * 3);
@@ -400,6 +420,7 @@ export const StickReel: React.FC<ReelProps> = (p) => {
   const hookDur = Math.max(1, at(hook.end) - at(hook.start));
   const LOOP = 14; // the last frames dissolve into the opening frame, so a replay feels seamless
   const speechEnd = durationInFrames - at(2.2); // the voice ends TAIL seconds before the end (reel/build.py)
+  const duck = React.useMemo(() => duckCurve(p.segments, fps, durationInFrames), [p.segments, fps, durationInFrames]);
   const ask = p.segments[p.segments.length - 1];
   const nudgeAt = Math.round(durationInFrames * 0.45);
   const nudge = nudgeAt + 66 < at(ask.start) ? nudgeAt : -1;
@@ -437,12 +458,13 @@ export const StickReel: React.FC<ReelProps> = (p) => {
       {p.music && (
         <Audio
           src={staticFile(p.music)}
-          // the music sits under the voice and rises for the end card
-          volume={(f) => interpolate(f, [0, 8, speechEnd, speechEnd + 15, durationInFrames - 10, durationInFrames], [0, 0.11, 0.11, 0.3, 0.3, 0], {
+          // the music ducks under every spoken word and rises for the end card
+          volume={(f) => interpolate(f, [0, 8, speechEnd, speechEnd + 15, durationInFrames - 10, durationInFrames], [0, 0.13, 0.13, 0.3, 0.3, 0], {
             extrapolateLeft: "clamp", extrapolateRight: "clamp",
-          })}
+          }) * (f < speechEnd ? duck[f] ?? 1 : 1)}
         />
       )}
+      {p.guides && <SafeZones />}
     </AbsoluteFill>
     </Voice.Provider>
   );

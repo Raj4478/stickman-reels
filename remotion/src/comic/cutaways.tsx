@@ -1,14 +1,19 @@
 import React from "react";
 import { Easing, interpolate } from "remotion";
 import { FONT } from "../engine/fx";
+import { onInk } from "./ink";
 
 // Cutaways of a comic Reel (reel/comic.py VISUALS): when a line names something you can show, the Reel cuts from
 // the kid to it, full frame, while the kid keeps talking in a small bubble in the corner. `text` is the line's
 // visual_text (₹15,000, 4 साल, गाना.mp3...), drawn into the picture. The drawings keep to y 430-1160, between
-// the title strip and the subtitles, and leave the bottom right corner to the kid's bubble.
+// the title strip and the subtitles, and leave the bottom left corner (x < 300, y > 1100) to the kid's bubble.
 
-const INK = "#1b1b1f";
+let INK = "#1b1b1f";
 const O = { stroke: INK, strokeWidth: 8, strokeLinejoin: "round" as const, strokeLinecap: "round" as const };
+onInk((plum) => {
+  INK = plum ? "#241726" : "#1b1b1f"; // the plum ink A/B test (ink.ts)
+  O.stroke = INK;
+});
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 const pop = (f: number, at = 0) => interpolate(f - at, [0, 6, 10], [0.6, 1.06, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
 const T: React.FC<{ x: number; y: number; size: number; color?: string; weight?: number; anchor?: "start" | "middle" | "end"; children: React.ReactNode }> = ({ x, y, size, color = INK, weight = 800, anchor = "middle", children }) => (

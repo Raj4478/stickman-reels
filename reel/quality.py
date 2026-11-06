@@ -22,12 +22,14 @@ SCHEMA = {
     },
     'required': ['ok', 'issues'],
 }
-PROMPT = """These are 4 frames (in order) of a vertical Hindi Instagram Reel with a stick-figure cartoon: the opening,
-two story beats and the end card. Check them like a strict video editor. Report only real problems a viewer
+PROMPT = """These are frames (in order) of a vertical Hindi Instagram Reel with a stick-figure cartoon: the opening,
+the story beats and the end card. Check them like a strict video editor. Report only real problems a viewer
 would notice:
 - text cut off at an edge of the frame, or overlapping other text
 - text covering the stick figure's face, or unreadable text (too small, low contrast)
 - a figure accidentally cut off by the frame, or an empty-looking frame
+- anything important (a face, a caption, a subtitle) inside the phone's UI areas: in these 540-pixel-wide frames,
+  the top 135 px, the bottom 230 px, or the right 70 px below y 575
 Hindi in Devanagari is expected. A small pencil cursor on the end card is intentional. In comic Reels a big-headed
 cartoon kid sits behind a table, so only the upper body shows, and a short Roman-letter title strip sits at the
 top: both are intentional. Be brief."""
@@ -61,7 +63,7 @@ def hard_checks(video, narrated=True, shortest=20):
         issues.append('the video has no sound')
     elif narrated:
         level = loudness(video)
-        if level is not None and level < -35:
+        if level is not None and level < -28:  # every Reel is loudness-normalised now (-14 LUFS)
             issues.append(f'the sound is very quiet ({level:.0f} dB)')
     return info, issues
 
@@ -70,8 +72,8 @@ def frames(video, props, folder):
     """JPEG frames at the cover, two beats and the end card."""
     segments = props['segments']
     scenes = [s for s in segments if s['kind'] == 'scene'] or segments
-    times = [0.7, (scenes[0]['start'] + scenes[0]['end']) / 2, (scenes[-1]['start'] + scenes[-1]['end']) / 2,
-             props['duration'] - 1.2]
+    # the cover, the middle of up to six lines (every line in a comic Reel) and the end card
+    times = [0.7, *[(s['start'] + s['end']) / 2 for s in scenes][:6], props['duration'] - 1.2]
     paths = []
     for i, t in enumerate(times):
         path = Path(folder) / f'frame{i}.jpg'
@@ -87,10 +89,18 @@ def check(folder, video):
     props = json.loads((folder / 'props.json').read_text(encoding='utf-8'))
     # a comic rant is meant to be short (15-25 seconds)
     info, issues = hard_checks(video, narrated=bool(props.get('audio')), shortest=12 if props.get('style') == 'comic' else 20)
+    try:
+        from . import scan
+        issues += scan.problems(scan.frames(video), planned=scan.planned_cuts(props))
+        scan.sheet(video, folder / 'sheet.jpg')
+    except Exception as exc:  # noqa: BLE001 - the scan is a bonus, like the visual check
+        print(f'Frame scan skipped: {exc}')
     looked = False
     try:
         with tempfile.TemporaryDirectory() as tmp:
-            answer, _ = gemini.vision_json(PROMPT, frames(video, props, tmp), SCHEMA)
+            family = '\nThis is a family Reel: also report anything a child could copy and get hurt by, or anything mean, scary or rude.'
+            answer, _ = gemini.vision_json(PROMPT + (family if props.get('audience') in ('kids', 'family') else ''),
+                                           frames(video, props, tmp), SCHEMA)
         looked = True
         issues += [str(i)[:160] for i in answer.get('issues', []) if str(i).strip()][:5]
     except Exception as exc:  # noqa: BLE001 - the visual check is a bonus; the Reel is still sent

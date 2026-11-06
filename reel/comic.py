@@ -82,7 +82,8 @@ VISUALS = {
 SCREENS = ('music', 'video', 'jobs', 'search', 'error')
 EMOJI = {'sob': 'loudly crying face', 'joy': 'laughing with tears', 'skull': 'skull ("I am dead")',
          'facepalm': 'facepalm face', 'clown': 'clown face', 'none': 'no emoji'}
-LIMITS = {'title': 32, 'title_b': 32, 'hook': 110, 'line': 120, 'lesson': 120, 'ask': 90, 'name': 16, 'visual_text': 24}
+LIMITS = {'title': 32, 'title_b': 32, 'hook': 110, 'line': 120, 'lesson': 120, 'ask': 90, 'name': 16, 'visual_text': 24,
+          'cover_text': 20}
 PEOPLE = tuple(k for k in OTHERS if k != 'none')  # who can be on screen
 
 LINE = {
@@ -111,6 +112,8 @@ SCHEMA = {
                                                    'letters is fine (e.g. "Computer Course", "Monday Office", "बोर्ड एग्ज़ाम")'},
         'title_b': {'type': 'string', 'description': 'A second title strip with a different angle (for an A/B test)'},
         'emoji': {'type': 'string', 'enum': list(EMOJI), 'description': 'Shown twice after the title'},
+        'cover_text': {'type': 'string', 'description': 'The cover image text: 1-3 words that tease the twist without '
+                                                        'giving it away ("95 नंबर?!"), different from the title'},
         'place': {'type': 'string', 'enum': list(ROOMS), 'description': 'Where the kid mostly is (each line may move)'},
         'other': {'type': 'string', 'enum': list(OTHERS), 'description': 'Who speaks from off screen, or none'},
         'hooks': {'type': 'array', 'items': {'type': 'string'}, 'minItems': 1, 'maxItems': 3,
@@ -302,6 +305,7 @@ def clean(raw):
         'hook': hook['line'], **{f'hook_{k}': hook[k] for k in ACTED},
         'scenes': lines,
         'lesson': punch['line'], **{f'punch_{k}': punch[k] for k in ACTED},
+        'cover_text': short(raw.get('cover_text'), LIMITS['cover_text']),
         'ask': short(raw.get('ask'), LIMITS['ask']), 'music': 'comic', 'other_voice': other if spoken else 'friend',
         'part': '', 'instagram_caption': str(raw.get('instagram_caption') or '').strip()[:1500],
     })

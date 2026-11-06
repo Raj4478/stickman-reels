@@ -4,6 +4,7 @@ import { Card, CardProps } from "./Card";
 import { LogoAvatar, LogoBanner, LogoLockup, LogoMark } from "./Logo";
 import { ReelProps, StickReel } from "./StickReel";
 import { ComicReel } from "./comic/ComicReel";
+import { ComicCover } from "./comic/Cover";
 
 // The workflow renders "StickReel" for every Reel; a comic script's props (style "comic") get the comic look
 const Reel: React.FC<ReelProps> = (p) => (p.style === "comic" ? <ComicReel {...p} /> : <StickReel {...p} />);
@@ -66,6 +67,7 @@ export const RemotionRoot: React.FC = () => (
     defaultProps={COMIC}
     calculateMetadata={({ props }) => ({ durationInFrames: Math.ceil(props.duration * 30) })}
   />
+  <Composition id="ComicCover" component={ComicCover} width={1080} height={1920} fps={30} durationInFrames={1} defaultProps={COMIC} />
   <Composition
     id="StickReel"
     component={Reel}

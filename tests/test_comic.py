@@ -60,6 +60,18 @@ class CleanTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             comic.clean(copy(lines=[{'line': 'no Hindi', 'face': 'sad', 'gesture': 'talk', 'look': 'viewer', 'speaker': 'hero'}]))
 
+    def test_visemes_follow_the_words(self):
+        segs = [{'text': 'मम्मी बोलो', 'words': [0.0, 0.5], 'end': 1.0}]
+        v = voice.visemes(segs, 1.0, fps=10)
+        self.assertEqual(v[:2], 'MM')  # म starts closed
+        self.assertIn('O', v[5:10])  # बोलो is round
+        self.assertEqual(len(v), 11)
+
+    def test_cover_text_is_kept_short(self):
+        s = comic.clean(copy(cover_text='पंचानवे नंबर आए फिर भी छुपाया?!'))
+        self.assertLessEqual(len(s['cover_text']), comic.LIMITS['cover_text'])
+        self.assertEqual(comic.clean(copy())['cover_text'], '')
+
     def test_missing_hook_object_uses_the_first_option(self):
         s = comic.clean(copy(hook=None))
         self.assertEqual(s['hook'], SAMPLE['hooks'][0])

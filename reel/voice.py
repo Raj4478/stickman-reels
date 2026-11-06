@@ -105,6 +105,39 @@ def edge_cast(other):
     return PARTNER_OF_GIRL[1] if other == 'partner' and girl_hero() else EDGE.get(other, EDGE['narrator'])
 
 
+# Mouth shapes: M (lips closed, the start of म ब प फ), O (round), E (wide), A (open, the default)
+ROUND = set('ओऔउऊोौुू')
+WIDE = set('ईइएऐिीेै')
+CLOSED = set('मबपफ')
+
+
+def vowel_shape(text):
+    for ch in text:
+        if ch in ROUND:
+            return 'O'
+        if ch in WIDE:
+            return 'E'
+    return 'A'
+
+
+def visemes(segments, duration, fps=30):
+    """One letter per video frame of the whole Reel: the mouth shape of the word being said, ' ' between words.
+    Segments are props segments (times already include the lead); words without times are skipped."""
+    frames = [' '] * (int(duration * fps) + 1)
+    for seg in segments:
+        words, times = seg.get('text', '').split(), seg.get('words') or []
+        if len(words) != len(times):
+            continue
+        ends = [*times[1:], seg['end']]
+        for word, t0, t1 in zip(words, times, ends):
+            a, b = int(t0 * fps), min(len(frames), int(min(t1, t0 + 0.7) * fps))
+            if word[:1] in CLOSED:
+                frames[a:min(b, a + 2)] = ['M'] * len(frames[a:min(b, a + 2)])
+                a += 2
+            frames[a:b] = [vowel_shape(word)] * len(frames[a:b])
+    return ''.join(frames)
+
+
 def speakable(text):
     text = re.sub(r'[☀-➿\U0001f000-\U0001faff]', '', text or '')
     return re.sub(r'\s+', ' ', text.replace('&', ' और ').replace('…', '...')).strip()

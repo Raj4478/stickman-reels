@@ -85,8 +85,13 @@ def build(script, out, public, narrate=True, music=True, prefix=''):
     props = {'audio': audio, 'music': None, 'lead': LEAD, 'handle': os.getenv('REEL_HANDLE', '').strip(),
              'mouth': mouth, 'hero': script.get('hero', 'boy'), 'segments': segments(script, starts, speech_end, words)}
     if script.get('style') == 'comic':
-        props.update(style='comic', place=script.get('place', 'bedroom'), emoji=script.get('emoji', 'sob'))
+        props.update(style='comic', place=script.get('place', 'bedroom'), emoji=script.get('emoji', 'sob'),
+                     cover_text=script.get('cover_text', ''), audience=script.get('audience', 'adult'))
+        if os.getenv('REEL_INK', '').strip().lower() == 'plum':
+            props['ink'] = 'plum'  # the plum ink A/B test
     props['duration'] = props['segments'][-1]['end']
+    if audio:
+        props['visemes'] = voice.visemes(props['segments'], props['duration'])
     if music:
         sounds.write_music(public / 'music.wav', props['duration'], script.get('music', 'warm'), script['title'])
         props['music'] = f'{prefix}music.wav'

@@ -33,7 +33,17 @@ Hindi life-lesson Reels for Instagram, acted out by a stick figure and filmed li
      - **Like · Subscribe · Follow · Share** buttons, tapped one by one by a cursor;
      - a small "+ फ़ॉलो करें" nudge slides in halfway through;
      - the last frames dissolve into the opening, so the Reel loops.
-   - **Quality check:** before sending, FFmpeg checks the length, the size and the sound. Gemini then looks at 4 frames for cut-off or overlapping text and badly framed figures. Any problem is listed in the Telegram caption.
+   - **Safe zones:** subtitles, the corner bubble, the handle and the end card stay out of Instagram's top bar, bottom caption row and right-hand button column (`remotion/src/SafeZones.tsx`; set `guides: true` in the Studio to see them).
+   - **Camera and acting (rules from Mr Omi's [claude-animated-shorts](https://github.com/mromidev/claude-animated-shorts)):**
+     - a cut inside a line always changes the shot size by 40% or moves the kid a quarter of the frame;
+     - the punchline snaps in on its twist word, with a spotlight and an impact kick;
+     - story Reels glide with no handheld drift;
+     - faces change 2 frames before the word, with natural random blinks and a blink over every face change;
+     - gestures wind up before they move, hair trails the head, and a shock stretches the head;
+     - mouth shapes follow the words (closed for म/ब/प, round, wide or open).
+   - **Sound and master:** the music ducks under every spoken word, stops dead for the comic twist, and every Reel is colour-graded and loudness-normalised to -14 LUFS in one final encode (rendered at CRF 14, mastered at CRF 18).
+   - **Cover:** comic Reels get their own cover image (`ComicCover`): the punchline's face, big, with 1–3 teaser words that survive the grid's 4:5 and 3:4 crops.
+   - **Quality check:** before sending, FFmpeg checks the length, the size and the sound, and scans every frame for black or white flashes, frozen pictures and sudden pops (`reel/scan.py`). Gemini then looks at the cover, up to six lines and the end card for cut-off or overlapping text, badly framed figures and anything inside the phone's UI areas. Any problem is listed in the Telegram caption, and a contact sheet (one frame a second) follows the video.
 5. **Review:** each video and its cover image arrive in your Telegram chat with three buttons:
    - **✅ Post** sends it to Instagram and YouTube Shorts, and the links come back to the chat.
    - **🔁 Make again** writes a new story on the same lesson.
@@ -170,6 +180,7 @@ A Reel takes about 6–8 minutes, including installing everything.
 | `HOOK_TEST` | `true` also posts a second-hook version as an Instagram trial Reel |
 | `CAROUSEL` | `true` also posts a 5-slide carousel of every Reel |
 | `YOUTUBE_PRIVACY` | `public` (default), `unlisted` or `private` |
+| `REEL_INK` | `plum` tries Mr Omi's softer plum ink (#241726) on comic Reels instead of near-black, as an A/B test |
 | `LOVE_SHARE` | The share of Reels without a chosen topic that are love stories, from `0` to `1` (default `0.4`) |
 | `REEL_STYLE` | `comic` makes comic Reels by default (the bot's 😂 switch); `story` or empty for stick-figure stories |
 | `REEL_VOICE` | Gemini voice name (default `Achird`; try `Sulafat`, `Charon`, `Kore`) |

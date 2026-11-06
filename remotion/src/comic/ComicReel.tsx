@@ -1,9 +1,12 @@
 import React from "react";
 import { AbsoluteFill, Audio, Easing, Freeze, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
-import { COL, FONT, ease, shakeAt } from "../engine/fx";
+import { duckCurve } from "../duck";
+import { COL, FONT, ease, kickAt } from "../engine/fx";
+import { SafeZones } from "../SafeZones";
 import { Follow, ReelProps, Segment, Subtitle, useFonts } from "../StickReel";
 import { Emoji } from "./Emoji";
 import { CUTAWAY_SOUND, Cutaway } from "./cutaways";
+import { inkUp } from "./ink";
 import { HEAD, Kid, hitsOf } from "./Kid";
 import { room } from "./rooms";
 
@@ -22,33 +25,54 @@ const H = 1920;
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
 type Cam = { x: number; y: number; z: number };
+// Size classes. Neighbours in a cut always differ by >= 1.4x zoom or a quarter of the frame (bigChange)
+const WIDE: Cam = { x: 540, y: 980, z: 0.98 }; // the whole table and the room (establishing)
 const MEDIUM: Cam = { x: 540, y: 950, z: 1.1 };
-const CLOSE: Cam = { x: 540, y: 905, z: 1.32 };
-const TIGHT: Cam = { x: HEAD.x, y: HEAD.y + 40, z: 1.5 };
+const CLOSE: Cam = { x: 540, y: 905, z: 1.55 };
+const XCLOSE: Cam = { x: HEAD.x, y: HEAD.y - 10, z: 2.2 }; // eyes and brows fill the frame: the reaction shot
+const CLOSE_L: Cam = { x: 430, y: 905, z: 1.55 }; // the kid on the right third
+const CLOSE_R: Cam = { x: 650, y: 905, z: 1.55 }; // the kid on the left third
 
-// The framing of each line: medium and close alternate; big emotions and the punchline go tighter
+// faces whose joke is in the eyes get the extreme close-up
+const EYE_JOKES = ["shock", "side_eye", "eye_roll", "cheeky"];
+
+// The framing of each line: medium and close alternate; eye jokes, big emotions and the punchline go tighter
 const shotOf = (seg: Segment, i: number): { from: Cam; to: Cam; snap?: boolean } => {
   if (seg.kind === "hook") return { from: MEDIUM, to: { ...MEDIUM, z: 1.16 } };
-  if (seg.kind === "lesson") return { from: CLOSE, to: TIGHT, snap: true };
+  if (seg.kind === "lesson") return seg.visual === "dream" ? { from: MEDIUM, to: CLOSE, snap: true } : { from: CLOSE, to: XCLOSE, snap: true };
   if (seg.kind === "ask") return { from: MEDIUM, to: MEDIUM };
-  if (seg.visual === "person") return { from: { ...MEDIUM, y: 980, z: 1.02 }, to: { ...MEDIUM, y: 970, z: 1.1 } };
-  if (["shock", "cry", "angry"].includes(seg.face ?? "")) return { from: CLOSE, to: { ...TIGHT, z: 1.42 } };
+  if (seg.visual === "person") return { from: { ...MEDIUM, y: 980, z: 1.02 }, to: { ...MEDIUM, y: 970, z: 1.08 } };
+  if (EYE_JOKES.includes(seg.face ?? "")) return { from: { ...XCLOSE, z: 2.05 }, to: XCLOSE };
+  if (["cry", "angry", "panic"].includes(seg.face ?? "")) return { from: CLOSE, to: { ...CLOSE, z: 1.66 } };
   if (seg.speaker === "other") return { from: { ...MEDIUM, x: 590 }, to: { ...MEDIUM, x: 600, z: 1.14 } };
-  return i % 2 ? { from: CLOSE, to: { ...CLOSE, z: 1.38 } } : { from: MEDIUM, to: { ...MEDIUM, z: 1.15 } };
+  return i % 2 ? { from: CLOSE, to: { ...CLOSE, z: 1.62 } } : { from: MEDIUM, to: { ...MEDIUM, z: 1.15 } };
 };
 
 // Later shots inside one line: a new framing at every cut, like a sitcom editor cutting between cameras
-const ANGLES: Cam[] = [CLOSE, { x: 470, y: 925, z: 1.24 }, { ...TIGHT, z: 1.45 }, MEDIUM, { x: 612, y: 925, z: 1.24 }];
+const ANGLES: Cam[] = [CLOSE, MEDIUM, XCLOSE, WIDE, CLOSE_L, MEDIUM, CLOSE_R];
 
-const camAt = (seg: Segment, i: number, f: number, dur: number, part = 0): Cam => {
+// Rule C1 (Mr Omi's "cut only on big jumps"): a cut changes the size by 40% or moves the subject a quarter frame
+export const bigChange = (a: Cam, b: Cam) => Math.max(a.z / b.z, b.z / a.z) >= 1.4 || Math.abs(a.x - b.x) * Math.min(a.z, b.z) >= 270;
+
+// The framing of shot `part` (>= 1) of line i: the next angle that is a big change from the previous shot
+const angleFor = (seg: Segment, i: number, part: number): Cam => {
+  const prev = part === 1 ? shotOf(seg, i).to : angleFor(seg, i, part - 1);
+  for (let k = 0; k < ANGLES.length; k++) {
+    const c = ANGLES[(i + part * 2 + k) % ANGLES.length];
+    if (bigChange(prev, c)) return c;
+  }
+  return WIDE;
+};
+
+const camAt = (seg: Segment, i: number, f: number, dur: number, part = 0, twist = 0): Cam => {
   if (part > 0) {
-    const c = ANGLES[(i + part * 2) % ANGLES.length];
+    const c = angleFor(seg, i, part);
     const t = interpolate(f, [0, dur], [0, 1], { ...clamp, easing: Easing.inOut(Easing.quad) });
     return { ...c, z: c.z * (1 + 0.05 * t) };
   }
   const s = shotOf(seg, i);
   const t = s.snap
-    ? interpolate(f, [0, 6], [0, 1], { ...clamp, easing: Easing.out(Easing.back(1.6)) })
+    ? interpolate(f, [twist, twist + 4], [0, 1], { ...clamp, easing: Easing.out(Easing.back(1.6)) })
     : interpolate(f, [0, dur], [0, 1], { ...clamp, easing: Easing.inOut(Easing.quad) });
   return { x: s.from.x + (s.to.x - s.from.x) * t, y: s.from.y + (s.to.y - s.from.y) * t, z: s.from.z + (s.to.z - s.from.z) * t };
 };
@@ -83,13 +107,14 @@ export const cutsOf = (seg: Segment, fps: number, dur: number): number[] => {
 const ROOM_OF: Record<string, string> = { mother: "kitchen", father: "living_room", teacher: "classroom", boss: "office", friend: "living_room" };
 
 // The kid's face in a corner bubble during a cutaway: still reacting and talking
-const Bubble: React.FC<{ face: string; look: string; mouth: number; girl: boolean; f: number; clock: number }> = ({ face, look, mouth, girl, f, clock }) => {
+// (bottom left: Instagram's Like/Comment/Share column covers the right edge from y ~1150)
+const Bubble: React.FC<{ face: string; look: string; mouth: number; girl: boolean; f: number; clock: number; viseme?: string }> = ({ face, look, mouth, girl, f, clock, viseme }) => {
   const s = interpolate(f, [0, 6, 10], [0, 1.08, 1], clamp);
   return (
-    <div style={{ position: "absolute", right: 36, top: 1170, width: 330, height: 330, borderRadius: "50%", overflow: "hidden", border: "10px solid #fff",
+    <div style={{ position: "absolute", left: 40, top: 1105, width: 250, height: 250, borderRadius: "50%", overflow: "hidden", border: "10px solid #fff",
       boxShadow: "0 10px 0 rgba(0,0,0,.25)", background: "#ead3c2", transform: `scale(${s})` }}>
-      <svg width={330} height={330} viewBox="270 560 540 540" style={{ display: "block" }}>
-        <Kid f={f} clock={clock} face={face} look={look} gesture="talk" mouth={mouth} girl={girl} />
+      <svg width={250} height={250} viewBox="270 560 540 540" style={{ display: "block" }}>
+        <Kid f={f} clock={clock} face={face} look={look} gesture="talk" mouth={mouth} girl={girl} viseme={viseme} />
       </svg>
     </div>
   );
@@ -119,7 +144,7 @@ const FlashbackTag: React.FC<{ f: number }> = ({ f }) => (
 const TitleStrip: React.FC<{ title: string; emoji: string; f: number }> = ({ title, emoji, f }) => {
   const pop = interpolate(f, [0, 4, 8], [1.08, 0.98, 1], clamp);
   return (
-    <div style={{ position: "absolute", top: 250, left: 0, right: 0, display: "flex", justifyContent: "center", transform: `scale(${pop})` }}>
+    <div style={{ position: "absolute", top: 285, left: 0, right: 0, display: "flex", justifyContent: "center", transform: `scale(${pop})` }}>
       <div style={{ background: "#fff", padding: "12px 34px", borderRadius: 14, boxShadow: "0 8px 0 rgba(0,0,0,.18)", display: "flex", alignItems: "center", gap: 14,
         fontFamily: FONT.hindi, fontWeight: 700, fontSize: 66, lineHeight: 1.25, color: COL.ink }}>
         <span>{title}</span>
@@ -146,7 +171,7 @@ const Shout: React.FC<{ f: number }> = ({ f }) => {
 const AskCard: React.FC<{ text: string; f: number }> = ({ text, f }) => {
   const s = interpolate(f - 2, [0, 6, 10], [0.4, 1.05, 1], clamp);
   return (
-    <div style={{ position: "absolute", top: 230, left: 70, right: 70, display: "flex", justifyContent: "center" }}>
+    <div style={{ position: "absolute", top: 290, left: 70, right: 70, display: "flex", justifyContent: "center" }}>
       <div style={{ transform: `scale(${s}) rotate(-1.5deg)`, opacity: ease(f, 2, 7), background: "#fff", border: `7px solid ${COL.ink}`, borderRadius: 26,
         boxShadow: `12px 12px 0 ${COL.ink}`, padding: "26px 36px", textAlign: "center", fontFamily: FONT.hindi, fontWeight: 800,
         fontSize: text.length > 34 ? 56 : 64, lineHeight: 1.3, color: COL.ink }}>{text}</div>
@@ -156,8 +181,10 @@ const AskCard: React.FC<{ text: string; f: number }> = ({ text, f }) => {
 
 // Sound for one segment: typing, a slam, a cartoon boing for a shock, a sad horn for tears, the punch's whip
 const Sounds: React.FC<{ seg: Segment; dur: number }> = ({ seg, dur }) => {
+  const { fps } = useVideoConfig();
   const act = actOf(seg);
   const cues: [number, string, number][] = [];
+  cutsOf(seg, fps, dur).slice(1).forEach((c) => cues.push([Math.max(0, c - 3), "whoosh", 0.12])); // a soft whoosh on every cut
   const character = CHARACTERS.includes(act.visual);
   if (seg.kind === "hook") cues.push([0, "pop", 0.6]);
   if (act.gesture === "type" && character) for (let at = 2; at < dur - 10; at += 40) cues.push([at, "typing", 0.22]);
@@ -180,8 +207,9 @@ const Sounds: React.FC<{ seg: Segment; dur: number }> = ({ seg, dur }) => {
   );
 };
 
-const Line: React.FC<{ p: ReelProps; seg: Segment; i: number; dur: number; sound?: boolean }> = ({ p, seg, i, dur, sound = true }) => {
-  const f = useCurrentFrame();
+const Line: React.FC<{ p: ReelProps; seg: Segment; i: number; dur: number; sound?: boolean; early?: number }> = ({ p, seg, i, dur, sound = true, early = 0 }) => {
+  // the first `early` frames show frame 0 of this line: the new face lands just before the word (Mr Omi: 0-3 f)
+  const f = Math.max(0, useCurrentFrame() - early);
   const { fps } = useVideoConfig();
   const leadFrames = Math.round(p.lead * fps);
   const start = Math.round(seg.start * fps);
@@ -203,10 +231,20 @@ const Line: React.FC<{ p: ReelProps; seg: Segment; i: number; dur: number; sound
   // the kid is where the line happens; the computer is only on the desk when the line is about it
   const computer = act.gesture === "type" || act.look === "screen";
   const where = room(person ? ROOM_OF[person] : seg.place ?? p.place, start + f, computer);
-  const cam = part > 0 ? camAt(seg, i, partF, partDur, part) : camAt(seg, i, f, cuts.length > 1 ? partDur : dur);
+  // the punchline's twist: its third-last word (Whisper word times), else 60% into the line
+  const twist = seg.kind === "lesson"
+    ? (seg.words?.length ? Math.round((seg.words[Math.max(0, seg.words.length - 3)] - seg.start) * fps) : Math.round(dur * 0.6))
+    : 0;
+  const cam = part > 0 ? camAt(seg, i, partF, partDur, part) : camAt(seg, i, f, cuts.length > 1 ? partDur : dur, 0, twist);
   const cutaway = !CHARACTERS.includes(visual) && visual !== "person";
-  const shake = shakeAt(f, [...(cutaway ? [] : hitsOf(act.gesture)), ...(seg.kind === "lesson" ? [3] : [])], 14);
+  const kick = kickAt(f, [...(cutaway ? [] : hitsOf(act.gesture)), ...(seg.kind === "lesson" ? [twist] : [])]);
+  const shake = { x: kick, y: kick * 0.3, r: kick * 0.03 };
   const girl = p.hero === "girl";
+  // a face change at the line's start hides behind a blink
+  const prevFace = i > 0 ? actOf(p.segments[i - 1]).face : face;
+  const swap = part === 0 && prevFace !== face;
+  // the mouth shape of the word being said (reel/voice.py visemes)
+  const viseme = (p.visemes ?? "")[start + f] ?? " ";
   return (
     <AbsoluteFill style={{ background: "#ead3c2" }}>
       {cutaway ? (
@@ -222,18 +260,23 @@ const Line: React.FC<{ p: ReelProps; seg: Segment; i: number; dur: number; sound
           </AbsoluteFill>
           <AbsoluteFill style={{ transform: view(cam, 1, shake), transformOrigin: "0 0" }}>
             <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", overflow: "visible" }}>
-              <Kid f={f} clock={start + f} face={face} look={person ? "viewer" : reacting ? "side" : act.look} gesture={act.gesture} mouth={level} girl={girl} toon={person ?? undefined} table={where.table} />
+              <Kid f={f} clock={start + f} face={face} look={person ? "viewer" : reacting ? "side" : act.look} gesture={act.gesture} mouth={level} girl={girl} toon={person ?? undefined} table={where.table}
+                swap={swap} viseme={person || seg.speaker !== "other" ? viseme : " "} />
             </svg>
           </AbsoluteFill>
         </AbsoluteFill>
       )}
       <AbsoluteFill style={{ background: `radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) ${flashback ? 48 : 62}%, rgba(0,0,0,${flashback ? 0.35 : 0.16}) 100%)` }} />
+      {seg.kind === "lesson" && (
+        // a spotlight: the room dims on the punchline's twist
+        <AbsoluteFill style={{ background: `radial-gradient(circle at 50% 44%, rgba(20,10,30,0) 24%, rgba(20,10,30,${0.5 * ease(f, twist, twist + 4)}) 62%)` }} />
+      )}
       {seg.speaker === "other" && visual === "kid" && <Shout f={f} />}
       {visual === "dream" && <Thought text={seg.visual_text ?? ""} f={f} />}
       {flashback && <FlashbackTag f={f} />}
-      {cutaway && <Bubble face={act.face} look="viewer" mouth={seg.speaker === "other" ? 0 : voice} girl={girl} f={f} clock={start + f} />}
+      {cutaway && <Bubble face={act.face} look="viewer" mouth={seg.speaker === "other" ? 0 : voice} girl={girl} f={f} clock={start + f} viseme={seg.speaker === "other" ? " " : viseme} />}
       {seg.kind === "ask" ? <AskCard text={seg.text} f={f} /> : <TitleStrip title={p.segments[0].title ?? ""} emoji={p.emoji ?? "sob"} f={seg.kind === "hook" ? f : 99} />}
-      {seg.kind === "ask" ? <Follow f={f} handle={p.handle} line="रोज़ नई हँसी, रोज़ नई सीख" /> : <Subtitle seg={seg} f={f} fps={fps} top={1540} />}
+      {seg.kind === "ask" ? <Follow f={f} handle={p.handle} line="रोज़ नई हँसी, रोज़ नई सीख" /> : <Subtitle seg={seg} f={f} fps={fps} top={1372} />}
       {sound && <Sounds seg={seg} dur={dur} />}
     </AbsoluteFill>
   );
@@ -241,6 +284,7 @@ const Line: React.FC<{ p: ReelProps; seg: Segment; i: number; dur: number; sound
 
 export const ComicReel: React.FC<ReelProps> = (p) => {
   useFonts();
+  inkUp(p.ink === "plum");
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const at = (t: number) => Math.round(t * fps);
@@ -251,14 +295,20 @@ export const ComicReel: React.FC<ReelProps> = (p) => {
   const lastWord = punch?.words?.length ? punch.words[punch.words.length - 1] + 0.5 : punch ? punch.end - 0.6 : 0;
   const rimshot = punch ? at(Math.min(lastWord, punch.end)) : -1;
   const speechEnd = durationInFrames - at(2.2);
+  const duck = React.useMemo(() => duckCurve(p.segments, fps, durationInFrames), [p.segments, fps, durationInFrames]);
+  // the punchline's twist word (its third-last word): the music stops dead there until the rimshot
+  const twistAt = punch
+    ? at(punch.words?.length ? punch.words[Math.max(0, punch.words.length - 3)] : punch.start + (punch.end - punch.start) * 0.6)
+    : -1;
   return (
     <AbsoluteFill style={{ background: "#ead3c2" }}>
       {p.segments.map((seg, i) => {
+        const REACT = i ? 2 : 0; // the face and gesture change 2 frames before the first word
         const from = at(seg.start);
         const dur = Math.max(1, at(seg.end) - from);
         return (
-          <Sequence key={i} from={from} durationInFrames={dur} layout="none">
-            <Line p={p} seg={seg} i={i} dur={dur} />
+          <Sequence key={i} from={from - REACT} durationInFrames={dur + REACT} layout="none">
+            <Line p={p} seg={seg} i={i} dur={dur} early={REACT} />
           </Sequence>
         );
       })}
@@ -270,7 +320,8 @@ export const ComicReel: React.FC<ReelProps> = (p) => {
         </AbsoluteFill>
       </Sequence>
       {p.handle && (
-        <div style={{ position: "absolute", top: 150, width: "100%", textAlign: "center", fontFamily: FONT.hindi, fontWeight: 700, fontSize: 34, color: "rgba(0,0,0,.45)" }}>
+        // just under the title strip: the top ~270 px sit under Instagram's top bar
+        <div style={{ position: "absolute", top: 400, width: "100%", textAlign: "center", fontFamily: FONT.hindi, fontWeight: 700, fontSize: 30, color: "rgba(0,0,0,.4)" }}>
           {p.handle}
         </div>
       )}
@@ -287,10 +338,15 @@ export const ComicReel: React.FC<ReelProps> = (p) => {
       {p.music && (
         <Audio
           src={staticFile(p.music)}
-          // a light bouncy bed under the voice that rises for the end card
-          volume={(f) => interpolate(f, [0, 8, speechEnd, speechEnd + 15, durationInFrames - 10, durationInFrames], [0, 0.08, 0.08, 0.24, 0.24, 0], clamp)}
+          // a bouncy bed that ducks under every word, stops dead for the punchline's twist and rises for the end card
+          volume={(f) => {
+            const bed = interpolate(f, [0, 8, speechEnd, speechEnd + 15, durationInFrames - 10, durationInFrames], [0, 0.11, 0.11, 0.24, 0.24, 0], clamp);
+            const hush = twistAt > 0 && f >= twistAt && f < rimshot + 6 ? 0 : 1;
+            return bed * (f < speechEnd ? duck[f] ?? 1 : 1) * hush;
+          }}
         />
       )}
+      {p.guides && <SafeZones />}
     </AbsoluteFill>
   );
 };
