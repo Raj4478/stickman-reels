@@ -65,7 +65,7 @@ def stories(args):
 
 AUDIENCES = ('kids', 'family', 'adult')
 OPTIONS = {'theme': tuple(script.THEMES), 'source': script.SOURCES, 'voice': ('male', 'female'), 'music': ('auto', 'warm', 'tense', 'off'),
-           'style': script.STYLES, 'audience': AUDIENCES}
+           'style': script.STYLES, 'audience': AUDIENCES, 'engine': ('svg', 'three')}
 
 
 def audience_of(chosen):
@@ -171,7 +171,7 @@ def main(argv=None):
     make_cmd.add_argument('--silent', action='store_true', help='skip the narration (timing from word counts)')
     make_cmd.add_argument('--no-music', action='store_true', help='leave out the music bed')
     make_cmd.add_argument('--options', default='', help='the bot\'s choices: theme=<%s> source=<random|ideas|occasion> '
-                          'voice=<male|female> music=<auto|warm|tense|off> style=<story|comic> audience=<kids|family|adult>' % '|'.join(script.THEMES))
+                          'voice=<male|female> music=<auto|warm|tense|off> style=<story|comic> audience=<kids|family|adult> engine=<svg|three>' % '|'.join(script.THEMES))
     make_cmd.add_argument('--out', type=Path, default=ROOT / 'out')
     make_cmd.add_argument('--public', type=Path, default=ROOT / 'remotion' / 'public')
     send = commands.add_parser('send', help='send a rendered Reel (and its cover) to Telegram')
@@ -216,6 +216,8 @@ def main(argv=None):
         args.theme, args.source, args.music = chosen.get('theme', ''), chosen.get('source', ''), chosen.get('music', 'auto')
         args.style = style_of(chosen)
         args.audience = audience_of(chosen)
+        if chosen.get('engine'):
+            os.environ['REEL_ENGINE'] = chosen['engine']  # this run only: the 3D rooms (or the flat ones)
         if args.style == 'comic' and args.series:
             print('Two-part stories are story Reels; making a story series')
         if args.music == 'off':

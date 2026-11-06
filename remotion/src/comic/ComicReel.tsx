@@ -3,6 +3,9 @@ import { AbsoluteFill, Audio, Easing, Freeze, Sequence, interpolate, staticFile,
 import { duckCurve } from "../duck";
 import { COL, FONT, ease, kickAt } from "../engine/fx";
 import { SafeZones } from "../SafeZones";
+import { billboard, billboardCss, camAt3 } from "../three/camera";
+import { lookOf } from "../three/lights";
+import { World, blurOf } from "../three/World";
 import { Follow, ReelProps, Segment, Subtitle, useFonts } from "../StickReel";
 import { Emoji } from "./Emoji";
 import { CUTAWAY_SOUND, Cutaway } from "./cutaways";
@@ -255,6 +258,14 @@ const Line: React.FC<{ p: ReelProps; seg: Segment; i: number; dur: number; sound
   const swap = part === 0 && prevFace !== face;
   // the mouth shape of the word being said (reel/voice.py visemes)
   const viseme = (p.visemes ?? "")[start + f] ?? " ";
+  // the 2.5D engine (REEL_ENGINE=three): a real 3D room and camera; the SVG kid is placed by the same camera
+  const three = p.engine === "three" && !cutaway;
+  const cam3 = three ? camAt3(seg, i, part > 0 ? partF : f, part > 0 ? partDur : cuts.length > 1 ? partDur : dur, part, twist) : null;
+  const bb = cam3 ? billboard(cam3) : null;
+  const kid = (
+    <Kid f={f} clock={start + f} face={face} look={person ? "viewer" : reacting ? "side" : act.look} gesture={act.gesture} mouth={level} girl={girl} toon={person ?? undefined} table={where.table}
+      swap={swap} viseme={person || seg.speaker !== "other" ? viseme : " "} />
+  );
   return (
     <AbsoluteFill style={{ background: "#ead3c2" }}>
       {cutaway ? (
@@ -263,6 +274,14 @@ const Line: React.FC<{ p: ReelProps; seg: Segment; i: number; dur: number; sound
             <Cutaway name={visual} text={seg.visual_text ?? ""} screen={seg.screen} f={f} dur={dur} />
           </svg>
         </AbsoluteFill>
+      ) : three && cam3 && bb ? (
+        <AbsoluteFill style={{ filter: flashback ? "sepia(0.75) saturate(0.8)" : undefined }}>
+          <World room={person ? ROOM_OF[person] : seg.place ?? p.place ?? "bedroom"} cam={cam3} look={lookOf(face, visual)}
+            f={start + f} spot={seg.kind === "lesson" ? ease(f, twist, twist + 4) : 0} blur={blurOf(cam3)} />
+          <AbsoluteFill style={{ transform: `translate(${shake.x}px, ${shake.y}px) ${billboardCss(bb)}`, transformOrigin: "0 0" }}>
+            <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", overflow: "visible" }}>{kid}</svg>
+          </AbsoluteFill>
+        </AbsoluteFill>
       ) : (
         <AbsoluteFill style={{ filter: flashback ? "sepia(0.75) saturate(0.8)" : undefined }}>
           <AbsoluteFill style={{ transform: view(cam, 0.7, { x: shake.x * 0.5, y: shake.y * 0.5, r: 0 }), transformOrigin: "0 0", filter: "blur(2.5px)" }}>
@@ -270,8 +289,7 @@ const Line: React.FC<{ p: ReelProps; seg: Segment; i: number; dur: number; sound
           </AbsoluteFill>
           <AbsoluteFill style={{ transform: view(cam, 1, shake), transformOrigin: "0 0" }}>
             <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", overflow: "visible" }}>
-              <Kid f={f} clock={start + f} face={face} look={person ? "viewer" : reacting ? "side" : act.look} gesture={act.gesture} mouth={level} girl={girl} toon={person ?? undefined} table={where.table}
-                swap={swap} viseme={person || seg.speaker !== "other" ? viseme : " "} />
+              {kid}
             </svg>
           </AbsoluteFill>
         </AbsoluteFill>
