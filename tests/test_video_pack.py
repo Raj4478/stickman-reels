@@ -76,7 +76,7 @@ class FallbackTest(unittest.TestCase):
         def broken(*args, **kwargs):
             raise gemini.GeminiError('quota')
 
-        def edge(turns, other, path, style='story'):
+        def edge(turns, other, path, style='story', audience='adult'):
             return {'model': 'edge-tts', 'starts': [0.0, 1.0], 'speech_end': 2.0}
         with mock.patch.object(voice, 'gemini_voice', broken), mock.patch.object(voice, 'edge_voice', edge):
             record = voice.synthesize([('narrator', 'a'), ('narrator', 'b')], Path('.'))
@@ -130,7 +130,7 @@ class MouthTest(unittest.TestCase):
         self.assertGreater(min(curve[16:]), 0.5)
 
     def test_build_uses_exact_edge_starts(self):
-        def fake(turns, out, other='friend', style='story'):
+        def fake(turns, out, other='friend', style='story', audience='adult'):
             import numpy as np
             voice.write_pcm(out / 'voice.wav', (np.ones(24000 * 20) * 3000).astype('<i2').tobytes(), 24000)
             return {'model': 'edge-tts', 'starts': [i * 2.0 for i in range(len(turns))], 'speech_end': 2.0 * len(turns) - .4}

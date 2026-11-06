@@ -14,6 +14,7 @@ into the same script shape as a story Reel, so voice, timing, posting and the we
   hook = the setup line, scenes = the rant lines, lesson = the punchline, ask = the question for the comments.
 """
 import json
+import os
 import random
 import re
 
@@ -33,6 +34,10 @@ FACES = {
     'nervous': 'wavy mouth, a sweat drop, caught out',
     'sad': 'droopy eyebrows, small frown',
     'cheeky': 'a naughty grin, eyebrows wiggling, eyes half-shut with mischief (up to something, a sly comeback)',
+    'giggle': 'eyes squeezed into happy arcs, shoulders shaking, trying not to laugh (a naughty secret, a prank)',
+    'sneaky': 'eyes narrowed to the side, one eyebrow down, a tiny smirk (planning mischief)',
+    'proud': 'chin up, eyes half-closed, a satisfied smile (a silly plan "worked")',
+    'dizzy': 'spiral eyes, wobbly mouth (overwhelmed, too much homework, after spinning)',
 }
 # What the hands do (also in Kid.tsx)
 GESTURES = {
@@ -50,6 +55,10 @@ GESTURES = {
     'scratch_head': 'scratches the head, confused',
     'dance': 'a silly victory dance: arms waving, head bobbing (a small win, showing off, celebrating nonsense)',
     'panic': 'both hands flapping in the air, "no no no!" (caught out, mock drama)',
+    'hide': 'both hands over the eyes, peeking through the fingers (scared, caught, "I can\'t look")',
+    'jump': 'bounces up with both arms up (excited, "yes!", a plan starting)',
+    'eat': 'stuffs food into the mouth, cheeks full (tiffin, sweets, the last laddoo)',
+    'sneak': 'hands up near the chin, shoulders hunched, tiptoeing (a secret plan, sneaking past मम्मी)',
 }
 # Where the kid looks (the pupils): at the viewer, at the person off screen, at the screen or book, up, down
 LOOKS = ('viewer', 'side', 'screen', 'up', 'down')
@@ -64,7 +73,8 @@ ROOMS = {
     'street': 'a street corner: shop fronts behind, a chai stall counter with a kettle and glasses in front',
 }
 # Who may speak from off screen (one line at most); the kid looks at them
-OTHERS = {k: v for k, v in stories.CAST.items() if k in ('none', 'mother', 'father', 'teacher', 'boss', 'friend')}
+KID_PEOPLE = {'grandma': 'दादी', 'sibling': 'दीदी'}  # comic-only people (story Reels keep their own CAST)
+OTHERS = {**{k: v for k, v in stories.CAST.items() if k in ('none', 'mother', 'father', 'teacher', 'boss', 'friend')}, **KID_PEOPLE}
 # What the picture shows on a line (remotion/src/comic/ComicReel.tsx and cutaways.tsx draw each one)
 VISUALS = {
     'kid': 'the kid at the table, talking to the viewer (the default; always for the setup)',
@@ -78,6 +88,8 @@ VISUALS = {
     'certificate': 'a framed certificate with visual_text as the course name, a spider web growing on it (useless degrees)',
     'chat': 'a phone chat: typing dots, then visual_text as the reply, then "Seen" (texts, replies, being ignored)',
     'result': 'an answer sheet with visual_text as the marks circled in red ("2/100")',
+    'oops': 'a big comic sound-word burst filling the screen with visual_text ("धड़ाम!", "छपाक!", "टन-टन!") for a fall, a crash, '
+            'a splash or an alarm',
 }
 SCREENS = ('music', 'video', 'jobs', 'search', 'error')
 EMOJI = {'sob': 'loudly crying face', 'joy': 'laughing with tears', 'skull': 'skull ("I am dead")',
@@ -146,11 +158,53 @@ COMEDY_RULES = """Comedy rules (this is what makes cartoon-meme Reels go viral i
   - The kid talks straight to the viewer, roasting their own life: cheeky, sarcastic, dramatic, confidently
     wrong. The joke is never on other people's looks, caste, religion,
     region or gender; the kid is the butt of the joke.
+  - RULE OF THREE: when the kid lists tries, excuses or plans, give exactly three; the third is the craziest.
+  - CALLBACK: the punchline reuses a word, number or object from the setup ("दो साल का कोर्स" -> "...दो मिनट की सीख").
+  - ONE IMAGE PER JOKE: every joke line must be something the picture can show (a face, a cutaway, a person).
+  - The setup's first 3 words already say the situation (a number, a place or a person), never a greeting.
   - Structure: setup (states the situation in one breath) -> 5-7 short lines that escalate (expectation,
     reality, worse reality, a comeback, a mini-twist) -> the punchline: a twist that makes the viewer laugh and replay. The twist sits in
     the LAST words of the punchline ("...बस गाना और फिलम चलाना सीखा।").
   - Short lines, spoken rhythm, no explaining the joke, no moral at the end, no "दोस्तों", no "आज मैं बताऊँगा".
   - The setup must hook in the first 2 seconds: start mid-complaint, with the number or the situation."""
+
+# Who the jokes are for (the bot's 👨‍👩‍👧 switch, REEL_AUDIENCE): kids = made for children (YouTube "made for kids":
+# comments off), family = a kid character and kid-world jokes for everyone (the recommended default), adult = rants
+# about adult life
+AUDIENCES = ('kids', 'family', 'adult')
+AUDIENCE_LABEL = {'kids': 'children aged 6-12', 'family': 'Indian families: kids aged 6-12 and their parents',
+                  'adult': 'young Indian adults'}
+KIDS_RULES = """Comedy rules for a family audience (kids aged 6-12 laugh out loud; their parents smile and share it):
+  - THE KID IS THE HERO AND THE JOKE: a lovable, over-confident, mischievous kid with a big "foolproof" plan and
+    kid logic ("अगर होमवर्क गायब, तो टेस्ट भी गायब!"). The kid is never cruel, and nobody is laughed at for their
+    looks, weight, skin colour, caste, religion, region, gender, disability or being poor.
+  - KID WORLD ONLY: school, homework, tiffin, exams and report cards, brothers and sisters, दादी-नानी, pets, a
+    birthday, cricket in the gali, cartoons and the TV remote, a rainy-day holiday, summer vacation, the doctor's
+    injection, haircut day, मम्मी's rules, guests at home, the school bus. Never salary, bosses, offices, dating,
+    money worries or lectures.
+  - RULE OF THREE: the setup states the goal in one breath -> try 1 fails -> try 2 fails BIGGER -> try 3 is the
+    craziest -> the twist.
+  - THE TWIST is a surprise a 7-year-old gets instantly: the plan worked too well, the scary thing was nice, the
+    grown-up was doing the same thing, the hidden thing was good news. It sits in the LAST words of the punchline.
+  - CALLBACK: the punchline reuses a word or object from the setup.
+  - BIG, CLEAR REACTIONS: kids read faces, not sarcasm. Prefer shock, cheeky, panic, giggle, sneaky, proud,
+    dizzy, a silly dance; at most one deadpan line.
+  - SOUNDS AND SILLY WORDS: one sound word ("धड़ाम!", "छपाक!", "टन-टन-टन") and one funny exaggeration
+    ("सौ किलो का बस्ता").
+  - SAFE TO COPY: never show or suggest anything a child could copy and get hurt by: fire, matches, candles, gas,
+    electric sockets or wires, medicines, climbing or jumping from high places, knives, blades or scissors,
+    running onto a road, locking anyone in. Pranks are harmless; nobody is hurt or humiliated.
+  - No scary or gross-out jokes, no bad words, no insults like "पागल", "मोटा" or "बेवकूफ".
+  - Short, simple words a 7-year-old knows; lines of at most 11 words; it is read a little slower than a rant.
+  - End warm: the family laughs together, or the kid gets a small, funny comeuppance. Never a moral lecture."""
+# Best-of-N drafts judged by a test audience (COMIC_DRAFTS, 1-3; 1 switches the judge off). Each is one Gemini call.
+DRAFTS = max(1, min(int(os.getenv('COMIC_DRAFTS', '2') or 2), 3))
+# The channel's own recurring kid for kids and family Reels: same name, same catchphrase, every Reel
+CHARACTER = {
+    'boy': os.getenv('KID_NAME', '').strip() or 'गोलू',
+    'girl': os.getenv('KID_NAME_GIRL', '').strip() or 'पिंकी',
+    'catchphrase': os.getenv('KID_CATCHPHRASE', '').strip() or 'प्लान तो मेरा फुल-प्रूफ था!',
+}
 
 WRITER = """You write comedy scripts for a Hindi Instagram/YouTube Reels channel. The star is {name_hint}: a cheeky
 cartoon kid with a big round head, huge eyes and thick eyebrows, who sits at a table and rants to the viewer.
@@ -217,7 +271,9 @@ Do all of this:
    and taken from the line. Visuals: {visual_names}.
 5. Keep first person ({hero}, {forms} verb forms), Devanagari only in spoken lines, and at most three
    off-screen lines (never two in a row).
-6. Keep the title short (1-3 words) and give title_b a clearly different angle."""
+6. Keep the title short (1-3 words) and give title_b a clearly different angle.
+8. Read it as a viewer scrolling at speed: if the hook needs the second line to make sense, rewrite it; if any line
+   is only there to explain, cut it; the punchline's last 2-4 words must be the surprise and nothing may follow them."""
 
 
 def short(text, limit):
@@ -250,7 +306,7 @@ def clean_line(raw, other, place='bedroom'):
             'place': pick(raw.get('place'), ROOMS, place)}
 
 
-CUTAWAYS = ('screen', 'calendar', 'clock', 'money', 'certificate', 'chat', 'result')
+CUTAWAYS = ('screen', 'calendar', 'clock', 'money', 'certificate', 'chat', 'result', 'oops')
 OTHER_LINES = 3  # how many lines the other person may say
 
 
@@ -272,7 +328,8 @@ ACTED = ('face', 'gesture', 'look', 'visual', 'visual_text', 'screen', 'who', 'p
 def clean(raw):
     """A comic script in the story-script shape (see the module docstring), or ValueError if it is unusable."""
     other = pick(raw.get('other'), OTHERS, 'none')
-    script = {'style': 'comic', 'topic': short(raw.get('topic'), 80), 'name': short(raw.get('name'), LIMITS['name']),
+    audience = pick(raw.get('audience'), AUDIENCES, 'adult')
+    script = {'style': 'comic', 'audience': audience, 'topic': short(raw.get('topic'), 80), 'name': short(raw.get('name'), LIMITS['name']),
               'title': short(raw.get('title'), LIMITS['title']), 'title_b': short(raw.get('title_b'), LIMITS['title_b']),
               'emoji': pick(raw.get('emoji'), EMOJI, 'sob'), 'place': pick(raw.get('place'), ROOMS, 'bedroom')}
     if not stories.DEVANAGARI.search(script['name']):
@@ -306,7 +363,7 @@ def clean(raw):
         'scenes': lines,
         'lesson': punch['line'], **{f'punch_{k}': punch[k] for k in ACTED},
         'cover_text': short(raw.get('cover_text'), LIMITS['cover_text']),
-        'ask': short(raw.get('ask'), LIMITS['ask']), 'music': 'comic', 'other_voice': other if spoken else 'friend',
+        'ask': short(raw.get('ask'), LIMITS['ask']), 'music': 'kids' if audience != 'adult' else 'comic', 'other_voice': other if spoken else 'friend',
         'part': '', 'instagram_caption': str(raw.get('instagram_caption') or '').strip()[:1500],
     })
     if not stories.DEVANAGARI.search(script['ask']):
@@ -316,63 +373,162 @@ def clean(raw):
     return script
 
 
-def topic_for(topic='', theme='', source=''):
+def topic_for(topic='', theme='', source='', audience='adult'):
     """(situation, occasion): the given one, else a theme, festival or idea turned funny, else comic_topics.txt."""
     from . import occasions
     topic = (topic or '').strip()
     if topic:
         return topic, None
+    kid = audience != 'adult'
     if theme in stories.THEMES:
+        if kid:
+            return (f"Choose one fresh, specific, funny situation from a child's life (school, home, family, friends) "
+                    f"about {stories.THEMES[theme][1]}"), None
         return f'Choose one fresh, specific, relatable funny situation about {stories.THEMES[theme][1]}', None
     if source == 'occasion' or not source:
         soon = occasions.upcoming_any(history=stories.history()) if source == 'occasion' else occasions.due(history=stories.history())
         if soon:
-            return f"A funny, relatable situation around {soon['name']} at home (cleaning, guests, sweets, relatives)", soon
+            who = 'for a kid' if kid else 'at home'
+            return f"A funny, relatable situation {who} around {soon['name']} (cleaning, guests, sweets, relatives)", soon
     if source == 'ideas':
         recent = {h.get('topic', '').strip().lower() for h in stories.history()[-25:]}
         fresh = [t for t in reversed(stories.saved_ideas()) if t.strip().lower() not in recent]
         if fresh:
             return f'The funny side of: {fresh[0]}', None
-    return stories.pick_topic(stories.ROOT / 'comic_topics.txt'), None
+    return stories.pick_topic(stories.ROOT / ('kids_topics.txt' if kid else 'comic_topics.txt')), None
 
 
-def write(topic=None, theme='', source=''):
+# Things a child could copy and get hurt by: a kids/family draft that mentions one is written again. A cheap first
+# net; the judge's "safe" score and the visual check are the real checks. Extend it whenever a bad draft gets through.
+UNSAFE = re.compile(r'(माचिस|आग लगा|मोमबत्ती से|करंट|सॉकेट|बिजली के तार|गैस खोल|दवाई खा|दवा खा|गोली खा|छत से|खिड़की से कूद|'
+                    r'चाकू|ब्लेड|कैंची से|सड़क पर भाग|ताला लगा के बंद|बाथरूम में बंद)')
+
+
+def kid_safe(raw):
+    """ValueError when a kids/family draft shows something dangerous to copy (the judge also checks meanness)."""
+    lines = [raw.get('hook'), raw.get('punchline'), *(raw.get('lines') or [])]
+    text = ' '.join(str((x or {}).get('line', '') if isinstance(x, dict) else x or '') for x in lines)
+    hit = UNSAFE.search(text)
+    if hit:
+        raise ValueError(f'not safe for kids to copy: {hit.group(0)}')
+
+
+JUDGE = """You are a comedy test audience for a Hindi cartoon Reels channel. The audience is {audience}.
+Picture a panel: an 8-year-old Indian kid, their parent, and a writer from a kids' TV comedy show.
+
+Score every draft below from 1 to 5 on: laugh (would the audience laugh out loud), surprise (is the twist a real
+surprise, landing in the punchline's last words), clarity (can they follow it at once with no context), picture
+(do the faces, gestures and visuals show the jokes) and safe (kind, clean and safe for a child to copy; 5 means a
+parent would happily show it to their child). Be strict: 3 is average, 5 is rare. For each draft, also give the one
+change that would make it funnier (in English, one sentence).
+
+Return one score object per draft, in the same order.
+
+{drafts}"""
+
+JUDGE_SCHEMA = {
+    'type': 'object',
+    'properties': {
+        'scores': {'type': 'array', 'items': {'type': 'object', 'properties': {
+            'laugh': {'type': 'integer', 'description': '1-5: would the audience laugh out loud?'},
+            'surprise': {'type': 'integer', 'description': '1-5: is the twist a real surprise that lands in the last words?'},
+            'clarity': {'type': 'integer', 'description': '1-5: can the audience follow it at once, with no context?'},
+            'picture': {'type': 'integer', 'description': '1-5: do the faces, gestures and visuals show the jokes?'},
+            'safe': {'type': 'integer', 'description': '1-5: kind, clean and safe to copy (5: a parent happily shows it)'},
+            'fix': {'type': 'string', 'description': 'The one change that would make this draft funnier, in English'},
+        }, 'required': ['laugh', 'surprise', 'clarity', 'picture', 'safe', 'fix']}},
+    },
+    'required': ['scores'],
+}
+
+
+def judge(drafts, audience):
+    """(raw, model, fix) of the funniest draft that passes the parent check. The first draft when the judge fails."""
+    listing = '\n\n'.join(f'DRAFT {i}:\n' + json.dumps(raw, ensure_ascii=False) for i, (raw, _) in enumerate(drafts))
+    try:
+        verdict, _ = gemini.json_call(JUDGE.format(audience=AUDIENCE_LABEL[audience], drafts=listing), JUDGE_SCHEMA, temperature=0.2)
+    except gemini.GeminiError as exc:
+        print(f'Judge skipped ({exc}); using the first draft')
+        return (*drafts[0], '')
+    scores = verdict.get('scores') or []
+
+    def total(i):
+        s = scores[i] if i < len(scores) and isinstance(scores[i], dict) else {}
+        num = lambda k: int(s.get(k) or 0)  # noqa: E731
+        if audience != 'adult' and num('safe') < 4:
+            return -1  # a parent would not show it: never pick it
+        return num('laugh') * 2 + num('surprise') * 2 + num('clarity') + num('picture')
+
+    best = max(range(len(drafts)), key=total)
+    if total(best) < 0:
+        raise ValueError('every draft failed the parent check')
+    fix = str((scores[best] if best < len(scores) else {}).get('fix') or '')[:300]
+    print('Judge scores:', [total(i) for i in range(len(drafts))], '-> draft', best)
+    return drafts[best][0], drafts[best][1], fix
+
+
+def write(topic=None, theme='', source='', audience='adult'):
     from . import growth, occasions
-    topic, occasion = topic_for(topic, theme, source)
+    audience = audience if audience in AUDIENCES else 'adult'
+    kid = audience != 'adult'
+    topic, occasion = topic_for(topic, theme, source, audience)
     recent = [h.get('title') for h in stories.history()[-15:] if h.get('title')]
     who = stories.hero()
     person, forms = stories.HEROES[who]
     person = person.replace('a young man', 'a cheeky boy').replace('a young woman', 'a cheeky girl')
-    name_hint = 'a girl with a ponytail and a bow' if who == 'girl' else 'a boy with a spiky tuft of hair'
+    if kid:
+        person = person.replace('a cheeky boy', 'a cheeky 8-year-old boy').replace('a cheeky girl', 'a cheeky 8-year-old girl')
+    name = CHARACTER[who] if kid else ''
+    name_hint = ('a girl with a ponytail and a bow' if who == 'girl' else 'a boy with a spiky tuft of hair') + (f' called {name}' if name else '')
+    rules = KIDS_RULES if kid else COMEDY_RULES
+    if kid:
+        rules += f'\n  - CATCHPHRASE: {name} says "{CHARACTER["catchphrase"]}" once, where it is funniest (often right before the twist).'
+    if audience == 'kids':
+        rules += ('\n  - The closing question (ask) is not a question: it is the catchphrase again, said with a wink '
+                  '(comments are off on made-for-kids videos).')
     prompt = WRITER.format(
-        name_hint=name_hint, topic=topic, n=random.choice((5, 6)), rules=COMEDY_RULES, hero=person, forms=forms,
+        name_hint=name_hint, topic=topic, n=random.choice((5, 6)), rules=rules, hero=person, forms=forms,
         faces=', '.join(FACES), gestures=', '.join(GESTURES), looks=', '.join(LOOKS), face_list=stories.catalog(FACES),
         gesture_list=stories.catalog(GESTURES), others=', '.join(k for k in OTHERS if k != 'none'),
         rooms=stories.catalog(ROOMS), emoji=', '.join(EMOJI), visuals=stories.catalog(VISUALS),
         avoid='\n'.join(x for x in (f'- Do not repeat these recent titles or their angle: {", ".join(recent)}' if recent else '',
                                     growth.lessons_learned(), occasions.note(occasion) if occasion else '') if x))
     # no first-person check here: a rant often drops the "मैं" ("दो साल का कोर्स किया...") and is still the kid's own
-    last = None
-    for _ in range(2):
-        draft, model = gemini.json_call(prompt, SCHEMA, temperature=1.0)
+    drafts, last = [], None
+    for _ in range(DRAFTS + 1):  # one spare call for a rejected draft
+        if len(drafts) >= DRAFTS:
+            break
+        raw, model = gemini.json_call(prompt, SCHEMA, temperature=1.0)
         try:
-            drafted = clean(draft)
+            clean(raw)
+            if kid:
+                kid_safe(raw)
         except ValueError as exc:
             last = exc
             print(f'Draft rejected ({exc}); asking again')
             continue
-        try:
-            edited, _ = gemini.json_call(EDITOR.format(draft=json.dumps(draft, ensure_ascii=False, indent=1), rules=COMEDY_RULES,
-                                                       hero=person, forms=forms, visual_names=', '.join(VISUALS)),
-                                        SCHEMA, temperature=0.7)
-            script = clean(edited)
-            script['directed'] = True
-        except (ValueError, gemini.GeminiError) as exc:
-            print(f'Comedy edit skipped ({exc}); using the draft')
-            script, script['directed'] = drafted, False
-        script.update(hero=who, model=model, part='')
-        script['topic'] = script['topic'] or topic
-        if occasion:
-            script['occasion'], script['occasion_name'] = occasion['tag'], occasion['name']
-        return script
-    raise ValueError(f'Gemini could not write a usable comic script: {last}')
+        drafts.append((raw, model))
+    if not drafts:
+        raise ValueError(f'Gemini could not write a usable comic script: {last}')
+    raw, model, fix = judge(drafts, audience) if len(drafts) > 1 else (*drafts[0], '')
+    try:
+        note = f'\n7. The judges asked for this change: {fix}' if fix else ''
+        edited, _ = gemini.json_call(EDITOR.format(draft=json.dumps(raw, ensure_ascii=False, indent=1), rules=rules, hero=person,
+                                                   forms=forms, visual_names=', '.join(VISUALS)) + note, SCHEMA, temperature=0.7)
+        script = clean(edited)
+        if kid:
+            kid_safe(edited)
+        script['directed'] = True
+    except (ValueError, gemini.GeminiError) as exc:
+        print(f'Comedy edit skipped ({exc}); using the chosen draft')
+        script, script['directed'] = clean(raw), False
+    script.update(hero=who, model=model, part='', audience=audience)
+    if kid:
+        script['name'] = name
+        script['music'] = 'kids'
+    if audience == 'kids':
+        script['ask'] = CHARACTER['catchphrase']  # the callback ending
+    script['topic'] = script['topic'] or topic
+    if occasion:
+        script['occasion'], script['occasion_name'] = occasion['tag'], occasion['name']
+    return script

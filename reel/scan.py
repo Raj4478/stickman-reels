@@ -40,7 +40,7 @@ def planned_cuts(props, fps=30):
             if cut is not None:
                 out.append(start + cut)
             continue
-        if seg['kind'] in ('lesson', 'ask'):
+        if seg['kind'] in ('lesson', 'ask') or seg.get('visual') == 'dream':
             continue
         dur, every = round(seg['end'] * fps) - start, 2 * fps
         marks = [round((t - seg['start']) * fps) for t in seg.get('words') or []] or [(k + 1) * every for k in range(dur // every)]

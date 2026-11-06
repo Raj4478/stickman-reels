@@ -1,0 +1,123 @@
+{
+  "style": "comic",
+  "audience": "family",
+  "topic": "Hiding a report card from mummy with three silly plans",
+  "name": "गोलू",
+  "title": "Report Card",
+  "title_b": "3 धमाकेदार प्लान",
+  "cover_text": "प्लान नंबर 3?!",
+  "emoji": "joy",
+  "place": "bedroom",
+  "other": "mother",
+  "hooks": [
+    "रिपोर्ट कार्ड आया है, और मेरे पास तीन धमाकेदार प्लान हैं।"
+  ],
+  "hook": {
+    "line": "रिपोर्ट कार्ड आया है, और मेरे पास तीन धमाकेदार प्लान हैं।",
+    "face": "cheeky",
+    "gesture": "point_self",
+    "look": "viewer",
+    "speaker": "hero",
+    "visual": "kid",
+    "visual_text": "",
+    "screen": "music",
+    "who": "mother",
+    "place": "bedroom"
+  },
+  "lines": [
+    {
+      "line": "प्लान नंबर एक: रिपोर्ट कार्ड गद्दे के नीचे।",
+      "face": "sneaky",
+      "gesture": "sneak",
+      "look": "side",
+      "speaker": "hero",
+      "visual": "dream",
+      "visual_text": "गद्दे के नीचे",
+      "screen": "music",
+      "who": "mother",
+      "place": "bedroom"
+    },
+    {
+      "line": "गोलू! आज चादर बदलनी है, गद्दा उठाओ!",
+      "face": "angry",
+      "gesture": "talk",
+      "look": "viewer",
+      "speaker": "other",
+      "visual": "person",
+      "visual_text": "",
+      "screen": "music",
+      "who": "mother",
+      "place": "kitchen"
+    },
+    {
+      "line": "प्लान नंबर दो: दादी को दे दो, उनका चश्मा खोया है।",
+      "face": "proud",
+      "gesture": "point_viewer",
+      "look": "viewer",
+      "speaker": "hero",
+      "visual": "kid",
+      "visual_text": "",
+      "screen": "music",
+      "who": "grandma",
+      "place": "living_room"
+    },
+    {
+      "line": "दादी ने चश्मा ढूँढ लिया, और पूरे मोहल्ले को सुना दिया।",
+      "face": "shock",
+      "gesture": "hide",
+      "look": "up",
+      "speaker": "hero",
+      "visual": "kid",
+      "visual_text": "",
+      "screen": "music",
+      "who": "grandma",
+      "place": "living_room"
+    },
+    {
+      "line": "गोलू! गणित में कितने नंबर आए?!",
+      "face": "shock",
+      "gesture": "talk",
+      "look": "viewer",
+      "speaker": "other",
+      "visual": "person",
+      "visual_text": "",
+      "screen": "music",
+      "who": "mother",
+      "place": "kitchen"
+    },
+    {
+      "line": "मम्मी, मैं समझा सकता हूँ... प्लान नंबर तीन: भागो!",
+      "face": "nervous",
+      "gesture": "panic",
+      "look": "side",
+      "speaker": "hero",
+      "visual": "kid",
+      "visual_text": "",
+      "screen": "music",
+      "who": "mother",
+      "place": "bedroom"
+    }
+  ],
+  "punchline": {
+    "line": "पंचानवे आए हैं... मैं तो बस आदत से छुपा रहा था।",
+    "face": "proud",
+    "gesture": "point_self",
+    "look": "viewer",
+    "speaker": "hero",
+    "visual": "result",
+    "visual_text": "95/100",
+    "screen": "music",
+    "who": "mother",
+    "place": "bedroom"
+  },
+  "ask": "तुमने कभी रिपोर्ट कार्ड छुपाया है?",
+  "instagram_caption": "तीन प्लान, एक रिपोर्ट कार्ड, और पूरा मोहल्ला गवाह 😂\nटैग करो उस दोस्त को जो हर बार यही करता है।",
+  "hashtags": [
+    "#comedy",
+    "#kidscomedy",
+    "#familycomedy",
+    "#reportcard",
+    "#desikids",
+    "#हिंदीकॉमेडी"
+  ]
+}

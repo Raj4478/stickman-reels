@@ -42,6 +42,7 @@ const shotOf = (seg: Segment, i: number): { from: Cam; to: Cam; snap?: boolean }
   if (seg.kind === "lesson") return { from: CLOSE, to: XCLOSE, snap: true };
   if (seg.kind === "ask") return { from: MEDIUM, to: MEDIUM };
   if (seg.visual === "person") return { from: { ...MEDIUM, y: 980, z: 1.02 }, to: { ...MEDIUM, y: 970, z: 1.08 } };
+  if (seg.visual === "dream") return { from: MEDIUM, to: { ...MEDIUM, z: 1.14 } }; // room for the thought bubble
   if (EYE_JOKES.includes(seg.face ?? "")) return { from: { ...XCLOSE, z: 2.05 }, to: XCLOSE };
   if (["cry", "angry", "panic"].includes(seg.face ?? "")) return { from: CLOSE, to: { ...CLOSE, z: 1.66 } };
   if (seg.speaker === "other") return { from: { ...MEDIUM, x: 590 }, to: { ...MEDIUM, x: 600, z: 1.14 } };
@@ -85,8 +86,8 @@ const view = (c: Cam, depth = 1, shake = { x: 0, y: 0, r: 0 }) => {
 };
 
 // How a segment is acted and shown (the setup and punchline get theirs from reel/build.py)
-const actOf = (seg: Segment) => ({
-  face: seg.kind === "ask" ? "happy" : seg.face ?? "deadpan",
+const actOf = (seg: Segment, kids = false) => ({
+  face: seg.kind === "ask" ? (kids ? "cheeky" : "happy") : seg.face ?? "deadpan",
   gesture: seg.kind === "ask" ? "point_viewer" : seg.gesture ?? "talk",
   look: seg.kind === "ask" ? "viewer" : seg.look ?? "viewer",
   visual: seg.kind === "ask" ? "kid" : seg.visual ?? "kid",
@@ -96,7 +97,8 @@ const CHARACTERS = ["kid", "person", "dream"];
 // Where a line cuts to its next shot (frames from the line's start): about every 2 seconds, always on the start
 // of a word, never leaving a last shot under a second. The punchline and the question stay one shot.
 export const cutsOf = (seg: Segment, fps: number, dur: number): number[] => {
-  if (seg.kind === "lesson" || seg.kind === "ask") return [0];
+  // the punchline, the question and a daydream (its thought bubble needs the medium framing) stay one shot
+  if (seg.kind === "lesson" || seg.kind === "ask" || seg.visual === "dream") return [0];
   const every = 2 * fps;
   const marks = seg.words?.length ? seg.words.map((t) => Math.round((t - seg.start) * fps)) : Array.from({ length: Math.floor(dur / every) }, (_, k) => (k + 1) * every);
   const cuts = [0];
@@ -104,7 +106,8 @@ export const cutsOf = (seg: Segment, fps: number, dur: number): number[] => {
   return cuts;
 };
 // Where each person is found (reel/comic.py PEOPLE)
-const ROOM_OF: Record<string, string> = { mother: "kitchen", father: "living_room", teacher: "classroom", boss: "office", friend: "living_room" };
+const ROOM_OF: Record<string, string> = { mother: "kitchen", father: "living_room", teacher: "classroom", boss: "office", friend: "living_room",
+  grandma: "living_room", sibling: "bedroom" };
 
 // The kid's face in a corner bubble during a cutaway: still reacting and talking
 // (bottom left: Instagram's Like/Comment/Share column covers the right edge from y ~1150)
@@ -194,6 +197,11 @@ const Sounds: React.FC<{ seg: Segment; dur: number }> = ({ seg, dur }) => {
   if (act.visual === "person" && seg.speaker !== "other") cues.push([0, "riser", 0.25]);
   if (act.face === "shock") cues.push([1, "boing", 0.5]);
   if (act.face === "cry") cues.push([4, "sad", 0.32]);
+  if (act.gesture === "jump" && character) cues.push([2, "boing", 0.35]);
+  if (act.gesture === "sneak" && character) for (let at = 0; at < dur - 8; at += 12) cues.push([at, "tiptoe", 0.3]);
+  if (act.gesture === "eat" && character) cues.push([6, "squeak", 0.25]);
+  if (act.face === "dizzy") cues.push([0, "slide_down", 0.35]);
+  if (act.face === "giggle") cues.push([3, "sparkle", 0.2]);
   if (seg.kind === "lesson") cues.push([0, "whip", 0.4]);
   if (seg.kind === "ask") [0, 1, 2, 3].forEach((i) => cues.push([14 + i * 9, "pop", 0.55]));
   return (
@@ -214,7 +222,9 @@ const Line: React.FC<{ p: ReelProps; seg: Segment; i: number; dur: number; sound
   const leadFrames = Math.round(p.lead * fps);
   const start = Math.round(seg.start * fps);
   const voice = Math.min(1, (p.mouth ?? [])[start + f - leadFrames] ?? 0);
-  const act = actOf(seg);
+  // made for kids (YouTube turns comments off): the closing line is the catchphrase with a wink, not a question
+  const kidsEnd = seg.kind === "ask" && p.audience === "kids";
+  const act = actOf(seg, kidsEnd);
   // more shots: the line cuts to a new framing every couple of seconds, and a cutaway or another person's line
   // cuts back to the kid reacting on every other shot
   const cuts = cutsOf(seg, fps, dur);
@@ -275,8 +285,8 @@ const Line: React.FC<{ p: ReelProps; seg: Segment; i: number; dur: number; sound
       {visual === "dream" && <Thought text={seg.visual_text ?? ""} f={f} />}
       {flashback && <FlashbackTag f={f} />}
       {cutaway && <Bubble face={act.face} look="viewer" mouth={seg.speaker === "other" ? 0 : voice} girl={girl} f={f} clock={start + f} viseme={seg.speaker === "other" ? " " : viseme} />}
-      {seg.kind === "ask" ? <AskCard text={seg.text} f={f} /> : <TitleStrip title={p.segments[0].title ?? ""} emoji={p.emoji ?? "sob"} f={seg.kind === "hook" ? f : 99} />}
-      {seg.kind === "ask" ? <Follow f={f} handle={p.handle} line="रोज़ नई हँसी, रोज़ नई सीख" /> : <Subtitle seg={seg} f={f} fps={fps} top={1372} />}
+      {seg.kind === "ask" && !kidsEnd ? <AskCard text={seg.text} f={f} /> : <TitleStrip title={p.segments[0].title ?? ""} emoji={p.emoji ?? "sob"} f={seg.kind === "hook" ? f : 99} />}
+      {seg.kind === "ask" && !kidsEnd ? <Follow f={f} handle={p.handle} line="रोज़ नई हँसी, रोज़ नई सीख" /> : <Subtitle seg={seg} f={f} fps={fps} top={1372} />}
       {sound && <Sounds seg={seg} dur={dur} />}
     </AbsoluteFill>
   );

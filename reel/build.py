@@ -60,7 +60,7 @@ def build(script, out, public, narrate=True, music=True, prefix=''):
     if narrate:
         try:
             record = voice.synthesize(scripts.spoken_turns(script), out, script.get('other_voice', 'friend'),
-                                      style=script.get('style', 'story'))
+                                      style=script.get('style', 'story'), audience=script.get('audience', 'adult'))
             if record.get('starts'):  # the Edge backup knows exactly where each line starts
                 starts, speech_end = record.pop('starts'), record.pop('speech_end')
             else:
