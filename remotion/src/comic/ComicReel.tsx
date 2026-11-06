@@ -39,7 +39,7 @@ const EYE_JOKES = ["shock", "side_eye", "eye_roll", "cheeky"];
 // The framing of each line: medium and close alternate; eye jokes, big emotions and the punchline go tighter
 const shotOf = (seg: Segment, i: number): { from: Cam; to: Cam; snap?: boolean } => {
   if (seg.kind === "hook") return { from: MEDIUM, to: { ...MEDIUM, z: 1.16 } };
-  if (seg.kind === "lesson") return { from: CLOSE, to: XCLOSE, snap: true };
+  if (seg.kind === "lesson") return seg.visual === "dream" ? { from: MEDIUM, to: CLOSE, snap: true } : { from: CLOSE, to: XCLOSE, snap: true };
   if (seg.kind === "ask") return { from: MEDIUM, to: MEDIUM };
   if (seg.visual === "person") return { from: { ...MEDIUM, y: 980, z: 1.02 }, to: { ...MEDIUM, y: 970, z: 1.08 } };
   if (EYE_JOKES.includes(seg.face ?? "")) return { from: { ...XCLOSE, z: 2.05 }, to: XCLOSE };

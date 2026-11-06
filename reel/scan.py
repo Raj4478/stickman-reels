@@ -40,7 +40,12 @@ def planned_cuts(props, fps=30):
             if cut is not None:
                 out.append(start + cut)
             continue
-        if seg['kind'] in ('lesson', 'ask'):
+        if seg['kind'] == 'lesson':
+            # the punchline snaps in (with a spotlight) on its twist: its third-last word, as in ComicReel.tsx
+            words = seg.get('words') or []
+            out.append(round(words[max(0, len(words) - 3)] * fps) if words else start + round((round(seg['end'] * fps) - start) * 0.6))
+            continue
+        if seg['kind'] == 'ask':
             continue
         dur, every = round(seg['end'] * fps) - start, 2 * fps
         marks = [round((t - seg['start']) * fps) for t in seg.get('words') or []] or [(k + 1) * every for k in range(dur // every)]
@@ -72,7 +77,10 @@ def problems(y, fps=30, planned=()):
             out.append(f'frozen picture at {(i - 11) / fps:.1f}s')
     pad = np.pad(diff, 8, mode='edge')
     local = np.array([np.median(pad[k:k + 17]) for k in range(len(diff))])
-    pops = [i + 1 for i in np.where(diff > 3 * local + POP)[0] if not near(i + 1)]
+    pops = []
+    for i in np.where(diff > 3 * local + POP)[0] + 1:
+        if not near(i) and not (pops and i - pops[-1] <= 5):  # neighbouring frames are one pop
+            pops.append(i)
     out += [f'sudden pop at {i / fps:.1f}s' for i in pops[:2]]
     return out[:6]
 
