@@ -35,6 +35,8 @@ export const TOONS: Record<string, Toon> = {
   teacher: { ...TAN, shirt: "#c9a26b", shirtDark: "#a07a45", hair: "bald", glasses: true, moustache: true },
   boss: { ...SKIN, shirt: "#e9ecef", shirtDark: "#adb5bd", hair: "slick", glasses: true, tie: "#c92a2a" },
   friend: { ...TAN, shirt: "#40c057", shirtDark: "#2b8a3e", hair: "messy" },
+  grandma: { ...SKIN, shirt: "#9c36b5", shirtDark: "#6f1f86", hair: "bun", hairColor: "#dcdcdc", glasses: true, bindi: true, dupatta: "#f3d9fa" },
+  sibling: { ...SKIN, shirt: "#22b8cf", shirtDark: "#0c8599", hair: "ponytail" },
 };
 const PINK = "#ff8f9e";
 const TEAR = "#62b9ff";
@@ -55,7 +57,8 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const mix = (a: Pt, b: Pt, t: number): Pt => ({ x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t) });
 
 // ---- eyes and faces ---------------------------------------------------------------------------------------
-export type Face = "deadpan" | "side_eye" | "smug" | "shock" | "eye_roll" | "angry" | "cry" | "happy" | "nervous" | "sad" | "cheeky";
+export type Face = "deadpan" | "side_eye" | "smug" | "shock" | "eye_roll" | "angry" | "cry" | "happy" | "nervous" | "sad" | "cheeky"
+  | "giggle" | "sneaky" | "proud" | "dizzy";
 export type Look = "viewer" | "side" | "screen" | "up" | "down";
 
 // Where the pupils sit inside each eye, by look
@@ -74,7 +77,19 @@ const FACES: Record<Face, { lid: number; low: number; pupil: number; brows: [num
   nervous: { lid: 0.05, low: 0, pupil: 10, brows: [-20, 8] },
   sad: { lid: 0.35, low: 0, pupil: 16, brows: [-22, 12] },
   cheeky: { lid: 0.36, low: 0.2, pupil: 15, brows: [-4, -20], browR: [-30, -40] },
+  giggle: { lid: 0, low: 0.4, pupil: 14, brows: [-16, -10] },
+  sneaky: { lid: 0.5, low: 0.18, pupil: 13, brows: [18, -14], browR: [-6, -22] },
+  proud: { lid: 0.45, low: 0.2, pupil: 15, brows: [-18, -14] },
+  dizzy: { lid: 0, low: 0, pupil: 0, brows: [-20, 10] },
 };
+
+// dizzy eyes: a spiral that turns
+const spiral = (cx: number, cy: number, turn: number) =>
+  Array.from({ length: 40 }, (_, k) => {
+    const a = k * 0.45 + turn;
+    const r = 4 + k * 1.6;
+    return `${k ? "L" : "M"}${cx + Math.cos(a) * r},${cy + Math.sin(a) * r}`;
+  }).join(" ");
 
 const Eye: React.FC<{ c: Pt; side: -1 | 1; face: Face; look: Pt; blink: number; id: string; f: number; skin: string }> = ({ c, side, face, look, blink, id, f, skin }) => {
   const k = FACES[face];
@@ -92,7 +107,9 @@ const Eye: React.FC<{ c: Pt; side: -1 | 1; face: Face; look: Pt; blink: number; 
       </clipPath>
       <ellipse cx={c.x} cy={c.y} rx={EYE.rx} ry={EYE.ry} fill="#fff" />
       <g clipPath={`url(#${id})`}>
-        {face === "happy" ? (
+        {face === "dizzy" ? (
+          <path d={spiral(c.x, c.y, f * 0.3 * side)} stroke={INK} strokeWidth={7} fill="none" strokeLinecap="round" />
+        ) : face === "happy" || face === "giggle" ? (
           // smiling eyes: a happy arc and no pupil
           <path d={`M${c.x - 46},${c.y + 10} Q${c.x},${c.y - 46} ${c.x + 46},${c.y + 10}`} stroke={INK} strokeWidth={13} fill="none" strokeLinecap="round" />
         ) : (
@@ -171,6 +188,16 @@ const Mouth: React.FC<{ face: Face; open: number; f: number; shape?: string }> =
     }
     case "nervous":
       return <path d={`M${x - 40},${y + 2} q10,-12 20,0 t20,0 t20,0 t20,0`} {...line} />;
+    case "giggle": {
+      const shake = Math.sin(f * 1.6) * 3;
+      return <path d={`M${x - 44},${y - 10 + shake} Q${x},${y + 36 + shake} ${x + 44},${y - 10 + shake} Z`} fill="#5a1d24" stroke={INK} strokeWidth={7} strokeLinejoin="round" />;
+    }
+    case "sneaky":
+      return <path d={`M${x - 40},${y + 6} Q${x - 6},${y + 16} ${x + 12},${y + 2} Q${x + 30},${y - 10} ${x + 44},${y - 4}`} {...line} />;
+    case "proud":
+      return <path d={`M${x - 40},${y - 6} Q${x},${y + 26} ${x + 40},${y - 6}`} {...line} />;
+    case "dizzy":
+      return <path d={`M${x - 30},${y + 8} q10,-14 20,0 t20,0 t20,0`} {...line} />;
     case "sad":
       return <path d={`M${x - 30},${y + 14} Q${x},${y - 8} ${x + 30},${y + 14}`} {...line} />;
     case "eye_roll":
@@ -265,7 +292,8 @@ const FaceExtras: React.FC<{ t: Toon }> = ({ t }) => (
 );
 
 // ---- arms and gestures ------------------------------------------------------------------------------------
-export type Gesture = "type" | "talk" | "shrug" | "facepalm" | "point_self" | "point_viewer" | "arms_crossed" | "slam" | "phone" | "chai" | "think" | "scratch_head" | "dance" | "panic";
+export type Gesture = "type" | "talk" | "shrug" | "facepalm" | "point_self" | "point_viewer" | "arms_crossed" | "slam" | "phone" | "chai" | "think" | "scratch_head" | "dance" | "panic"
+  | "hide" | "jump" | "eat" | "sneak";
 
 const REST_L: Pt = { x: 440, y: TABLE - 12 };
 const REST_R: Pt = { x: 640, y: TABLE - 12 };
@@ -319,6 +347,23 @@ export const gesture = (name: string, f: number): { l: ArmPose; r: ArmPose; hits
       // "no no no!": both hands flap beside the head
       const flap = Math.sin(f * 1.3) * 34;
       return { l: { at: mix(REST_L, { x: 260, y: 960 + flap }, go(5)), hand: "open" }, r: { at: mix(REST_R, { x: 820, y: 960 - flap }, go(5)), hand: "open" }, hits: [] };
+    }
+    case "hide": {
+      // hands over the eyes; the left one slides open to peek
+      const peek = Math.max(0, Math.sin(f * 0.18)) * 40;
+      return { l: { at: mix(REST_L, { x: 470 - peek, y: 800 }, go(6)), hand: "open" }, r: { at: mix(REST_R, { x: 612, y: 800 }, go(6)), hand: "open" }, hits: [] };
+    }
+    case "jump": {
+      const up = Math.abs(Math.sin(f * 0.3));
+      return { l: { at: mix(REST_L, { x: 280, y: 900 - up * 60 }, go(5)), hand: "open" }, r: { at: mix(REST_R, { x: 800, y: 900 - up * 60 }, go(5)), hand: "open" }, hits: [] };
+    }
+    case "eat": {
+      const bite = (Math.sin(f * 0.35 - 1.4) + 1) / 2;
+      return { l: { at: REST_L, hand: "fist" }, r: { at: mix({ x: 660, y: TABLE - 30 }, { x: 600, y: 990 }, bite), hand: "fist" }, hits: [] };
+    }
+    case "sneak": {
+      const sway = Math.sin(f * 0.2) * 10;
+      return { l: { at: mix(REST_L, { x: 470, y: 1010 + sway }, go(6)), hand: "fist" }, r: { at: mix(REST_R, { x: 610, y: 1010 - sway }, go(6)), hand: "fist" }, hits: [] };
     }
     default: // talk: one hand on the table, the other explains
       return { l: { at: REST_L, hand: "fist" }, r: { at: mix(REST_R, { x: 800 + wave * 20, y: 1170 + Math.cos(f * 0.17) * 22 }, go(7)), hand: "open" }, hits: [] };
@@ -419,15 +464,16 @@ export const Kid: React.FC<{
   // the eyes settle on their target in the first frames of a line (a quick, comic dart)
   const dart = interpolate(f, [0, 5], [0, 1], { ...clamp, easing: Easing.out(Easing.back(2)) });
   const pupil = mix(LOOK.viewer, target, look === "viewer" && !eyeRoll ? 1 : dart);
-  const blink = face === "shock" || face === "happy" ? 0 : blinkAt(who, clock, f, swap);
+  const blink = face === "shock" || face === "happy" || face === "giggle" || face === "dizzy" ? 0 : blinkAt(who, clock, f, swap);
   const pose = gesture(gestureName, f);
   // talking: the head nods a little with the voice; shock jolts it back
-  const bob = mouth * 10 + Math.sin(clock * 0.05) * 3;
+  const giggling = face === "giggle" ? Math.abs(Math.sin(f * 0.8)) * 8 : 0; // the shoulders shake
+  const bob = mouth * 10 + Math.sin(clock * 0.05) * 3 - giggling;
   const dancing = gestureName === "dance" ? Math.sin(f * 0.42) : 0;
   const tiltAt = (fr: number, ck: number) => {
     const dance = gestureName === "dance" ? Math.sin(fr * 0.42) : 0;
     const panic = gestureName === "panic" ? Math.sin(fr * 1.3) : 0;
-    return dance * 9 + panic * 3 + (face === "smug" || face === "cheeky" ? -5 : face === "sad" ? 4 : face === "side_eye" ? -3 : Math.sin(ck * 0.031) * 1.2);
+    return dance * 9 + panic * 3 + (face === "smug" || face === "cheeky" ? -5 : face === "proud" ? -7 : face === "sneaky" ? 4 : face === "sad" ? 4 : face === "side_eye" ? -3 : Math.sin(ck * 0.031) * 1.2);
   };
   const tilt = tiltAt(f, clock);
   const lag = (tilt - tiltAt(f - 3, clock - 3)) * 1.5; // the tuft / ponytail / bun trails the head
@@ -437,8 +483,9 @@ export const Kid: React.FC<{
   const browR = brow.browR ?? brow.brows;
   const raise = face === "shock" ? interpolate(f, [0, 5], [0, 14], clamp) : face === "cheeky" ? Math.max(0, Math.sin(f * 0.7)) * 16 : 0;
   const breathe = Math.sin(clock * 0.06) * 4;
+  const hop = gestureName === "jump" ? -Math.abs(Math.sin(f * 0.3)) * 50 : 0; // the whole kid bounces
   return (
-    <g>
+    <g transform={`translate(0 ${hop})`}>
       {/* body: a saffron T-shirt, cut by the table */}
       <g transform={`translate(0 ${breathe * 0.5})`}>
         <path d={`M300,${TABLE + 40} L312,1170 Q318,1080 420,1062 Q540,1046 660,1062 Q762,1080 768,1170 L780,${TABLE + 40} Z`} fill={t.shirt} stroke={INK} strokeWidth={9} strokeLinejoin="round" />
@@ -465,7 +512,7 @@ export const Kid: React.FC<{
         <ellipse cx={HEAD.x} cy={HEAD.y} rx={HEAD.rx - 5} ry={HEAD.ry - 5} fill={`url(#${who}-shade)`} />
         <g transform={`rotate(${lag} ${HEAD.x} ${HEAD.y - HEAD.ry})`}><HairFront t={t} /></g>
         {t.earrings && [HEAD.x - HEAD.rx + 6, HEAD.x + HEAD.rx - 6].map((x) => <circle key={x} cx={x} cy={HEAD.y + 90} r={14} fill="#fcc419" stroke={INK} strokeWidth={5} />)}
-        {(face === "happy" || face === "nervous" || face === "smug" || face === "cheeky") && (
+        {(face === "happy" || face === "nervous" || face === "smug" || face === "cheeky" || face === "giggle" || face === "proud") && (
           <>
             <ellipse cx={HEAD.x - 150} cy={HEAD.y + 98} rx={34} ry={18} fill={PINK} opacity={0.55} />
             <ellipse cx={HEAD.x + 158} cy={HEAD.y + 98} rx={34} ry={18} fill={PINK} opacity={0.55} />

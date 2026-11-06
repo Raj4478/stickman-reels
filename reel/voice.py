@@ -24,7 +24,7 @@ from . import gemini
 DEFAULT_VOICE = 'Achird'  # friendly; set REEL_VOICE to try another (Sulafat, Charon, Kore, Puck...)
 # Gemini voices for the other person, by who they are
 CAST_VOICES = {'mother': 'Sulafat', 'father': 'Algenib', 'boss': 'Alnilam', 'friend': 'Puck', 'partner': 'Despina',
-               'child': 'Leda', 'stranger': 'Charon', 'teacher': 'Gacrux'}
+               'child': 'Leda', 'stranger': 'Charon', 'teacher': 'Gacrux', 'grandma': 'Vindemiatrix', 'sibling': 'Leda'}
 # A girl hero's partner is a young man
 PARTNER_OF_GIRL = ('Orus', ('hi-IN-MadhurNeural', '+8Hz', '+6%'))
 # Edge backup voices: (voice, pitch, rate) for the narrator, the hero and each kind of other person
@@ -32,7 +32,8 @@ EDGE = {'narrator': ('hi-IN-MadhurNeural', '+0Hz', '+12%'), 'hero': ('hi-IN-Madh
         'mother': ('hi-IN-SwaraNeural', '-6Hz', '+0%'), 'partner': ('hi-IN-SwaraNeural', '+2Hz', '+6%'),
         'child': ('hi-IN-SwaraNeural', '+30Hz', '+10%'), 'father': ('hi-IN-MadhurNeural', '-14Hz', '-4%'),
         'boss': ('hi-IN-MadhurNeural', '-8Hz', '+0%'), 'friend': ('hi-IN-MadhurNeural', '+12Hz', '+8%'),
-        'stranger': ('hi-IN-MadhurNeural', '-4Hz', '+0%'), 'teacher': ('hi-IN-MadhurNeural', '-10Hz', '-2%')}
+        'stranger': ('hi-IN-MadhurNeural', '-4Hz', '+0%'), 'teacher': ('hi-IN-MadhurNeural', '-10Hz', '-2%'),
+        'grandma': ('hi-IN-SwaraNeural', '-10Hz', '-8%'), 'sibling': ('hi-IN-SwaraNeural', '+18Hz', '+8%')}
 GAP = 0.42  # seconds of silence between lines in the Edge backup
 # The bot's voice choice (NARRATOR=male/female): the Gemini narrator, and the Edge backup's narrator and hero
 NARRATORS = {'male': ('Achird', 'hi-IN-MadhurNeural'), 'female': ('Sulafat', 'hi-IN-SwaraNeural')}
@@ -41,11 +42,14 @@ NARRATORS = {'male': ('Achird', 'hi-IN-MadhurNeural'), 'female': ('Sulafat', 'hi
 COMIC_NARRATORS = {'male': ('Zubenelgenubi', 'hi-IN-MadhurNeural'), 'female': ('Callirrhoe', 'hi-IN-SwaraNeural')}
 COMIC_EDGE = {'male': ('+0Hz', '+8%'), 'female': ('+0Hz', '+6%')}
 COMIC_GAP = 0.3  # a rant runs on: shorter pauses than a story
+# Kids and family comic Reels: bright, youthful voices (try Fenrir "excitable" or Puck "upbeat" for a boy)
+KID_NARRATORS = {'male': ('Puck', 'hi-IN-MadhurNeural'), 'female': ('Leda', 'hi-IN-SwaraNeural')}
+KID_EDGE = {'male': ('+14Hz', '+0%'), 'female': ('+10Hz', '+0%')}  # a little higher, not faster: kids need time to read
 
 
-def narrator(style='story'):
+def narrator(style='story', audience='adult'):
     """(Gemini voice, Edge voice) of the storyteller: REEL_VOICE wins, then NARRATOR, then male."""
-    voices = COMIC_NARRATORS if style == 'comic' else NARRATORS
+    voices = KID_NARRATORS if style == 'comic' and audience != 'adult' else COMIC_NARRATORS if style == 'comic' else NARRATORS
     choice = voices.get(os.getenv('NARRATOR', '').strip().lower(), voices['male'])
     return os.getenv('REEL_VOICE', '').strip() or choice[0], choice[1]
 
@@ -68,8 +72,22 @@ DIALOGUE_STYLES = {
               'The {who}, speaking naturally and in character, with real emotion, in natural Hindi'),
     'comic': ('A real, natural person (never a cartoon dub) with cheeky, playful energy: quick, expressive and a '
               'little mischievous, mock-dramatic where it is funny and dry on the deadpan lines, in everyday Hindi',
-              'The {who}, calling from another room: real, exasperated and natural, the way family shouts at home'),
+              'The {who}, calling from another room: real, exasperated and natural, the way family shouts at home'),    'kids': ('A real, cheeky 8-to-10-year-old Indian kid (never an adult doing a kid voice): bright, playful and full of '
+             'mischief, with big honest reactions, a little slower than an adult, in simple everyday Hindi',
+             'The {who}, calling from another room: real, warm and natural, the way family talks at home'),
 }
+KIDS_NOTES = """# AUDIO PROFILE: A real, cheeky 8-to-10-year-old Indian kid telling the viewer about their latest big plan
+## THE SCENE: At home, talking to a phone camera, bursting with energy. Not an adult doing a kid voice.
+### DIRECTOR'S NOTES
+Style: bright, playful and full of mischief, with big honest reactions: proud when the plan sounds great, a
+gasp when it goes wrong, a little giggle on the sneaky lines, mock-panic on the disasters. Natural kid speech,
+never a cartoon squeak, never a news reader.
+Pacing: lively but clear, a little slower than an adult so kids can follow, with a short pause between lines
+and a tiny pause before the last line, said with a cheeky grin in the voice.
+Language and accent: simple everyday Hindi with a natural Indian accent.
+Read only the transcript below, exactly as written. Never read these notes, headings or labels aloud.
+#### TRANSCRIPT
+{transcript}"""
 COMIC_PUNCH = ', after a tiny pause, with a cheeky, pleased-with-yourself grin in the voice'  # the punchline
 COMIC_NOTES = """# AUDIO PROFILE: A real young person from a small Indian town, venting to a friend about their own life
 ## THE SCENE: Sitting at the desk at home, talking into a phone camera, unscripted. Nobody is performing.
@@ -89,7 +107,8 @@ COMIC_SHORT = ('Say this naturally, like a real, cheeky person talking to a frie
                'in everyday Hindi, with a short pause between lines:\n\n{transcript}')
 SHORT = 'Say in a warm, friendly Hindi storytelling voice, with a short pause between lines:\n\n{transcript}'
 WHO = {'mother': 'mother', 'father': 'father', 'boss': 'strict boss', 'friend': 'close friend', 'partner': 'partner',
-       'child': 'young child', 'stranger': 'stranger', 'teacher': 'strict school teacher'}
+       'child': 'young child', 'stranger': 'stranger', 'teacher': 'strict school teacher', 'grandma': 'loving grandmother',
+       'sibling': 'bossy elder sister'}
 
 
 def girl_hero():
@@ -161,15 +180,16 @@ def write_pcm(path, data, rate):
         wav.writeframes(data)
 
 
-def gemini_voice(turns, other, path, style='story'):
+def gemini_voice(turns, other, path, style='story', audience='adult'):
     """Record with Gemini (one call). Returns the record, or raises GeminiError."""
-    voice = narrator(style)[0]
+    voice = narrator(style, audience)[0]
     comic = style == 'comic'
+    kid = comic and audience != 'adult'
     lines = [text for _, text in turns]
     dialogue = any(who == 'other' for who, _ in turns)
     if dialogue:
         speakers = {'Narrator': voice, 'Other': cast_voice(other)}
-        hero_style, other_style = DIALOGUE_STYLES['comic' if comic else 'story']
+        hero_style, other_style = DIALOGUE_STYLES['kids' if kid else 'comic' if comic else 'story']
         other_style = other_style.format(who=WHO.get(other, 'friend'))
         # the comic punchline is the line before the closing question
         punch = len(turns) - 2 if comic else -1
@@ -180,9 +200,9 @@ def gemini_voice(turns, other, path, style='story'):
     else:
         speakers = None
         transcript = '\n\n'.join(speakable(line) for line in lines)
-        prompts = ((COMIC_NOTES if comic else NOTES).format(transcript=transcript),
+        prompts = ((KIDS_NOTES if kid else COMIC_NOTES if comic else NOTES).format(transcript=transcript),
                    (COMIC_SHORT if comic else SHORT).format(transcript=transcript))
-    limit = expected_seconds(lines) * 1.6 + 2
+    limit = expected_seconds(lines) * (1.15 if kid else 1) * 1.6 + 2  # a kid's read is a little slower
     for prompt in prompts:
         audio, model = gemini.speech_call(prompt, voice, speakers)
         rate = int((re.search(r'rate=(\d+)', audio.get('mimeType', '')) or [0, 24000])[1])
@@ -194,7 +214,7 @@ def gemini_voice(turns, other, path, style='story'):
     raise gemini.GeminiError('the speech model kept reading its instructions aloud')
 
 
-def edge_voice(turns, other, path, rate=24000, style='story'):
+def edge_voice(turns, other, path, rate=24000, style='story', audience='adult'):
     """Record each line with free Edge voices and join them with short pauses. Returns the record with exact starts."""
     import edge_tts  # only needed for the backup
 
@@ -208,9 +228,9 @@ def edge_voice(turns, other, path, rate=24000, style='story'):
         for i, (who, text) in enumerate(turns):
             voice, pitch, speed = edge_cast(other) if who == 'other' else EDGE.get(who, EDGE['narrator'])
             if who in ('narrator', 'hero'):
-                voice = narrator(style)[1]
+                voice = narrator(style, audience)[1]
                 if style == 'comic':
-                    pitch, speed = COMIC_EDGE['female' if girl_hero() else 'male']
+                    pitch, speed = (KID_EDGE if audience != 'adult' else COMIC_EDGE)['female' if girl_hero() else 'male']
             mp3 = Path(tmp) / f'{i}.mp3'
             asyncio.run(say(speakable(text), voice, pitch, speed, mp3))
             raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(mp3), '-ac', '1', '-ar', str(rate), '-f', 's16le', '-'],
@@ -219,29 +239,29 @@ def edge_voice(turns, other, path, rate=24000, style='story'):
             pcm += raw + silence
             t += len(raw) / 2 / rate + gap
     write_pcm(path, pcm, rate)
-    return {'model': 'edge-tts', 'voice': narrator(style)[1], 'seconds': round(duration(path), 2), 'starts': starts,
+    return {'model': 'edge-tts', 'voice': narrator(style, audience)[1], 'seconds': round(duration(path), 2), 'starts': starts,
             'speech_end': round(t - gap, 3)}
 
 
-def synthesize(turns, out, other='friend', style='story'):
+def synthesize(turns, out, other='friend', style='story', audience='adult'):
     """Write out/voice.wav for `turns` [(speaker, text)] where speaker is narrator, hero or other.
 
     Returns a record of the service and voices used; it has exact 'starts' when the Edge backup recorded it.
     """
     path = out / 'voice.wav'
     try:
-        return gemini_voice(turns, other, path, style)
+        return gemini_voice(turns, other, path, style, audience)
     except (gemini.GeminiError, OSError) as exc:
         if any(who == 'other' for who, _ in turns):
             # Gemini still comes first: if only its two-voice dialogue failed, use its single storyteller voice
             try:
-                record = gemini_voice([('narrator', text) for _, text in turns], other, path, style)
+                record = gemini_voice([('narrator', text) for _, text in turns], other, path, style, audience)
                 record['dialogue'] = f'one voice (two voices failed: {str(exc)[:120]})'
                 return record
             except (gemini.GeminiError, OSError) as single:
                 exc = single
         try:
-            record = edge_voice(turns, other, path, style=style)
+            record = edge_voice(turns, other, path, style=style, audience=audience)
         except Exception as backup:  # noqa: BLE001 - any failure here means no narration
             raise gemini.GeminiError(f'Gemini speech failed ({exc}) and so did the Edge backup ({backup})') from None
         gemini.note('Edge voices (hi-IN Madhur/Swara)', f'Gemini speech failed: {exc}')

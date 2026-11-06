@@ -121,15 +121,18 @@ export const SETTINGS = [
   ['DAILY_REEL', '📅 A Reel every day, 9 am', 'true'],
   ['OCCASIONS', '🎉 Festival topics', 'off'], // on unless set to "off"
   ['REEL_STYLE', '😂 Comic style by default', 'comic'], // "comic" or "story": the usual style of a Reel
+  ['REEL_AUDIENCE', '👨‍👩‍👧 Family comedy (kid-friendly)', 'family'], // "family" or "adult" (kids = made for kids: set by hand)
 ];
 export const isOn = (name, value) => {
   const v = String(value || '').toLowerCase();
   if (name === 'OCCASIONS') return v !== 'off';
+  if (name === 'REEL_AUDIENCE') return v === 'family' || v === 'kids';
   return name === 'REEL_STYLE' ? v === 'comic' : v === 'true';
 };
 export const flipped = (name, value) => {
   if (name === 'OCCASIONS') return isOn(name, value) ? 'off' : 'on';
   if (name === 'REEL_STYLE') return isOn(name, value) ? 'story' : 'comic';
+  if (name === 'REEL_AUDIENCE') return isOn(name, value) ? 'adult' : 'family';
   return isOn(name, value) ? 'false' : 'true';
 };
 

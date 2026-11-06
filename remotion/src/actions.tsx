@@ -23,6 +23,9 @@ export const CAST: Record<string, Cast> = {
   mother: { color: COL.purple, accessory: "scarf", label: "माँ", scale: S * 0.95 },
   father: { color: COL.green, accessory: "dad", label: "पापा", scale: S },
   teacher: { color: "#6b4f3a", accessory: "dad", label: "टीचर", scale: S * 1.02 },
+  // comic-only people (reel/comic.py KID_PEOPLE): here for the subtitle's speaker tag
+  grandma: { color: COL.purple, accessory: "glasses", label: "दादी", scale: S * 0.92 },
+  sibling: { color: "#22b8cf", accessory: "ponytail", label: "दीदी", scale: S * 0.8 },
   boss: { color: "#555b66", accessory: "tie", label: "बॉस", scale: S * 1.05 },
   partner: { color: COL.red, accessory: "none", label: "पार्टनर", scale: S * 0.97 },
   child: { color: COL.orange, accessory: "cap", label: "बच्चा", scale: S * 0.62 },

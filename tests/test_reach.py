@@ -59,6 +59,13 @@ class ReachTextsTest(unittest.TestCase):
         self.assertIs(status['containsSyntheticMedia'], False)
         self.assertEqual(sent['body']['snippet']['defaultAudioLanguage'], 'hi')
         self.assertEqual(result['url'], 'https://youtube.com/shorts/v1')
+        # only a Reel written for the kids audience is declared made for kids (family is general-audience)
+        for audience, kids in (('kids', True), ('family', False), (None, False)):
+            with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, env), mock.patch.object(publish, 'request', request):
+                video = Path(tmp) / 'v.mp4'
+                video.write_bytes(b'mp4')
+                publish.youtube_upload(video, {**STORY, **({'audience': audience} if audience else {})})
+            self.assertIs(sent['body']['status']['selfDeclaredMadeForKids'], kids, audience)
 
 
 if __name__ == '__main__':
