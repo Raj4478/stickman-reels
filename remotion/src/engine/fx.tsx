@@ -25,6 +25,13 @@ export const ease = (f: number, a: number, b: number, from = 0, to = 1, e = Easi
   interpolate(f, [a, b], [from, to], { ...clamp, easing: e });
 
 // camera shake: decays after each hit
+// impact kick: flips sign every frame and dies out over 7 frames (reads as a hit, not an earthquake)
+export const kickAt = (f: number, hits: number[], gain = 12) =>
+  hits.reduce((a, t0) => {
+    const n = f - t0;
+    return n >= 0 && n < 7 ? a + gain * (n % 2 ? -1 : 1) * (1 - n / 7) ** 1.5 : a;
+  }, 0);
+
 export const shakeAt = (f: number, hits: number[], power = 18, len = 12) => {
   let x = 0,
     y = 0,

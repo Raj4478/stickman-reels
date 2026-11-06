@@ -40,3 +40,28 @@ jobs:
         run: |
           npm ci
           npm test
+  stills:
+    # a look-book of comic frames with the Instagram safe zones drawn in red, so every PR shows how frames look
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: remotion/package-lock.json
+      - name: Render a look-book (with safe-zone guides)
+        working-directory: remotion
+        run: |
+          npm ci
+          for f in 15 140 260 380 500 600; do
+            npx remotion still src/index.ts ComicReel "out/look-$f.jpg" --frame=$f --props='{"guides":true}' --scale=0.5 --image-format=jpeg
+          done
+          npx remotion still src/index.ts ComicCover out/look-cover.jpg --scale=0.5 --image-format=jpeg
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lookbook
+          path: remotion/out/look-*.jpg

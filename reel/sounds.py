@@ -104,6 +104,18 @@ def effects():
         if start + len(click) < len(keys):
             keys[start:start + len(click)] += click
     out['typing'] = keys
+    # kids and family Reels: slide whistle, a squeaky toy, tiptoe pizzicato, a zip and a sparkle
+    s = np.arange(int(RATE * 0.5)) / RATE
+    slide = np.sin(2 * np.pi * np.cumsum(np.linspace(420, 1500, len(s))) / RATE)
+    out['slide_up'] = slide * envelope(len(s), 0.01, release=0.08) * 0.7
+    out['slide_down'] = out['slide_up'][::-1].copy()
+    squeak = tone(sweep(1800, 2600, 0.09), 0.09, 'triangle') * envelope(int(RATE * 0.09), 0.002, 0.03)
+    out['squeak'] = np.concatenate([squeak, np.zeros(int(RATE * 0.04)), squeak * 0.8])
+    pluck = lambda f: tone(f, 0.12, 'triangle') * envelope(int(RATE * 0.12), 0.002, 0.03)  # noqa: E731
+    out['tiptoe'] = np.concatenate([pluck(784), np.zeros(int(RATE * 0.08)), pluck(659)])
+    n = noise(0.18, 9)
+    out['zip'] = lowpass(n, sweep(1500, 9000, 0.18)) * envelope(len(n), 0.003, 0.05) * 1.8
+    out['sparkle'] = sum(tone(f, 0.5) * envelope(int(RATE * 0.5), 0.002, 0.12) * g for f, g in ((2093, 1), (2637, .6), (3136, .4)))
     return out
 
 
@@ -124,12 +136,13 @@ def write_effects(folder):
     return sorted(p.name for p in folder.glob('*.wav'))
 
 
-SCALES = {'warm': (0, 2, 4, 7, 9), 'tense': (0, 3, 5, 7, 10), 'comic': (0, 2, 4, 7, 9)}
+SCALES = {'warm': (0, 2, 4, 7, 9), 'tense': (0, 3, 5, 7, 10), 'comic': (0, 2, 4, 7, 9), 'kids': (0, 2, 4, 7, 9, 12)}
 # vi-IV-I-V (emotional, lifts at the end) or i-VI-III-VII (tense); semitones from the key's root
 # or I-vi-IV-V, bouncy and light, for comic Reels
 PROGRESSIONS = {'warm': ((9, 'm'), (5, ''), (0, ''), (7, '')), 'tense': ((0, 'm'), (8, ''), (3, ''), (10, '')),
-                'comic': ((0, ''), (9, 'm'), (5, ''), (7, ''))}
-BPM = {'comic': 112}
+                'comic': ((0, ''), (9, 'm'), (5, ''), (7, '')),
+                'kids': ((0, ''), (7, ''), (9, 'm'), (5, ''))}  # I-V-vi-IV: bright and bouncy
+BPM = {'comic': 112, 'kids': 124}
 
 
 def chord(root, quality):

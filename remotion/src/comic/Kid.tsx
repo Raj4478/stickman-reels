@@ -1,5 +1,6 @@
 import React from "react";
-import { Easing, interpolate } from "remotion";
+import { Easing, interpolate, random } from "remotion";
+import { onInk } from "./ink";
 
 // The comic Reels' star (reel/comic.py): our own cartoon kid, drawn for the cartoon-meme look of viral Hindi
 // Reels. A big round head with huge white eyes that do the acting, thick eyebrows, a small talking mouth, a
@@ -12,7 +13,10 @@ import { Easing, interpolate } from "remotion";
 
 export const HEAD = { x: 540, y: 840, rx: 232, ry: 218 };
 export const TABLE = 1360;
-const INK = "#1b1b1f";
+let INK = "#1b1b1f";
+onInk((plum) => {
+  INK = plum ? "#241726" : "#1b1b1f"; // the plum ink A/B test (ink.ts)
+});
 
 export type Toon = {
   skin: string; skinDark: string; shirt: string; shirtDark: string;
@@ -116,13 +120,21 @@ const Brow: React.FC<{ c: Pt; side: -1 | 1; inner: number; outer: number; raise:
   return <path d={`M${ix},${y + inner} Q${(ix + ox) / 2},${y - 16 + (inner + outer) / 2} ${ox},${y + outer}`} stroke={INK} strokeWidth={24} fill="none" strokeLinecap="round" />;
 };
 
-const Mouth: React.FC<{ face: Face; open: number; f: number }> = ({ face, open, f }) => {
+// width and height factors per mouth shape (reel/voice.py visemes)
+const SHAPES: Record<string, [number, number]> = { A: [1, 1], O: [0.62, 1.12], E: [1.35, 0.55], M: [0.9, 0.08] };
+
+const Mouth: React.FC<{ face: Face; open: number; f: number; shape?: string }> = ({ face, open, f, shape = "A" }) => {
   const x = 548;
   const y = 978;
+  if (shape === "M" && open > 0.06) {
+    // lips pressed together for म / ब / प
+    return <path d={`M${x - 30},${y + 2} Q${x},${y + 8} ${x + 30},${y + 2}`} stroke={INK} strokeWidth={9} fill="none" strokeLinecap="round" />;
+  }
   if (open > 0.06) {
-    // talking: a small dark mouth with a tongue, wider for loud words
-    const w = 26 + open * 22;
-    const h = 10 + open * 34;
+    // talking: a small dark mouth with a tongue, its shape from the word (A, O, E), its size from the loudness
+    const [kw, kh] = SHAPES[shape] ?? SHAPES.A;
+    const w = (26 + open * 22) * kw;
+    const h = (10 + open * 34) * kh;
     return (
       <g>
         <path d={`M${x - w},${y - 4} Q${x},${y - 12} ${x + w},${y - 4} Q${x + w * 0.8},${y + h} ${x},${y + h} Q${x - w * 0.8},${y + h} ${x - w},${y - 4} Z`} fill="#5a1d24" stroke={INK} strokeWidth={6} strokeLinejoin="round" />
@@ -260,7 +272,8 @@ const REST_R: Pt = { x: 640, y: TABLE - 12 };
 
 // Where each hand goes for a gesture at frame f (the gesture starts at f = 0), and what it holds
 export const gesture = (name: string, f: number): { l: ArmPose; r: ArmPose; hits: number[] } => {
-  const s = (a: number, b: number) => interpolate(f, [a, b], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
+  // anticipation: 3 frames moving 18% the other way, then the travel with a slight overshoot
+  const go = (b: number) => interpolate(f, [0, 3, b + 3, b + 6], [0, -0.18, 1.06, 1], { ...clamp, easing: Easing.inOut(Easing.quad) });
   const wave = Math.sin(f * 0.22);
   switch (name) {
     case "type": {
@@ -268,47 +281,47 @@ export const gesture = (name: string, f: number): { l: ArmPose; r: ArmPose; hits
       return { l: { at: { x: REST_L.x + 10, y: REST_L.y + tap(0) }, hand: "fist" }, r: { at: { x: REST_R.x - 10, y: REST_R.y + tap(1) }, hand: "fist" }, hits: [] };
     }
     case "shrug":
-      return { l: { at: mix(REST_L, { x: 250, y: 1060 + wave * 6 }, s(0, 7)), hand: "open" }, r: { at: mix(REST_R, { x: 830, y: 1060 - wave * 6 }, s(0, 7)), hand: "open" }, hits: [] };
+      return { l: { at: mix(REST_L, { x: 250, y: 1060 + wave * 6 }, go(7)), hand: "open" }, r: { at: mix(REST_R, { x: 830, y: 1060 - wave * 6 }, go(7)), hand: "open" }, hits: [] };
     case "facepalm":
-      return { l: { at: REST_L, hand: "fist" }, r: { at: mix(REST_R, { x: 590 + Math.sin(f * 0.15) * 6, y: 800 }, s(0, 8)), hand: "open" }, hits: [] };
+      return { l: { at: REST_L, hand: "fist" }, r: { at: mix(REST_R, { x: 590 + Math.sin(f * 0.15) * 6, y: 800 }, go(8)), hand: "open" }, hits: [] };
     case "point_self":
-      return { l: { at: REST_L, hand: "fist" }, r: { at: mix(REST_R, { x: 615, y: 1150 + Math.sin(f * 0.3) * 10 }, s(0, 7)), hand: "point", dir: 195 }, hits: [] };
+      return { l: { at: REST_L, hand: "fist" }, r: { at: mix(REST_R, { x: 615, y: 1150 + Math.sin(f * 0.3) * 10 }, go(7)), hand: "point", dir: 195 }, hits: [] };
     case "point_viewer":
-      return { l: { at: REST_L, hand: "fist" }, r: { at: mix(REST_R, { x: 760, y: 1150 + Math.sin(f * 0.25) * 8 }, s(0, 7)), hand: "point", dir: -70 }, hits: [] };
+      return { l: { at: REST_L, hand: "fist" }, r: { at: mix(REST_R, { x: 760, y: 1150 + Math.sin(f * 0.25) * 8 }, go(7)), hand: "point", dir: -70 }, hits: [] };
     case "arms_crossed":
-      return { l: { at: mix(REST_L, { x: 640, y: 1215 }, s(0, 8)), hand: "fist" }, r: { at: mix(REST_R, { x: 440, y: 1235 }, s(0, 8)), hand: "fist" }, hits: [] };
+      return { l: { at: mix(REST_L, { x: 640, y: 1215 }, go(8)), hand: "fist" }, r: { at: mix(REST_R, { x: 440, y: 1235 }, go(8)), hand: "fist" }, hits: [] };
     case "slam": {
       // fists up, then down on the table (the hit shakes the frame and plays a thud)
       const up = interpolate(f, [0, 7, 11, 14], [0, 1, 1, 0], clamp);
       return { l: { at: mix(REST_L, { x: 400, y: 1120 }, up), hand: "fist" }, r: { at: mix(REST_R, { x: 680, y: 1120 }, up), hand: "fist" }, hits: [14] };
     }
     case "phone":
-      return { l: { at: REST_L, hand: "fist" }, r: { at: mix(REST_R, { x: 650, y: 1160 }, s(0, 8)), hand: "phone" }, hits: [] };
+      return { l: { at: REST_L, hand: "fist" }, r: { at: mix(REST_R, { x: 650, y: 1160 }, go(8)), hand: "phone" }, hits: [] };
     case "chai": {
       // the cup goes up to the mouth and back, a slow sip
       const sip = (Math.sin(f * 0.09 - 1.4) + 1) / 2;
       return { l: { at: REST_L, hand: "fist" }, r: { at: mix({ x: 680, y: TABLE - 30 }, { x: 630, y: 1010 }, sip), hand: "chai" }, hits: [] };
     }
     case "think":
-      return { l: { at: { x: 470, y: 1215 }, hand: "fist" }, r: { at: mix(REST_R, { x: 605, y: 1040 }, s(0, 8)), hand: "fist" }, hits: [] };
+      return { l: { at: { x: 470, y: 1215 }, hand: "fist" }, r: { at: mix(REST_R, { x: 605, y: 1040 }, go(8)), hand: "fist" }, hits: [] };
     case "scratch_head":
-      return { l: { at: REST_L, hand: "fist" }, r: { at: mix(REST_R, { x: 735 + Math.sin(f * 1.1) * 14, y: 650 + Math.cos(f * 1.1) * 10 }, s(0, 9)), hand: "open" }, hits: [] };
+      return { l: { at: REST_L, hand: "fist" }, r: { at: mix(REST_R, { x: 735 + Math.sin(f * 1.1) * 14, y: 650 + Math.cos(f * 1.1) * 10 }, go(9)), hand: "open" }, hits: [] };
     case "dance": {
       // a silly victory dance: arms up and waving in turn
       const beat = Math.sin(f * 0.42);
       return {
-        l: { at: mix(REST_L, { x: 270 - beat * 30, y: 930 + beat * 90 }, s(0, 6)), hand: "open" },
-        r: { at: mix(REST_R, { x: 810 - beat * 30, y: 930 - beat * 90 }, s(0, 6)), hand: "open" },
+        l: { at: mix(REST_L, { x: 270 - beat * 30, y: 930 + beat * 90 }, go(6)), hand: "open" },
+        r: { at: mix(REST_R, { x: 810 - beat * 30, y: 930 - beat * 90 }, go(6)), hand: "open" },
         hits: [],
       };
     }
     case "panic": {
       // "no no no!": both hands flap beside the head
       const flap = Math.sin(f * 1.3) * 34;
-      return { l: { at: mix(REST_L, { x: 260, y: 960 + flap }, s(0, 5)), hand: "open" }, r: { at: mix(REST_R, { x: 820, y: 960 - flap }, s(0, 5)), hand: "open" }, hits: [] };
+      return { l: { at: mix(REST_L, { x: 260, y: 960 + flap }, go(5)), hand: "open" }, r: { at: mix(REST_R, { x: 820, y: 960 - flap }, go(5)), hand: "open" }, hits: [] };
     }
     default: // talk: one hand on the table, the other explains
-      return { l: { at: REST_L, hand: "fist" }, r: { at: mix(REST_R, { x: 800 + wave * 20, y: 1170 + Math.cos(f * 0.17) * 22 }, s(0, 7)), hand: "open" }, hits: [] };
+      return { l: { at: REST_L, hand: "fist" }, r: { at: mix(REST_R, { x: 800 + wave * 20, y: 1170 + Math.cos(f * 0.17) * 22 }, go(7)), hand: "open" }, hits: [] };
   }
 };
 
@@ -344,6 +357,7 @@ const Arm: React.FC<{ sh: Pt; pose: ArmPose; side: -1 | 1; t: Toon }> = ({ sh, p
           <path d={`M${hand.x},${hand.y} l${Math.cos(fingerDir) * 58},${Math.sin(fingerDir) * 58}`} stroke={t.skin} strokeWidth={18} strokeLinecap="round" />
         </g>
       )}
+      {hand.y > TABLE - 60 && <ellipse cx={hand.x + 10} cy={TABLE + 8} rx={48} ry={13} fill="rgba(0,0,0,.18)" />}
       <circle cx={hand.x} cy={hand.y} r={pose.hand === "open" ? 42 : 37} fill={t.skin} stroke={INK} strokeWidth={8} />
       {pose.hand === "open" && <path d={`M${hand.x - 20},${hand.y - 30} l-8,-22 M${hand.x},${hand.y - 36} l0,-24 M${hand.x + 20},${hand.y - 30} l8,-22`} stroke={INK} strokeWidth={8} strokeLinecap="round" />}
       {pose.hand === "phone" && (
@@ -364,6 +378,28 @@ const Arm: React.FC<{ sh: Pt; pose: ArmPose; side: -1 | 1; t: Toon }> = ({ sh, p
   );
 };
 
+// Blinks every 0.5-2.3 s (Mr Omi's measured range), sometimes a double blink; 4 frames shaped [.5, 1, 1, .5].
+// Seeded per character, so every render of a Reel blinks at the same frames.
+const BLINK = [0.5, 1, 1, 0.5];
+const blinkCache = new Map<string, number[]>();
+const blinkStarts = (seed: string): number[] => {
+  const hit = blinkCache.get(seed);
+  if (hit) return hit;
+  const out: number[] = [];
+  for (let t = 10; t < 30 * 180; ) { // three minutes of blinks
+    out.push(t);
+    if (random(`${seed}-double-${t}`) < 0.12) out.push(t + 6);
+    t += 15 + Math.floor(random(`${seed}-gap-${t}`) * 55);
+  }
+  blinkCache.set(seed, out);
+  return out;
+};
+const blinkAt = (seed: string, clock: number, f: number, swap: boolean) => {
+  if (swap && f < BLINK.length) return BLINK[f]; // hide the face swap at a cut behind a blink
+  const s = blinkStarts(seed).find((t) => clock >= t && clock < t + BLINK.length);
+  return s === undefined ? 0 : BLINK[clock - s];
+};
+
 // ---- the whole kid ----------------------------------------------------------------------------------------
 export const Kid: React.FC<{
   f: number; face: string; look: string; gesture: string; mouth: number; girl?: boolean;
@@ -371,7 +407,9 @@ export const Kid: React.FC<{
   // frames into the whole Reel, for blinking on a steady rhythm across cuts
   clock: number;
   table?: React.ReactNode; // drawn over the body and under the arms, so the hands rest on it
-}> = ({ f, face: faceName, look: lookName, gesture: gestureName, mouth, girl, clock, table, toon }) => {
+  swap?: boolean; // the face changed at this line's start: blink over the change
+  viseme?: string; // the mouth shape of the word being said (A, O, E, M)
+}> = ({ f, face: faceName, look: lookName, gesture: gestureName, mouth, girl, clock, table, toon, swap = false, viseme }) => {
   const who = toon && TOONS[toon] ? toon : girl ? "girl" : "kid";
   const t = TOONS[who];
   const face = (faceName in FACES ? faceName : "deadpan") as Face;
@@ -381,14 +419,19 @@ export const Kid: React.FC<{
   // the eyes settle on their target in the first frames of a line (a quick, comic dart)
   const dart = interpolate(f, [0, 5], [0, 1], { ...clamp, easing: Easing.out(Easing.back(2)) });
   const pupil = mix(LOOK.viewer, target, look === "viewer" && !eyeRoll ? 1 : dart);
-  const cycle = clock % 100;
-  const blink = face === "shock" || face === "happy" ? 0 : cycle < 2 ? 0.6 : cycle < 4 ? 1 : cycle < 5 ? 0.5 : 0;
+  const blink = face === "shock" || face === "happy" ? 0 : blinkAt(who, clock, f, swap);
   const pose = gesture(gestureName, f);
   // talking: the head nods a little with the voice; shock jolts it back
   const bob = mouth * 10 + Math.sin(clock * 0.05) * 3;
   const dancing = gestureName === "dance" ? Math.sin(f * 0.42) : 0;
-  const panicking = gestureName === "panic" ? Math.sin(f * 1.3) : 0;
-  const tilt = dancing * 9 + panicking * 3 + (face === "smug" || face === "cheeky" ? -5 : face === "sad" ? 4 : face === "side_eye" ? -3 : Math.sin(clock * 0.031) * 1.2);
+  const tiltAt = (fr: number, ck: number) => {
+    const dance = gestureName === "dance" ? Math.sin(fr * 0.42) : 0;
+    const panic = gestureName === "panic" ? Math.sin(fr * 1.3) : 0;
+    return dance * 9 + panic * 3 + (face === "smug" || face === "cheeky" ? -5 : face === "sad" ? 4 : face === "side_eye" ? -3 : Math.sin(ck * 0.031) * 1.2);
+  };
+  const tilt = tiltAt(f, clock);
+  const lag = (tilt - tiltAt(f - 3, clock - 3)) * 1.5; // the tuft / ponytail / bun trails the head
+  const take = face === "shock" ? interpolate(f, [0, 2, 6], [1, 1.08, 1], clamp) : 1; // a cartoon "take": the head stretches up
   const jolt = face === "shock" ? interpolate(f, [0, 4, 10], [0, -30, -12], clamp) : 0;
   const brow = FACES[face];
   const browR = brow.browR ?? brow.brows;
@@ -406,13 +449,21 @@ export const Kid: React.FC<{
         {t.tie && <path d={`M520,1080 L560,1080 L548,1110 L580,1300 L540,1340 L500,1300 L532,1110 Z`} fill={t.tie} stroke={INK} strokeWidth={7} strokeLinejoin="round" />}
       </g>
       {/* the head */}
-      <g transform={`translate(${dancing * 18} ${bob * 0.4 + jolt + breathe * 0.3 - Math.abs(dancing) * 16}) rotate(${tilt} ${HEAD.x} ${HEAD.y + 200})`}>
-        <HairBack t={t} />
+      <g transform={`translate(${dancing * 18} ${bob * 0.4 + jolt + breathe * 0.3 - Math.abs(dancing) * 16}) rotate(${tilt} ${HEAD.x} ${HEAD.y + 200}) translate(0 ${HEAD.y + HEAD.ry}) scale(1 ${take}) translate(0 ${-(HEAD.y + HEAD.ry)})`}>
+        <g transform={`rotate(${lag} ${HEAD.x} ${HEAD.y - HEAD.ry})`}><HairBack t={t} /></g>
         <ellipse cx={HEAD.x - HEAD.rx + 6} cy={HEAD.y + 30} rx={36} ry={50} fill={t.skin} stroke={INK} strokeWidth={8} />
         <ellipse cx={HEAD.x + HEAD.rx - 6} cy={HEAD.y + 30} rx={36} ry={50} fill={t.skin} stroke={INK} strokeWidth={8} />
         <path d={`M${HEAD.x - HEAD.rx + 16},${HEAD.y + 22} q14,-12 18,8 M${HEAD.x + HEAD.rx - 16},${HEAD.y + 22} q-14,-12 -18,8`} stroke={t.skinDark} strokeWidth={7} fill="none" strokeLinecap="round" />
         <ellipse cx={HEAD.x} cy={HEAD.y} rx={HEAD.rx} ry={HEAD.ry} fill={t.skin} stroke={INK} strokeWidth={10} />
-        <HairFront t={t} />
+        {/* a soft crescent of shade away from a top-left key light */}
+        <defs>
+          <radialGradient id={`${who}-shade`} cx="0.36" cy="0.32" r="0.86">
+            <stop offset="0.7" stopColor="#7d5a8c" stopOpacity={0} />
+            <stop offset="1" stopColor="#7d5a8c" stopOpacity={0.24} />
+          </radialGradient>
+        </defs>
+        <ellipse cx={HEAD.x} cy={HEAD.y} rx={HEAD.rx - 5} ry={HEAD.ry - 5} fill={`url(#${who}-shade)`} />
+        <g transform={`rotate(${lag} ${HEAD.x} ${HEAD.y - HEAD.ry})`}><HairFront t={t} /></g>
         {t.earrings && [HEAD.x - HEAD.rx + 6, HEAD.x + HEAD.rx - 6].map((x) => <circle key={x} cx={x} cy={HEAD.y + 90} r={14} fill="#fcc419" stroke={INK} strokeWidth={5} />)}
         {(face === "happy" || face === "nervous" || face === "smug" || face === "cheeky") && (
           <>
@@ -426,7 +477,7 @@ export const Kid: React.FC<{
         <Brow c={EYE_R} side={1} inner={browR[0]} outer={browR[1]} raise={raise} />
         <path d={`M${HEAD.x + 8},${HEAD.y + 70} q16,10 2,22`} stroke={t.skinDark} strokeWidth={8} fill="none" strokeLinecap="round" />
         <FaceExtras t={t} />
-        <Mouth face={face} open={mouth} f={f} />
+        <Mouth face={face} open={mouth} f={f} shape={viseme?.trim() || "A"} />
         {face === "cry" && (
           <g opacity={0.9}>
             {[EYE_L, EYE_R].map((e, i) => (

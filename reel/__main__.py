@@ -282,6 +282,9 @@ def main(argv=None):
         long_caption = telegram.copy_message(copy)
         if long_caption:
             telegram.send_message(long_caption, html=True)
+        sheet = args.folder / 'sheet.jpg'  # the frame scan's contact sheet (reel/scan.py)
+        if sheet.exists():
+            telegram.send_file('sendPhoto', 'photo', sheet, 'image/jpeg', '🎞 One frame a second')
     return 0
 
 

@@ -1,5 +1,6 @@
 import React from "react";
 import { FONT } from "../engine/fx";
+import { onInk } from "./ink";
 import { TABLE } from "./Kid";
 
 // The one room of a comic Reel (reel/comic.py ROOMS), in flat cartoon colours with soft outlines. `back` is the
@@ -9,6 +10,9 @@ import { TABLE } from "./Kid";
 export type Room = { back: React.ReactNode; table: React.ReactNode };
 
 const O = { stroke: "#2a2320", strokeWidth: 6, strokeLinejoin: "round" as const, strokeLinecap: "round" as const };
+onInk((plum) => {
+  O.stroke = plum ? "#2e1f31" : "#2a2320"; // the plum ink A/B test (ink.ts)
+});
 const L = -80, R = 1160;
 const TOP = TABLE - 30; // back edge of the table top
 const FRONT = TABLE + 52; // front edge
