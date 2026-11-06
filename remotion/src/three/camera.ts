@@ -62,7 +62,7 @@ export const shot3Of = (seg: Segment, i: number): string => {
   const face = seg.face ?? "deadpan";
   if (seg.kind === "hook") return "medium";
   if (seg.kind === "ask") return "medium";
-  if (seg.visual === "person") return "medium";
+  if (seg.visual === "person" || seg.visual === "dream") return "medium"; // a daydream needs room for its thought bubble
   if (["side_eye", "eye_roll", "cheeky", "sneaky"].includes(face)) return "xclose";
   if (["smug", "proud"].includes(face) || seg.gesture === "dance") return "low_hero";
   if (["sad", "cry"].includes(face)) return "high_pity";
@@ -81,7 +81,7 @@ const bigChange3 = (a: Cam3, b: Cam3) => Math.max(dist(a) / dist(b), dist(b) / d
 export const camAt3 = (seg: Segment, i: number, f: number, dur: number, part = 0, twist = 0): Cam3 => {
   if (seg.kind === "lesson") {
     const t = interpolate(f, [twist, twist + 4], [0, 1], { ...clamp, easing: Easing.out(Easing.back(1.6)) });
-    return mixCam(SHOTS3.close.to, SHOTS3.xclose.to, t);
+    return seg.visual === "dream" ? mixCam(SHOTS3.medium.to, SHOTS3.close.to, t) : mixCam(SHOTS3.close.to, SHOTS3.xclose.to, t);
   }
   if (part === 0 && seg.kind === "scene" && seg.face === "shock") return dollyZoom(glide(f / 12));
   let name = shot3Of(seg, i);
