@@ -89,6 +89,8 @@ def build(script, out, public, narrate=True, music=True, prefix=''):
                      cover_text=script.get('cover_text', ''), audience=script.get('audience', 'adult'))
         if os.getenv('REEL_INK', '').strip().lower() == 'plum':
             props['ink'] = 'plum'  # the plum ink A/B test
+        engine = os.getenv('REEL_ENGINE', '').strip().lower()
+        props['engine'] = engine if engine in ('svg', 'three') else 'svg'  # three: the 2.5D three.js rooms
     props['duration'] = props['segments'][-1]['end']
     if audio:
         props['visemes'] = voice.visemes(props['segments'], props['duration'])

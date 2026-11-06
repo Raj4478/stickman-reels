@@ -61,6 +61,13 @@ jobs:
             npx remotion still src/index.ts ComicReel "out/look-$f.jpg" --frame=$f --props='{"guides":true}' --scale=0.5 --image-format=jpeg
           done
           npx remotion still src/index.ts ComicCover out/look-cover.jpg --scale=0.5 --image-format=jpeg
+      - name: The 3D engine renders, and renders the same frame twice
+        working-directory: remotion
+        run: |
+          npx remotion still src/index.ts ComicReel out/look-3d.jpg --frame=140 --props='{"engine":"three","guides":true}' --scale=0.5 --image-format=jpeg --gl=swangle
+          npx remotion still src/index.ts ComicReel out/a.png --frame=140 --props='{"engine":"three"}' --gl=swangle
+          npx remotion still src/index.ts ComicReel out/b.png --frame=140 --props='{"engine":"three"}' --gl=swangle
+          cmp out/a.png out/b.png
       - uses: actions/upload-artifact@v7
         with:
           name: lookbook

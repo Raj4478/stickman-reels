@@ -197,6 +197,7 @@ A Reel takes about 6–8 minutes, including installing everything.
 | `REEL_AUDIENCE` | `family` writes comic Reels for families (a recurring kid, kid-world jokes); `kids` also marks YouTube uploads "made for kids"; empty or `adult` keeps adult rants. The bot's ⚙️ Settings switch sets `family` or `adult` |
 | `COMIC_DRAFTS` | How many comic drafts the test-audience judge picks from, `1`-`3` (default `2`; `1` switches the judge off) |
 | `KID_NAME`, `KID_NAME_GIRL`, `KID_CATCHPHRASE` | The recurring kid of family and kids Reels (default गोलू, पिंकी and "प्लान तो मेरा फुल-प्रूफ था!") |
+| `REEL_ENGINE` | `three` draws comic Reels' rooms in 3D (three.js): a toon-shaded room with real perspective, light, shadows and depth of field, real 3/4, low and high angles and a dolly zoom on a shock, with the same SVG kid placed by the same camera. Rendered on the CPU on GitHub Actions (slower: the run's notice shows the time); empty or `svg` keeps the flat rooms |
 | `REEL_INK` | `plum` tries Mr Omi's softer plum ink (#241726) on comic Reels instead of near-black, as an A/B test |
 | `LOVE_SHARE` | The share of Reels without a chosen topic that are love stories, from `0` to `1` (default `0.4`) |
 | `REEL_STYLE` | `comic` makes comic Reels by default (the bot's 😂 switch); `story` or empty for stick-figure stories |
