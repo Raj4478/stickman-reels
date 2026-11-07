@@ -106,6 +106,18 @@ Read only the transcript below, exactly as written. Never read these notes, head
 COMIC_SHORT = ('Say this naturally, like a real, cheeky person talking to a friend: lively, playful and conversational, '
                'in everyday Hindi, with a short pause between lines:\n\n{transcript}')
 SHORT = 'Say in a warm, friendly Hindi storytelling voice, with a short pause between lines:\n\n{transcript}'
+# Storybook Reels (reel/storybook.py): a warm storyteller telling a moral story, like a grandparent at night
+STORYBOOK_NOTES = """# AUDIO PROFILE: A warm Indian storyteller telling a short, moving moral story
+## THE SCENE: Recording the voice-over for an illustrated story Reel, speaking gently to one listener at night.
+### DIRECTOR'S NOTES
+Style: warm, sincere and emotional, like a grandparent telling a story everyone remembers: soft and slow in the sad
+moments, a held breath before the turn, a little catch in the voice when the kindness comes, and calm conviction on
+the last line. Never dramatic like a TV serial, never robotic or like a news reader.
+Pacing: unhurried but never slow, with a clear pause between lines and a longer pause before the moral.
+Language and accent: Hindi, with a natural Indian accent.
+Read only the transcript below, exactly as written. Never read these notes, headings or labels aloud.
+#### TRANSCRIPT
+{transcript}"""
 WHO = {'mother': 'mother', 'father': 'father', 'boss': 'strict boss', 'friend': 'close friend', 'partner': 'partner',
        'child': 'young child', 'stranger': 'stranger', 'teacher': 'strict school teacher', 'grandma': 'loving grandmother',
        'sibling': 'bossy elder sister'}
@@ -200,7 +212,8 @@ def gemini_voice(turns, other, path, style='story', audience='adult'):
     else:
         speakers = None
         transcript = '\n\n'.join(speakable(line) for line in lines)
-        prompts = ((KIDS_NOTES if kid else COMIC_NOTES if comic else NOTES).format(transcript=transcript),
+        notes = STORYBOOK_NOTES if style == 'storybook' else KIDS_NOTES if kid else COMIC_NOTES if comic else NOTES
+        prompts = (notes.format(transcript=transcript),
                    (COMIC_SHORT if comic else SHORT).format(transcript=transcript))
     limit = expected_seconds(lines) * (1.15 if kid else 1) * 1.6 + 2  # a kid's read is a little slower
     for prompt in prompts:

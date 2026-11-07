@@ -32,6 +32,11 @@ def segments(script, starts, speech_end, words=None):
         for segment, key in ((out[0], 'hook'), (out[-2], 'punch')):
             segment.update({k: script[f'{key}_{k}'] for k in ('face', 'gesture', 'look', 'visual', 'visual_text', 'screen', 'who', 'place')
                             if f'{key}_{k}' in script})
+    if script.get('style') == 'storybook':
+        # the Roman Hinglish captions and the shot of the opening, the moral and the question
+        out[0].update(roman=script.get('hook_roman', ''), shot=script.get('hook_shot', 'wide'))
+        out[-2].update(roman=script.get('lesson_roman', ''), shot=script.get('lesson_shot', 'medium'))
+        out[-1].update(roman=script.get('ask_roman', ''))
     out[0]['start'] = 0.0
     out[-1]['end'] = round(speech_end + LEAD + TAIL, 3)
     return out
@@ -91,6 +96,15 @@ def build(script, out, public, narrate=True, music=True, prefix=''):
             props['ink'] = 'plum'  # the plum ink A/B test
         engine = os.getenv('REEL_ENGINE', '').strip().lower()
         props['engine'] = engine if engine in ('svg', 'three') else 'svg'  # three: the 2.5D three.js rooms
+    if script.get('style') == 'storybook':
+        from . import images, storybook
+        props.update(style='storybook', series_title=storybook.SERIES.get(script.get('series'), 'Zindagi ki seekh'),
+                     cover_text=script.get('cover_text', ''))
+        names, painted = images.paint(script, public)  # the hook, every scene and the moral; the question reuses the moral's
+        for segment, name in zip(props['segments'], names):
+            if name:
+                segment['image'] = f'{prefix}{name}'
+        record['pictures'] = painted
     props['duration'] = props['segments'][-1]['end']
     if audio:
         props['visemes'] = voice.visemes(props['segments'], props['duration'])

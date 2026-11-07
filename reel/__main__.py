@@ -46,7 +46,13 @@ def stories(args):
     from . import comic
     if args.sample:
         raw = json.loads(args.sample.read_text(encoding='utf-8'))
-        yield (comic.clean if raw.get('style') == 'comic' else script.clean)(raw)
+        from . import storybook
+        yield {'comic': comic.clean, 'storybook': storybook.clean}.get(raw.get('style'), script.clean)(raw)
+        return
+    if args.style == 'storybook' and not args.series:
+        from . import storybook
+        for _ in range(args.count):
+            yield storybook.write(args.topic, theme=args.theme, source=args.source)
         return
     if args.style == 'comic' and not args.series:
         for _ in range(args.count):

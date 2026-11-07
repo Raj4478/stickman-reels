@@ -106,6 +106,9 @@ jobs:
           LOVE_SHARE: ${{ vars.LOVE_SHARE }}
           REEL_STYLE: ${{ vars.REEL_STYLE }}
           REEL_INK: ${{ vars.REEL_INK }}
+          # storybook Reels paint their pictures with Cloudflare Workers AI (reel/images.py)
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           REEL_ENGINE: ${{ vars.REEL_ENGINE }}
           REEL_AUDIENCE: ${{ vars.REEL_AUDIENCE }}
           COMIC_DRAFTS: ${{ vars.COMIC_DRAFTS }}
@@ -167,7 +170,9 @@ jobs:
             npx remotion render src/index.ts StickReel "out/reel-$n.mp4" --props="public/reels/$n/props.json" --crf=14 $GL
             master "out/reel-$n.mp4"
             echo "::notice::Reel $n rendered and mastered in $(( $(date +%s) - t0 ))s (engine $ENGINE)"
-            if grep -q '"style": "comic"' "public/reels/$n/props.json"; then
+            if grep -q '"style": "storybook"' "public/reels/$n/props.json"; then
+              npx remotion still src/index.ts StoryCover "../out/$n/cover.jpg" --props="public/reels/$n/props.json" --image-format=jpeg --jpeg-quality=92
+            elif grep -q '"style": "comic"' "public/reels/$n/props.json"; then
               npx remotion still src/index.ts ComicCover "../out/$n/cover.jpg" --props="public/reels/$n/props.json" --image-format=jpeg --jpeg-quality=92 $GL
             else
               npx remotion still src/index.ts StickReel "../out/$n/cover.jpg" --props="public/reels/$n/props.json" --frame=20 --image-format=jpeg

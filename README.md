@@ -103,6 +103,32 @@ the channel's own character, not any TV cartoon, so nothing is copied.
 - **Make again** keeps the style. A two-part series is always a story.
 - **From GitHub:** Make a Reel with `style=comic` in *options*. With *sample* ticked, that renders [`examples/comic.json`](examples/comic.json) without Gemini.
 
+## 🎨 Kahani (storybook) Reels
+
+A third style for longer emotional stories: an original Hindi moral story (75–95 seconds) told by a warm narrator over
+painted storybook illustrations, one picture per line, like the illustrated-story Reels that do well in India.
+Every story, character and picture is the channel's own.
+
+- **The script** ([`reel/storybook.py`](reel/storybook.py)): Gemini writes the hook (a contrast or a mystery), 16–26
+  short beats (the build-up, a heart-sinking moment, an unexpected turn and a warm payoff) and a moral that calls back
+  to the hook; a story editor tightens it. Each line comes with the same words in Roman Hinglish for the captions, a
+  picture prompt, who is in it and the shot (wide, medium, close or a detail).
+- **The same people in every picture** ([`reel/images.py`](reel/images.py)): the writer gives each character one
+  fixed look (age, face, hair, clothes and colours). Cloudflare Workers AI paints a reference portrait of each person,
+  then paints every line's picture (768×1344) with the portraits of the people in it attached as references
+  (FLUX.2 klein, free tier), in one warm hand-painted storybook style with a fixed story seed. If FLUX.2 fails it falls
+  back to FLUX.1 schnell.
+- **On screen** ([`remotion/src/storybook/StoryBook.tsx`](remotion/src/storybook/StoryBook.tsx)): each picture fills the
+  9:16 frame with a slow push or pull and a gentle pan, pictures cross-fade, the series strip ("**Rishton** ki keemat")
+  stays at the top, and big word-by-word Hinglish captions light up the word being spoken. A warm storyteller voice,
+  a soft music bed that ducks under the words, then the question and the follow card. A `StoryCover` makes the grid
+  image from the opening picture and 2–4 teaser words.
+- **Make one:** 🎬 New Reel → … → **🎨 Make it a painted Kahani**, the **🎨 Kahani Reel now** button, or
+  `style=storybook` in the options.
+- **Free budget:** about 125 of Cloudflare's 10,000 free daily neurons a picture, so about three Kahani Reels a day.
+- **Setup:** `CLOUDFLARE_API_TOKEN` needs **Workers AI: Read** and **Workers AI: Edit** added (Cloudflare → My Profile →
+  API Tokens → Edit the bot's token; the value stays the same).
+
 ## Growth features
 
 | Feature | What it does | Switch |
