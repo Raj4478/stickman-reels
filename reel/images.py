@@ -130,7 +130,7 @@ def scene_prompt(line, people, setting, refs):
 
 def paint(script, folder):
     """Paint every picture of `script` into folder/img/; returns (relative file names for the hook, every scene and the
-    moral, a record). Raises ImageError when no picture at all could be made."""
+    moral; the names of their second moments or None; a record). Raises ImageError when no picture could be made."""
     folder = Path(folder) / 'img'
     folder.mkdir(parents=True, exist_ok=True)
     if not configured():
@@ -147,10 +147,12 @@ def paint(script, folder):
             if 'allowance' in str(exc) or 'token' in str(exc):
                 raise
             print(f"::warning::No reference portrait for {person['id']}: {exc}")
-    lines = [{'image': script['hook_image'], 'cast': script.get('hook_cast', []), 'shot': script.get('hook_shot')},
+    lines = [{'image': script['hook_image'], 'image_b': script.get('hook_image_b', ''), 'cast': script.get('hook_cast', []),
+              'shot': script.get('hook_shot')},
              *script['scenes'],
-             {'image': script['lesson_image'], 'cast': script.get('lesson_cast', []), 'shot': script.get('lesson_shot')}]
-    names = []
+             {'image': script['lesson_image'], 'image_b': script.get('lesson_image_b', ''), 'cast': script.get('lesson_cast', []),
+              'shot': script.get('lesson_shot')}]
+    names, seconds = [], []
     for i, line in enumerate(lines):
         mine = [refs[c] for c in line.get('cast', []) if c in refs][:4]
         try:
@@ -170,11 +172,36 @@ def paint(script, folder):
         (folder.parent / name).write_bytes(data)
         names.append(name)
         record['pictures'] += 1
+        # the next moment of the same scene: painted with the first picture (and the people) as references
+        seconds.append(None)
+        if line.get('image_b'):
+            first = thumbnail(data)
+            follow = {**line, 'image': line['image_b'] + ' The same place, light and people as reference image 0, a moment later'}
+            try:
+                b = run(KLEIN, scene_prompt(follow, people, setting, 1 + len(mine[:3])), SIZE, base + 301 + i, [first, *mine[:3]])
+                seconds[-1] = f'img/{i:02d}b.{ext(b)}'
+                (folder.parent / seconds[-1]).write_bytes(b)
+                record['pictures'] += 1
+            except ImageError as exc:
+                if 'token' in str(exc):
+                    raise
+                print(f'::warning::Second moment of picture {i} failed ({exc}); the line keeps one picture')
     if not record['pictures']:
         raise ImageError('no picture could be painted')
     if names[0] is None:  # the opening must have a picture: borrow the first one that worked
         names[0] = next(n for n in names if n)
-    return names, record
+    return names, seconds, record
+
+
+def thumbnail(data, side=REF):
+    """A picture shrunk to fit side x side (FLUX.2 references must be smaller than 512x512), as PNG bytes."""
+    import io
+    from PIL import Image
+    img = Image.open(io.BytesIO(data)).convert('RGB')
+    img.thumbnail((side, side))
+    out = io.BytesIO()
+    img.save(out, 'PNG')
+    return out.getvalue()
 
 
 def ext(data):

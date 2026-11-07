@@ -4,48 +4,34 @@ import { duckCurve } from "../duck";
 import { FONT } from "../engine/fx";
 import { SafeZones } from "../SafeZones";
 import { Follow, ReelProps, Segment, useFonts } from "../StickReel";
+import { Atmosphere, glowOf } from "./Atmosphere";
+import { LivingPicture, MOVES } from "./Living";
 
-// A storybook Reel (reel/storybook.py): a warm narrator tells an original moral story over painted illustrations,
-// one picture per line. Each picture fills the 9:16 frame and moves slowly (a Ken Burns push or pull with a gentle
-// pan, alternating direction), pictures cross-fade, the series strip stays at the top and the narration runs as big
-// word-by-word Roman Hinglish captions, the spoken word in yellow. The question and the follow card close it.
+// A storybook Reel (reel/storybook.py): a warm narrator tells a short original moral story over living paintings.
+// Each line shows two moments of its scene (a cut on a word halfway through), each painting filmed in 3D by a
+// drifting camera using its depth map (Living.tsx), with moving atmosphere over it (Atmosphere.tsx). Pictures
+// cross-fade, the series strip stays at the top and the narration runs as big word-by-word Roman Hinglish captions,
+// one caption word for each spoken word, the spoken word in yellow. The question and the follow card close it.
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 const FADE = 8; // frames of cross-fade into each new picture
 const YELLOW = "#ffd43b";
-const glide = (u: number) => {
-  const x = Math.min(1, Math.max(0, u));
-  return x * x * x * (x * (6 * x - 15) + 10);
-};
-
-// The slow camera on picture i: push in or pull out, drifting left or right, a different mix per picture
-const kenBurns = (i: number, f: number, dur: number, shot?: string) => {
-  const t = glide(f / Math.max(1, dur));
-  const push = i % 2 === 0;
-  const tight = shot === "close" || shot === "detail" ? 0.04 : 0;
-  const z0 = 1.04 + tight;
-  const z1 = 1.15 + tight;
-  const z = push ? z0 + (z1 - z0) * t : z1 - (z1 - z0) * t;
-  const dir = [1, -1, 0.5, -0.5][i % 4];
-  const x = dir * 34 * (t - 0.5);
-  const y = (i % 3 === 0 ? -14 : 10) * (t - 0.5);
-  return `translate(${x}px, ${y}px) scale(${z})`;
-};
 
 // Pictures are shared: the question keeps the moral's picture
-const pictureOf = (p: ReelProps, i: number): string | undefined => {
+const pictureOf = (p: ReelProps, i: number): { src: string; depth?: string } | undefined => {
   const seg = p.segments[i];
-  return seg.image ?? (i > 0 ? pictureOf(p, i - 1) : undefined);
+  if (seg.image) return { src: seg.image, depth: seg.depth };
+  const prev = i > 0 ? p.segments[i - 1] : undefined;
+  if (prev?.image_b) return { src: prev.image_b, depth: prev.depth_b };
+  return i > 0 ? pictureOf(p, i - 1) : undefined;
 };
 
-const Picture: React.FC<{ src: string; i: number; dur: number; shot?: string; fadeIn: boolean; dim?: number }> = ({ src, i, dur, shot, fadeIn, dim = 0 }) => {
-  const f = useCurrentFrame();
-  return (
-    <AbsoluteFill style={{ opacity: fadeIn ? interpolate(f, [0, FADE], [0, 1], clamp) : 1, overflow: "hidden" }}>
-      <Img src={staticFile(src)} style={{ width: "100%", height: "100%", objectFit: "cover", transform: kenBurns(i, f, dur + FADE, shot), transformOrigin: "50% 45%" }} />
-      {dim > 0 && <AbsoluteFill style={{ background: `rgba(10,6,4,${dim})` }} />}
-    </AbsoluteFill>
-  );
+// Where a line cuts to its second moment: on the start of the word nearest its middle (lines over 2 seconds)
+const cutOf = (seg: Segment, fps: number, dur: number): number | null => {
+  if (!seg.image_b || dur < 2 * fps) return null;
+  const marks = (seg.words ?? []).map((t) => Math.round((t - seg.start) * fps)).filter((m) => m > fps * 0.8 && dur - m > fps * 0.8);
+  if (!marks.length) return Math.round(dur / 2);
+  return marks.reduce((best, m) => (Math.abs(m - dur / 2) < Math.abs(best - dur / 2) ? m : best));
 };
 
 // The series strip: the first word in yellow, the rest white, over a soft dark band
@@ -68,14 +54,14 @@ const Captions: React.FC<{ seg: Segment; f: number; fps: number }> = ({ seg, f, 
   if (!words.length) return null;
   const now = seg.start + f / fps;
   const spoken = seg.words ?? [];
-  // the Roman words share the Devanagari words' timing in proportion (the counts can differ by a word or two)
+  // one caption word for each spoken word (reel/hinglish.py): the word lights up when it is said
   let current = 0;
   if (spoken.length) {
     let heard = 0;
     spoken.forEach((t, k) => {
       if (now >= t) heard = k;
     });
-    current = Math.min(words.length - 1, Math.floor(((heard + 0.5) * words.length) / spoken.length));
+    current = spoken.length === words.length ? heard : Math.min(words.length - 1, Math.floor(((heard + 0.5) * words.length) / spoken.length));
   } else {
     current = Math.min(words.length - 1, Math.floor(((now - seg.start) / Math.max(0.5, seg.end - seg.start)) * words.length));
   }
@@ -118,22 +104,43 @@ const Line: React.FC<{ p: ReelProps; seg: Segment; i: number; dur: number }> = (
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const early = i > 0 ? FADE : 0; // the picture fades in before the line starts
-  const f = Math.max(0, frame - early);
-  const src = pictureOf(p, i);
+  const f = frame - early; // < 0 while fading in: the line has not started, so no caption yet
+  const pic = pictureOf(p, i);
   const newPicture = i === 0 || seg.image !== undefined;
+  const cut = cutOf(seg, fps, dur);
+  const second = cut !== null && f >= cut - 4 && seg.image_b ? { src: seg.image_b, depth: seg.depth_b } : null;
+  const fadeB = second && cut !== null ? interpolate(f, [cut - 4, cut + 2], [0, 1], clamp) : 0;
+  const seed = `line-${i}`;
+  const dim = seg.kind === "ask" ? interpolate(f, [0, 10], [0, 0.45], clamp) : 0;
+  const glow = glowOf(seg.fx, frame, seed);
+  // the first moment's camera runs from the fade-in to the cut (or the end); the second's from the cut to the end
+  const firstLen = (cut ?? dur) + early;
+  const move = MOVES[(i * 2) % MOVES.length];
+  const moveB = MOVES[(i * 2 + 1) % MOVES.length];
   return (
     <AbsoluteFill>
-      {src && <Picture src={src} i={i} dur={dur} shot={seg.shot} fadeIn={newPicture && i > 0} dim={seg.kind === "ask" ? interpolate(f, [0, 10], [0, 0.45], clamp) : 0} />}
+      {pic && (
+        <AbsoluteFill style={{ opacity: newPicture && i > 0 ? interpolate(frame, [0, FADE], [0, 1], clamp) : 1 }}>
+          {fadeB < 1 && <LivingPicture src={pic.src} depth={pic.depth} move={seg.kind === "ask" ? "pull" : move} t={frame / Math.max(1, firstLen)} glow={glow} />}
+          {second && cut !== null && (
+            <AbsoluteFill style={{ opacity: fadeB }}>
+              <LivingPicture src={second.src} depth={second.depth} move={moveB} t={(f - cut + 4) / Math.max(1, dur - cut + 4)} glow={glow} />
+            </AbsoluteFill>
+          )}
+          {dim > 0 && <AbsoluteFill style={{ background: `rgba(10,6,4,${dim})` }} />}
+        </AbsoluteFill>
+      )}
+      <Atmosphere fx={seg.fx} f={frame} seed={seed} />
       {/* soft grade: darker top and bottom for the strip and the captions, a warm vignette */}
       <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 26%, rgba(0,0,0,0) 56%, rgba(0,0,0,.62) 82%, rgba(0,0,0,.7) 100%)" }} />
       <AbsoluteFill style={{ background: "radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 58%, rgba(30,12,0,.32) 100%)" }} />
       {seg.kind === "ask" ? (
         <>
-          <AskCard text={seg.roman || seg.text} f={f} />
-          <Follow f={f} handle={p.handle} line="रोज़ एक नई कहानी" />
+          <AskCard text={seg.roman || seg.text} f={Math.max(0, f)} />
+          <Follow f={Math.max(0, f)} handle={p.handle} line="रोज़ एक नई कहानी" />
         </>
       ) : (
-        <Captions seg={seg} f={f} fps={fps} />
+        f >= 0 && <Captions seg={seg} f={f} fps={fps} />
       )}
     </AbsoluteFill>
   );
@@ -187,7 +194,7 @@ export const StoryBook: React.FC<ReelProps> = (p) => {
 // The grid cover: the opening picture with 2-4 teaser words inside the band that survives the 4:5 and 3:4 crops
 export const StoryCover: React.FC<ReelProps> = (p) => {
   useFonts();
-  const src = pictureOf(p, 0);
+  const src = pictureOf(p, 0)?.src;
   const text = p.cover_text || p.series_title || "";
   return (
     <AbsoluteFill style={{ background: "#000" }}>

@@ -13,18 +13,38 @@ from reel import build, images, script, storybook
 
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLE = json.loads((ROOT / 'examples' / 'storybook.json').read_text(encoding='utf-8'))
-PNG = b'\x89PNG\r\n\x1a\n' + b'0' * 64
+def _png():
+    from PIL import Image
+    out = io.BytesIO()
+    Image.new('RGB', (64, 112), (180, 120, 60)).save(out, 'PNG')
+    return out.getvalue()
+
+
+PNG = _png()  # a real tiny picture: thumbnails and depth maps need one they can open
 
 
 class CleanTest(unittest.TestCase):
     def test_sample_becomes_a_story_shaped_script(self):
         s = storybook.clean(SAMPLE)
         self.assertEqual((s['style'], s['series']), ('storybook', 'rishte'))
-        self.assertEqual(len(s['scenes']), 15)
+        self.assertEqual(len(s['scenes']), 7)
         self.assertEqual([c['id'] for c in s['characters']], ['munni', 'papa', 'madam'])
         self.assertTrue(s['hook_roman'].startswith('Us din'))
-        self.assertEqual(s['scenes'][3]['cast'], ['papa'])
-        self.assertEqual(len(script.spoken_lines(s)), 18)  # hook, 15 beats, moral, question
+        self.assertEqual((s['scenes'][0]['cast'], s['scenes'][0]['fx']), (['papa'], 'dust'))
+        self.assertTrue(s['scenes'][0]['image_b'])
+        self.assertEqual(len(script.spoken_lines(s)), 10)  # hook, 7 beats, moral, question
+        words = sum(len(x.split()) for x in script.spoken_lines(s))
+        self.assertLessEqual(words, 110)  # short for Instagram
+
+    def test_captions_have_one_roman_word_per_spoken_word(self):
+        s = storybook.clean(SAMPLE)
+        for line, roman in [(s['hook'], s['hook_roman']), *((b['line'], b['roman']) for b in s['scenes']), (s['lesson'], s['lesson_roman'])]:
+            self.assertEqual(len(line.split()), len(roman.split()), roman)
+        raw = json.loads(json.dumps(SAMPLE))
+        raw['beats'][0]['roman'] = 'Papa sweaty hokar chupchaap last chair par baithe'  # a free rewrite: not word for word
+        fixed = storybook.clean(raw)['scenes'][0]['roman']
+        self.assertEqual(len(fixed.split()), len(raw['beats'][0]['line'].split()))
+        self.assertTrue(fixed.startswith('Paseene mein'))
 
     def test_unknown_cast_and_shots_are_dropped(self):
         raw = json.loads(json.dumps(SAMPLE))
@@ -37,7 +57,7 @@ class CleanTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             storybook.clean({**SAMPLE, 'characters': []})
         with self.assertRaises(ValueError):
-            storybook.clean({**SAMPLE, 'beats': SAMPLE['beats'][:5]})
+            storybook.clean({**SAMPLE, 'beats': SAMPLE['beats'][:3]})
         with self.assertRaises(ValueError):
             storybook.clean({**SAMPLE, 'hook': {'line': 'English only', 'image': 'x'}})
 
@@ -45,7 +65,7 @@ class CleanTest(unittest.TestCase):
 class PromptTest(unittest.TestCase):
     def test_scene_prompt_carries_the_looks_and_the_references(self):
         s = storybook.clean(SAMPLE)
-        line = s['scenes'][12]  # munni and papa
+        line = s['scenes'][5]  # munni and papa
         prompt = images.scene_prompt(line, s['characters'], s['setting'], refs=2)
         self.assertIn('looks exactly like reference image 0', prompt)
         self.assertIn('looks exactly like reference image 1', prompt)
@@ -105,18 +125,23 @@ class BuildTest(unittest.TestCase):
         def run(model, prompt, size, seed, refs=()):
             calls.append((model, size, len(refs)))
             return PNG
-        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, RunTest.env), mock.patch.object(images, 'run', run):
+        from reel import depth
+        fake_depth = lambda folder, names: {n: n.rsplit('.', 1)[0] + '-depth.png' for n in names if n}  # noqa: E731
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, RunTest.env), mock.patch.object(images, 'run', run),                 mock.patch.object(depth, 'add_depth', fake_depth):
             props, record = build.build(s, Path(tmp) / 'o', Path(tmp) / 'p', narrate=False, music=False, prefix='reels/1/')
             self.assertTrue((Path(tmp) / 'p' / 'reels' / '1' / 'img' / '00.png').exists())
         self.assertEqual(props['style'], 'storybook')
         self.assertEqual(props['series_title'], 'Rishton ki keemat')
         segs = props['segments']
         self.assertEqual([seg.get('image') for seg in segs[:2]], ['reels/1/img/00.png', 'reels/1/img/01.png'])
+        self.assertEqual(segs[1]['image_b'], 'reels/1/img/01b.png')  # the second moment
+        self.assertNotIn('image_b', segs[-2])  # the moral has one picture
         self.assertNotIn('image', segs[-1])  # the question keeps the moral's picture
         self.assertTrue(segs[0]['roman'].startswith('Us din') and segs[-1]['roman'].startswith('Aapko'))
+        self.assertEqual((props['engine'], segs[1]['fx']), ('three', 'dust'))
         self.assertEqual(sum(1 for c in calls if c[1] == (images.REF, images.REF)), 3)  # a portrait per character
-        self.assertEqual(max(c[2] for c in calls), 3)  # the stage scene carries all three portraits
-        self.assertEqual(record['pictures']['pictures'], 17)
+        self.assertEqual(max(c[2] for c in calls), 4)  # a second moment: its first picture plus three portraits
+        self.assertEqual(record['pictures']['pictures'], 9 + 8)  # hook, 7 beats, moral; 8 second moments
 
     def test_template_knows_the_style(self):
         root = (ROOT / 'remotion' / 'src' / 'Root.tsx').read_text(encoding='utf-8')

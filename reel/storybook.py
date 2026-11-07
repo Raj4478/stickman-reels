@@ -19,6 +19,7 @@ import random
 import re
 
 from . import gemini
+from .hinglish import aligned
 from . import script as stories
 
 # The series strip at the top (Roman Hinglish, the first word drawn in yellow)
@@ -35,6 +36,16 @@ SHOTS = {
     'medium': 'a medium shot, people from the knees up, the place around them',
     'close': 'a close-up on one face or two faces, the emotion filling the frame',
     'detail': 'a close detail of an object or hands (a letter, empty plates, a gift, a coin)',
+}
+# Moving atmosphere drawn over a picture (remotion/src/storybook/Atmosphere.tsx)
+FX = {
+    'none': 'nothing extra',
+    'embers': 'warm sparks and the glow of diyas and lamps flickering (festivals, night, a lamp, a fire)',
+    'petals': 'marigold petals drifting down (weddings, festivals, blessings, a happy ending)',
+    'dust': 'specks of dust floating in a beam of light (a quiet room, memories, an old house)',
+    'rain': 'rain falling (sadness, a storm, a hard day)',
+    'smoke': 'soft drifting mist or smoke (dawn, winter, a sad or mysterious moment)',
+    'sparkles': 'small twinkling sparkles (a surprise, magic, joy, the turn of the story)',
 }
 LIMITS = {'title': 40, 'line': 110, 'roman': 120, 'image': 420, 'look': 260, 'name': 16, 'setting': 400}
 CHARACTER = {
@@ -58,8 +69,12 @@ LINE = {
                                                    'emotion on their faces. No text in the picture.'},
         'cast': {'type': 'array', 'items': {'type': 'string'}, 'description': 'ids of the characters in the picture'},
         'shot': {'type': 'string', 'enum': list(SHOTS)},
+        'image_b': {'type': 'string', 'description': 'The NEXT moment of the same scene a second later, in English: a '
+                                                     'closer reaction or the next action (the face as the words land, a '
+                                                     'hand reaching out), same place and light; "" if one picture is enough'},
+        'fx': {'type': 'string', 'enum': list(FX), 'description': 'The moving atmosphere over the picture'},
     },
-    'required': ['line', 'roman', 'image', 'cast', 'shot'],
+    'required': ['line', 'roman', 'image', 'cast', 'shot', 'image_b', 'fx'],
 }
 SCHEMA = {
     'type': 'object',
@@ -72,7 +87,7 @@ SCHEMA = {
                                                      'ochre and marigold colours); NOT one specific spot'},
         'characters': {'type': 'array', 'minItems': 2, 'maxItems': 5, 'items': CHARACTER},
         'hook': LINE,
-        'beats': {'type': 'array', 'minItems': 12, 'maxItems': 20, 'items': LINE},
+        'beats': {'type': 'array', 'minItems': 5, 'maxItems': 10, 'items': LINE},
         'moral': LINE,
         'ask': {'type': 'string', 'description': 'A short Hindi question for the comments (Devanagari), at most 10 words'},
         'ask_roman': {'type': 'string', 'description': 'The same question in Roman Hinglish'},
@@ -103,14 +118,16 @@ a warm narrator tells the story while a painted storybook picture shows each lin
 
 Story idea: {topic}
 
-Write ONE original story (never retell a known story, film or viral video) for 70-85 seconds of narration:
-the hook line, {beats} beats, then the moral line; 150-185 spoken words in all (count them: more is too long).
-Each line is 5-10 words.
+Write ONE original story (never retell a known story, film or viral video) for 35-50 seconds of narration, short
+for Instagram: the hook line, {beats} beats, then the moral line; 80-110 spoken words in all (count them: more is too
+long). Each line is 5-10 words, and every word must count.
 {rules}
 - Language: simple, emotional spoken Hindi in Devanagari, the way a grandparent tells a story (common English words
   in Devanagari are fine). Third person ("एक गरीब किसान था..."). Each line is ONE short sentence of 5-12 words.
-- roman: the SAME words in Roman Hinglish for the on-screen captions, word for word in the same order (एक ही गाँव में ->
-  "Ek hi gaon mein"). No English translation.
+- roman: the SAME words in Roman Hinglish for the on-screen captions, EXACTLY one Roman word for each Hindi word, in
+  the same order (एक ही गाँव में -> "Ek hi gaon mein": 4 words -> 4 words). No English translation, no extra words.
+- image_b: the next moment of the same scene a second later (a closer reaction, the next action), so every line
+  shows two moments like an animation; "" only for a quick line. fx: the moving atmosphere: {fx}.
 - characters: 2-5 people, each with an id, the name the story uses, and ONE fixed look in English that never
   changes: age, gender, build, face, hair or turban, moustache or beard, clothes with exact colours, accessories
   (e.g. "a thin farmer in his 50s, sun-browned skin, grey hair, thick grey moustache, off-white kurta with a cream
@@ -137,10 +154,10 @@ Draft:
 {rules}
 Do all of this:
 1. The hook line must make a stranger stop scrolling: a contrast, a mystery or a strong image, under 12 words.
-2. Cut every line that only explains; every line must be a picture. Keep {beats_min}-{beats_max} beats and 150-185
-   spoken words in all (count them), each line 5-10 words.
+2. Cut every line that only explains; every line must be a picture. Keep {beats_min}-{beats_max} beats and 80-110
+   spoken words in all (count them), each line 5-10 words: this is a short Reel.
 3. Make the turn a real surprise and the payoff warm; the moral calls back to the hook in its last words.
-4. roman must be the same words as line, word for word.
+4. roman must be exactly one Roman word for each Hindi word of line, same order, same count.
 5. Every image prompt starts with its specific spot, names the people by id, says what they do, the light and
    the feeling, and fits the line before it. Each character keeps exactly the look in the bible.
 6. Never copy a known story, film or viral video."""
@@ -166,7 +183,9 @@ def clean_line(raw, ids):
         return None
     cast = [c for c in (raw.get('cast') or []) if c in ids][:4]
     shot = raw.get('shot') if raw.get('shot') in SHOTS else 'medium'
-    return {'line': line, 'roman': roman_of(raw.get('roman')), 'image': image, 'cast': cast, 'shot': shot,
+    image_b = re.sub(r'\s+', ' ', str(raw.get('image_b') or '')).strip()[:LIMITS['image']]
+    return {'line': line, 'roman': aligned(line, roman_of(raw.get('roman'))), 'image': image, 'image_b': image_b,
+            'fx': raw.get('fx') if raw.get('fx') in FX else 'none', 'cast': cast, 'shot': shot,
             'caption': '', 'keyword': '', 'sticker': 'none', 'speaker': 'narrator', 'with': 'none'}
 
 
@@ -185,18 +204,18 @@ def clean(raw):
     moral = clean_line(raw.get('moral') or {}, ids)
     if hook is None or moral is None:
         raise ValueError('the hook or the moral is not a Hindi line with a picture')
-    beats = [b for b in (clean_line(x, ids) for x in (raw.get('beats') or [])[:20]) if b]
-    if len(beats) < 8:
-        raise ValueError(f'the story has only {len(beats)} usable beats (need at least 8)')
+    beats = [b for b in (clean_line(x, ids) for x in (raw.get('beats') or [])[:10]) if b]
+    if len(beats) < 4:
+        raise ValueError(f'the story has only {len(beats)} usable beats (need at least 4)')
     script = {
         'style': 'storybook', 'topic': short(raw.get('topic'), 80), 'title': short(raw.get('title'), LIMITS['title']),
         'name': '', 'series': raw.get('series') if raw.get('series') in SERIES else 'zindagi',
         'setting': re.sub(r'\s+', ' ', str(raw.get('setting') or '')).strip()[:LIMITS['setting']],
         'characters': people,
-        'hook': hook['line'], **{f'hook_{k}': hook[k] for k in ('roman', 'image', 'cast', 'shot')},
+        'hook': hook['line'], **{f'hook_{k}': hook[k] for k in ('roman', 'image', 'image_b', 'fx', 'cast', 'shot')},
         'scenes': beats,
-        'lesson': moral['line'], **{f'lesson_{k}': moral[k] for k in ('roman', 'image', 'cast', 'shot')},
-        'ask': short(raw.get('ask'), 110), 'ask_roman': roman_of(raw.get('ask_roman')),
+        'lesson': moral['line'], **{f'lesson_{k}': moral[k] for k in ('roman', 'image', 'image_b', 'fx', 'cast', 'shot')},
+        'ask': short(raw.get('ask'), 110), 'ask_roman': aligned(short(raw.get('ask'), 110), roman_of(raw.get('ask_roman'))),
         'cover_text': roman_of(raw.get('cover_text'), 30),
         'music': 'warm', 'other_voice': 'friend', 'part': '', 'title_b': '',
         'instagram_caption': str(raw.get('instagram_caption') or '').strip()[:1500],
@@ -214,8 +233,8 @@ def write(topic=None, theme='', source=''):
     from . import growth
     topic, _ = stories.choose_topic(topic, theme, source)
     recent = [h.get('title') for h in stories.history()[-15:] if h.get('title')]
-    n = random.choice((14, 16, 18))
-    prompt = WRITER.format(topic=topic, beats=n, rules=STORY_RULES, shots=', '.join(f'{k} ({v})' for k, v in SHOTS.items()),
+    n = random.choice((6, 7, 8))
+    prompt = WRITER.format(topic=topic, beats=n, rules=STORY_RULES, fx=', '.join(f'{k} ({v})' for k, v in FX.items()), shots=', '.join(f'{k} ({v})' for k, v in SHOTS.items()),
                            series=', '.join(f'{k} = "{v}"' for k, v in SERIES.items()),
                            avoid='\n'.join(x for x in (f'- Do not repeat these recent titles or their story: {", ".join(recent)}'
                                                        if recent else '', growth.lessons_learned()) if x))
@@ -230,7 +249,7 @@ def write(topic=None, theme='', source=''):
             continue
         try:
             edited, _ = gemini.json_call(EDITOR.format(draft=json.dumps(draft, ensure_ascii=False, indent=1), rules=STORY_RULES,
-                                                       beats_min=12, beats_max=20), SCHEMA, temperature=0.6)
+                                                       beats_min=5, beats_max=10), SCHEMA, temperature=0.6)
             script = clean(edited)
             script['directed'] = True
         except (ValueError, gemini.GeminiError) as exc:

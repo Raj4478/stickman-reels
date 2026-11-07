@@ -19,6 +19,10 @@ export type Segment = {
   kind: "hook" | "scene" | "lesson" | "ask";
   roman?: string; // storybook: the line in Roman Hinglish, for the captions
   image?: string; // storybook: the painted picture of this line (relative to public/)
+  image_b?: string; // storybook: the next moment of the same scene, cut to on a word halfway through the line
+  depth?: string; // storybook: depth maps of the pictures (white near, black far) for the living-painting camera
+  depth_b?: string;
+  fx?: string; // storybook: the moving atmosphere (embers, petals, dust, rain, smoke, sparkles)
   text: string;
   start: number;
   end: number;
