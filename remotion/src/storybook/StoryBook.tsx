@@ -93,8 +93,8 @@ const Captions: React.FC<{ seg: Segment; f: number; fps: number }> = ({ seg, f, 
   const start = pages[page];
   const chunk = words.slice(start, pages[page + 1] ?? words.length);
   return (
-    <div style={{ position: "absolute", left: 50, right: 50, top: 1270, display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "0 18px",
-      fontFamily: FONT.hindi, fontWeight: 800, fontSize: 76, lineHeight: 1.25, textAlign: "center" }}>
+    <div style={{ position: "absolute", left: 50, right: 50, top: 1290, display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "0 16px",
+      fontFamily: FONT.hindi, fontWeight: 800, fontSize: 68, lineHeight: 1.25, textAlign: "center" }}>
       {chunk.map((w, i) => {
         const on = start + i === current;
         return (
@@ -150,7 +150,8 @@ export const StoryBook: React.FC<ReelProps> = (p) => {
     <AbsoluteFill style={{ background: "#000" }}>
       {p.segments.map((seg, i) => {
         const from = at(seg.start);
-        const dur = Math.max(1, at(seg.end) - from);
+        // the last line runs to the very last frame (rounding must not leave a black frame at the end)
+        const dur = Math.max(1, (i === p.segments.length - 1 ? durationInFrames : at(seg.end)) - from);
         const early = i > 0 ? FADE : 0;
         return (
           <Sequence key={i} from={from - early} durationInFrames={dur + early} layout="none">

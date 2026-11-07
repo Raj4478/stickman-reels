@@ -50,10 +50,12 @@ CHARACTER = {
 LINE = {
     'type': 'object',
     'properties': {
-        'line': {'type': 'string', 'description': 'One spoken Hindi sentence in Devanagari, 5-12 words'},
+        'line': {'type': 'string', 'description': 'One spoken Hindi sentence in Devanagari, 5-10 words'},
         'roman': {'type': 'string', 'description': 'The SAME words in Roman Hinglish, word for word, for the captions'},
-        'image': {'type': 'string', 'description': 'The picture for this line, in English: who (by id) does what, where, '
-                                                   'time of day and light, the emotion on their faces. No text in the picture.'},
+        'image': {'type': 'string', 'description': 'The picture for this line, in English, starting with WHERE it happens '
+                                                   '(a specific spot: the courtyard, a shop counter, a bus stop at night), then '
+                                                   'who (by id) does what, their pose, the time of day and light and the '
+                                                   'emotion on their faces. No text in the picture.'},
         'cast': {'type': 'array', 'items': {'type': 'string'}, 'description': 'ids of the characters in the picture'},
         'shot': {'type': 'string', 'enum': list(SHOTS)},
     },
@@ -65,11 +67,12 @@ SCHEMA = {
         'topic': {'type': 'string', 'description': 'The moral in English, a few words'},
         'title': {'type': 'string', 'description': 'A short Hindi title for the post (Devanagari), at most 6 words'},
         'series': {'type': 'string', 'enum': list(SERIES)},
-        'setting': {'type': 'string', 'description': 'The world of the story in English: the place, the region, the era, '
-                                                     'the colours and light (e.g. a Rajasthan village at dusk, marigolds)'},
+        'setting': {'type': 'string', 'description': 'The world of the story in English: the region, the era, the season '
+                                                     'and the colour palette only (e.g. a Rajasthan village in winter, warm '
+                                                     'ochre and marigold colours); NOT one specific spot'},
         'characters': {'type': 'array', 'minItems': 2, 'maxItems': 5, 'items': CHARACTER},
         'hook': LINE,
-        'beats': {'type': 'array', 'minItems': 16, 'maxItems': 26, 'items': LINE},
+        'beats': {'type': 'array', 'minItems': 12, 'maxItems': 20, 'items': LINE},
         'moral': LINE,
         'ask': {'type': 'string', 'description': 'A short Hindi question for the comments (Devanagari), at most 10 words'},
         'ask_roman': {'type': 'string', 'description': 'The same question in Roman Hinglish'},
@@ -100,8 +103,9 @@ a warm narrator tells the story while a painted storybook picture shows each lin
 
 Story idea: {topic}
 
-Write ONE original story (never retell a known story, film or viral video) for 75-95 seconds of narration:
-the hook line, {beats} beats, then the moral line; about 170-210 spoken words in all.
+Write ONE original story (never retell a known story, film or viral video) for 70-85 seconds of narration:
+the hook line, {beats} beats, then the moral line; 150-185 spoken words in all (count them: more is too long).
+Each line is 5-10 words.
 {rules}
 - Language: simple, emotional spoken Hindi in Devanagari, the way a grandparent tells a story (common English words
   in Devanagari are fine). Third person ("एक गरीब किसान था..."). Each line is ONE short sentence of 5-12 words.
@@ -115,8 +119,10 @@ the hook line, {beats} beats, then the moral line; about 170-210 spoken words in
 - For every line, image: an English picture prompt of what we SEE in that moment, using character ids for the
   people ("kisan sits alone on a charpai outside his small mud house at night, a single lantern, empty plastic
   chairs lined up, he looks at the gate"); cast: the ids in the picture; shot: {shots}.
-  Vary the shots like a film (wide for a new place, medium for action, close for emotion, detail for objects), and
-  keep the time of day and the places consistent from line to line. Pictures never contain written text.
+  Every image starts with its own specific spot, so the story moves through real places (a home, a courtyard, a
+  shop, a street, a school...), and people DO things in it (sit, run, hand over, hug, look away), not just stand
+  facing us. Vary the shots like a film (wide for a new place, medium for action, close for emotion, detail for
+  objects) and keep the time of day consistent from line to line. Pictures never contain written text.
 - series: the series strip ({series}); cover_text: 2-4 Roman words that tease the story.
 - ask: a short question for the comments; ask_roman: the same in Roman Hinglish.
 - instagram_caption: 2-3 short Hindi lines; hashtags: up to 8, Hindi and English.
@@ -131,11 +137,12 @@ Draft:
 {rules}
 Do all of this:
 1. The hook line must make a stranger stop scrolling: a contrast, a mystery or a strong image, under 12 words.
-2. Cut every line that only explains; every line must be a picture. Keep {beats_min}-{beats_max} beats.
+2. Cut every line that only explains; every line must be a picture. Keep {beats_min}-{beats_max} beats and 150-185
+   spoken words in all (count them), each line 5-10 words.
 3. Make the turn a real surprise and the payoff warm; the moral calls back to the hook in its last words.
 4. roman must be the same words as line, word for word.
-5. Every image prompt names the people by id, says where they are, the light and the feeling, and fits the story's
-   setting and the line before it. Each character keeps exactly the look in the bible.
+5. Every image prompt starts with its specific spot, names the people by id, says what they do, the light and
+   the feeling, and fits the line before it. Each character keeps exactly the look in the bible.
 6. Never copy a known story, film or viral video."""
 
 
@@ -178,7 +185,7 @@ def clean(raw):
     moral = clean_line(raw.get('moral') or {}, ids)
     if hook is None or moral is None:
         raise ValueError('the hook or the moral is not a Hindi line with a picture')
-    beats = [b for b in (clean_line(x, ids) for x in (raw.get('beats') or [])[:26]) if b]
+    beats = [b for b in (clean_line(x, ids) for x in (raw.get('beats') or [])[:20]) if b]
     if len(beats) < 8:
         raise ValueError(f'the story has only {len(beats)} usable beats (need at least 8)')
     script = {
@@ -207,7 +214,7 @@ def write(topic=None, theme='', source=''):
     from . import growth
     topic, _ = stories.choose_topic(topic, theme, source)
     recent = [h.get('title') for h in stories.history()[-15:] if h.get('title')]
-    n = random.choice((18, 20, 22))
+    n = random.choice((14, 16, 18))
     prompt = WRITER.format(topic=topic, beats=n, rules=STORY_RULES, shots=', '.join(f'{k} ({v})' for k, v in SHOTS.items()),
                            series=', '.join(f'{k} = "{v}"' for k, v in SERIES.items()),
                            avoid='\n'.join(x for x in (f'- Do not repeat these recent titles or their story: {", ".join(recent)}'
@@ -223,7 +230,7 @@ def write(topic=None, theme='', source=''):
             continue
         try:
             edited, _ = gemini.json_call(EDITOR.format(draft=json.dumps(draft, ensure_ascii=False, indent=1), rules=STORY_RULES,
-                                                       beats_min=16, beats_max=26), SCHEMA, temperature=0.6)
+                                                       beats_min=12, beats_max=20), SCHEMA, temperature=0.6)
             script = clean(edited)
             script['directed'] = True
         except (ValueError, gemini.GeminiError) as exc:

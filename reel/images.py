@@ -120,9 +120,12 @@ def scene_prompt(line, people, setting, refs):
     text = line['image']
     for p in cast:  # the ids in the prompt become descriptions the model understands
         text = text.replace(p['id'], f"{p['id']} ({p['look'].split(',')[0]})")
-    return (f"{STYLE}. {SHOT_WORDS.get(line.get('shot'), 'medium shot')}, vertical 9:16 frame. {text}. "
-            + (f"People: {who}. Keep every person's face, hair and clothes exactly as described. " if who else '')
-            + f"Setting: {setting}. {NO_TEXT}.")
+    return (f"{text}. {SHOT_WORDS.get(line.get('shot'), 'medium shot')}, vertical 9:16 frame, a natural pose and action "
+            "that fits the moment. "
+            + (f"People: {who}. Keep each person's face, hair and clothes exactly as described"
+               + ("; take only that from the reference images, never their pose, framing or background. " if refs else ". ")
+               if who else '')
+            + f"{STYLE}. World of the story (region, era, colours): {setting}. {NO_TEXT}.")
 
 
 def paint(script, folder):
