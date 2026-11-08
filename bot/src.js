@@ -123,7 +123,7 @@ export const SETTINGS = [
   ['HOOK_TEST', '🧪 Test a second hook', 'true'],
   ['DAILY_REEL', '📅 A Reel every day, 9 am', 'true'],
   ['OCCASIONS', '🎉 Festival topics', 'off'], // on unless set to "off"
-  ['REEL_STYLE', '😂 Comic style by default', 'comic'], // "comic" or "story": the usual style of a Reel
+  ['REEL_STYLE', 'Usual style', 'comic'], // story, comic or storybook: the style of a plain New Reel (each tap moves on)
   ['REEL_AUDIENCE', '👨‍👩‍👧 Family comedy (kid-friendly)', 'family'], // "family" or "adult" (kids = made for kids: set by hand)
 ];
 export const isOn = (name, value) => {
@@ -134,13 +134,16 @@ export const isOn = (name, value) => {
 };
 export const flipped = (name, value) => {
   if (name === 'OCCASIONS') return isOn(name, value) ? 'off' : 'on';
-  if (name === 'REEL_STYLE') return isOn(name, value) ? 'story' : 'comic';
+  if (name === 'REEL_STYLE') return { comic: 'storybook', storybook: 'story' }[String(value || '').toLowerCase()] || 'comic';
   if (name === 'REEL_AUDIENCE') return isOn(name, value) ? 'adult' : 'family';
   return isOn(name, value) ? 'false' : 'true';
 };
 
+const USUAL = { comic: '😂 Comic', storybook: '🎨 Kahani (painted story)' };
 export function settingsKeys(values) {
-  return SETTINGS.map(([name, label], i) => [button(`${isOn(name, values[name]) ? '✅' : '⬜'} ${label}`, `set:${i}`)]);
+  return SETTINGS.map(([name, label], i) => [button(name === 'REEL_STYLE'
+    ? `🎭 ${label}: ${USUAL[String(values[name] || '').toLowerCase()] || '📖 Story'} (tap to change)`
+    : `${isOn(name, values[name]) ? '✅' : '⬜'} ${label}`, `set:${i}`)]);
 }
 
 export function authorized(update, env) {

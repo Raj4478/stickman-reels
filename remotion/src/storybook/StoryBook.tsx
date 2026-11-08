@@ -65,7 +65,7 @@ const Captions: React.FC<{ seg: Segment; f: number; fps: number }> = ({ seg, f, 
   } else {
     current = Math.min(words.length - 1, Math.floor(((now - seg.start) / Math.max(0.5, seg.end - seg.start)) * words.length));
   }
-  const MAX = 26;
+  const MAX = 22; // one line at 68 px: a second line would sit too close to the bottom UI
   const pages: number[] = [0];
   let len = 0;
   words.forEach((w, i) => {
@@ -79,13 +79,13 @@ const Captions: React.FC<{ seg: Segment; f: number; fps: number }> = ({ seg, f, 
   const start = pages[page];
   const chunk = words.slice(start, pages[page + 1] ?? words.length);
   return (
-    <div style={{ position: "absolute", left: 50, right: 50, top: 1290, display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "0 16px",
+    <div style={{ position: "absolute", left: 50, right: 50, top: 1290, display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "0 0.32em",
       fontFamily: FONT.hindi, fontWeight: 800, fontSize: 68, lineHeight: 1.25, textAlign: "center" }}>
       {chunk.map((w, i) => {
         const on = start + i === current;
         return (
           <span key={start + i} style={{ color: on ? YELLOW : "#fff", WebkitTextStroke: "3px rgba(0,0,0,.85)", paintOrder: "stroke",
-            textShadow: "0 6px 18px rgba(0,0,0,.75)", transform: on ? "scale(1.08)" : undefined, display: "inline-block" }}>{w}</span>
+            textShadow: "0 6px 18px rgba(0,0,0,.75)", display: "inline-block" }}>{w}</span>
         );
       })}
     </div>
@@ -93,7 +93,7 @@ const Captions: React.FC<{ seg: Segment; f: number; fps: number }> = ({ seg, f, 
 };
 
 const AskCard: React.FC<{ text: string; f: number }> = ({ text, f }) => (
-  <div style={{ position: "absolute", top: 520, left: 70, right: 70, display: "flex", justifyContent: "center",
+  <div style={{ position: "absolute", top: 1010, left: 70, right: 70, display: "flex", justifyContent: "center",
     opacity: interpolate(f, [2, 10], [0, 1], clamp), transform: `scale(${interpolate(f, [2, 10], [0.9, 1], clamp)})` }}>
     <div style={{ background: "rgba(255,255,255,.95)", borderRadius: 28, padding: "28px 38px", textAlign: "center", fontFamily: FONT.hindi, fontWeight: 800,
       fontSize: text.length > 40 ? 58 : 66, lineHeight: 1.3, color: "#1b1b1f", boxShadow: "0 16px 40px rgba(0,0,0,.45)" }}>{text}</div>
@@ -121,7 +121,7 @@ const Line: React.FC<{ p: ReelProps; seg: Segment; i: number; dur: number }> = (
     <AbsoluteFill>
       {pic && (
         <AbsoluteFill style={{ opacity: newPicture && i > 0 ? interpolate(frame, [0, FADE], [0, 1], clamp) : 1 }}>
-          {fadeB < 1 && <LivingPicture src={pic.src} depth={pic.depth} move={seg.kind === "ask" ? "pull" : move} t={frame / Math.max(1, firstLen)} glow={glow} />}
+          {fadeB < 1 && <LivingPicture src={pic.src} depth={pic.depth} move={seg.kind === "ask" ? "pull" : move} t={frame / Math.max(1, seg.kind === "ask" ? firstLen * 1.4 : firstLen)} glow={glow} />}
           {second && cut !== null && (
             <AbsoluteFill style={{ opacity: fadeB }}>
               <LivingPicture src={second.src} depth={second.depth} move={moveB} t={(f - cut + 4) / Math.max(1, dur - cut + 4)} glow={glow} />
