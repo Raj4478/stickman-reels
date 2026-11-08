@@ -103,6 +103,42 @@ the channel's own character, not any TV cartoon, so nothing is copied.
 - **Make again** keeps the style. A two-part series is always a story.
 - **From GitHub:** Make a Reel with `style=comic` in *options*. With *sample* ticked, that renders [`examples/comic.json`](examples/comic.json) without Gemini.
 
+## 🎨 Kahani (storybook) Reels
+
+A third style for emotional stories: a short original Hindi moral story (35–50 seconds, made for Instagram) told by a
+warm narrator over **living paintings**: painted storybook illustrations that move like an animated film.
+Every story, character and picture is the channel's own.
+
+- **The script** ([`reel/storybook.py`](reel/storybook.py)): Gemini writes the hook (a contrast or a mystery), 5–10
+  short beats (the build-up, a heart-sinking moment, an unexpected turn and a warm payoff; 80–110 words in all) and a
+  moral that calls back to the hook; a story editor tightens it. Each line comes with a picture prompt, the next moment
+  of the same scene, who is in it, the shot (wide, medium, close or a detail) and its atmosphere.
+- **Captions that match the voice:** the captions are the spoken Hindi words in Roman Hinglish, exactly one caption word
+  for each spoken word ([`reel/hinglish.py`](reel/hinglish.py) transliterates any line the writer did not give word
+  for word), and each word lights up when Whisper hears it. One caption line shows at a time.
+- **The same people in every picture** ([`reel/images.py`](reel/images.py)): the writer gives each character one
+  fixed look (age, face, hair, clothes and colours). Cloudflare Workers AI paints a reference portrait of each person,
+  then paints every line's picture (768×1344) with the portraits of the people in it attached as references
+  (FLUX.2 klein, free tier), in one warm hand-painted storybook style with a fixed story seed. If FLUX.2 fails it falls
+  back to FLUX.1 schnell.
+- **Living paintings** ([`remotion/src/storybook/Living.tsx`](remotion/src/storybook/Living.tsx)): Depth Anything V2
+  ([`reel/depth.py`](reel/depth.py), on the CPU, about a second a picture) makes a depth map of every painting; the
+  painting is drawn on a 3D plane pushed forward by its depth and filmed by a drifting WebGL camera (push, pull, drift,
+  rise), so people separate from the background like in an animated film. Each line cuts on a word to its second
+  moment (a closer reaction or the next action, painted with the first picture as a reference), and moving atmosphere
+  plays over it ([`Atmosphere.tsx`](remotion/src/storybook/Atmosphere.tsx): flickering embers and lamp glow, marigold
+  petals, dust in a light beam, rain, mist or sparkles).
+- **On screen** ([`remotion/src/storybook/StoryBook.tsx`](remotion/src/storybook/StoryBook.tsx)): pictures cross-fade, the series strip ("**Rishton** ki keemat")
+  stays at the top, and big word-by-word Hinglish captions light up the word being spoken. A warm storyteller voice,
+  a soft music bed that ducks under the words, then the question and the follow card. A `StoryCover` makes the grid
+  image from the opening picture and 2–4 teaser words.
+- **Make one:** 🎬 New Reel → … → **🎨 Make it a painted Kahani**, the **🎨 Kahani Reel now** button, or
+  `style=storybook` in the options.
+- **Free budget:** about 125 of Cloudflare's 10,000 free daily neurons a picture; a Reel paints about 20 (two moments
+  per line plus a portrait per character), so about three Kahani Reels a day.
+- **Setup:** `CLOUDFLARE_API_TOKEN` needs **Workers AI: Read** and **Workers AI: Edit** added (Cloudflare → My Profile →
+  API Tokens → Edit the bot's token; the value stays the same).
+
 ## Growth features
 
 | Feature | What it does | Switch |

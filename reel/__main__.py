@@ -18,6 +18,7 @@ out/reels.txt for the render step.
 import argparse
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -46,7 +47,13 @@ def stories(args):
     from . import comic
     if args.sample:
         raw = json.loads(args.sample.read_text(encoding='utf-8'))
-        yield (comic.clean if raw.get('style') == 'comic' else script.clean)(raw)
+        from . import storybook
+        yield {'comic': comic.clean, 'storybook': storybook.clean}.get(raw.get('style'), script.clean)(raw)
+        return
+    if args.style == 'storybook' and not args.series:
+        from . import storybook
+        for _ in range(args.count):
+            yield storybook.write(args.topic, theme=args.theme, source=args.source)
         return
     if args.style == 'comic' and not args.series:
         for _ in range(args.count):
@@ -291,7 +298,15 @@ def main(argv=None):
         copy = publish.copy_texts(story)
         keys = telegram.review_buttons(os.getenv('GITHUB_RUN_ID', ''), args.folder.name, copy,
                                        actions=os.getenv('AUTO_POST', '').strip() != 'true')
-        telegram.send_file('sendVideo', 'video', args.video, 'video/mp4', caption(story, record, args.folder),
+        video, note = args.video, ''
+        if args.video.stat().st_size > 45_000_000:
+            # Telegram bots may send at most 50 MB: send a lighter preview; the full-quality file is what gets posted
+            video = args.video.with_name(args.video.stem + '-preview.mp4')
+            subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', str(args.video), '-vf', 'scale=720:1280', '-c:v', 'libx264',
+                            '-crf', '28', '-preset', 'veryfast', '-c:a', 'aac', '-b:a', '96k', '-movflags', '+faststart', str(video)],
+                           check=True, timeout=600)
+            note = '\n\n(Preview at 720p for Telegram; the full-quality video is the one that gets posted.)'
+        telegram.send_file('sendVideo', 'video', video, 'video/mp4', caption(story, record, args.folder) + note,
                            {'reply_markup': keys} if keys else None)
         long_caption = telegram.copy_message(copy)
         if long_caption:

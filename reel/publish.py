@@ -97,7 +97,7 @@ def comic(story):
     return story.get('style') == 'comic'
 
 
-def hashtag_list(story, limit=6):
+def hashtag_list(story, limit=5):  # Instagram allows at most 5 hashtags a post (since Dec 2025)
     """The channel's niche tags, then the story's own, without repeats or near-repeats."""
     seen, out = set(), []
     for tag in (COMIC_TAGS if comic(story) else CHANNEL_TAGS) + (story.get('hashtags') or []):

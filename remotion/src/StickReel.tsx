@@ -17,6 +17,12 @@ import { Sticker } from "./stickers";
 
 export type Segment = {
   kind: "hook" | "scene" | "lesson" | "ask";
+  roman?: string; // storybook: the line in Roman Hinglish, for the captions
+  image?: string; // storybook: the painted picture of this line (relative to public/)
+  image_b?: string; // storybook: the next moment of the same scene, cut to on a word halfway through the line
+  depth?: string; // storybook: depth maps of the pictures (white near, black far) for the living-painting camera
+  depth_b?: string;
+  fx?: string; // storybook: the moving atmosphere (embers, petals, dust, rain, smoke, sparkles)
   text: string;
   start: number;
   end: number;
@@ -47,7 +53,8 @@ export type ReelProps = {
   audio: string | null; music?: string | null; lead: number; handle: string; duration: number; segments: Segment[];
   mouth?: number[]; // narration loudness per video frame from the start of the voice (0..1)
   hero?: "boy" | "girl"; // who tells the story (follows the narrator's voice)
-  style?: "story" | "comic"; // comic: rendered by comic/ComicReel.tsx
+  style?: "story" | "comic" | "storybook"; // comic: comic/ComicReel.tsx; storybook: storybook/StoryBook.tsx
+  series_title?: string; // storybook: the series strip at the top ("Rishton ki keemat")
   place?: string; // comic: the room
   emoji?: string; // comic: the emoji after the title strip
   visemes?: string; // one mouth shape per video frame of the whole Reel: A, O, E, M or " " (P0-14)

@@ -108,7 +108,7 @@ SHOTS = {
 TRANSITIONS = ('cut', 'whip', 'zoom', 'flash')
 MOODS = ('calm', 'happy', 'sad', 'tense')
 MUSIC = ('warm', 'tense')
-STYLES = ('story', 'comic')  # comic: a cartoon kid's deadpan rant with a punchline (reel/comic.py)
+STYLES = ('story', 'comic', 'storybook')  # comic: a cartoon kid's deadpan rant with a punchline (reel/comic.py)
 # Themes the bot offers (key: Hindi label, what the writer should pick a lesson about)
 THEMES = {
     'love': ('प्यार', 'love: a first crush, one-sided love, waiting for a reply, a breakup, long distance, love that '

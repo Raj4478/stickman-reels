@@ -32,6 +32,15 @@ def segments(script, starts, speech_end, words=None):
         for segment, key in ((out[0], 'hook'), (out[-2], 'punch')):
             segment.update({k: script[f'{key}_{k}'] for k in ('face', 'gesture', 'look', 'visual', 'visual_text', 'screen', 'who', 'place')
                             if f'{key}_{k}' in script})
+    if script.get('style') == 'storybook':
+        # the Roman Hinglish captions and the shot of the opening, the moral and the question (picture prompts stay in
+        # script.json; the props get the painted files)
+        for segment in out:
+            for key in ('image', 'image_b', 'cast'):
+                segment.pop(key, None)
+        out[0].update(roman=script.get('hook_roman', ''), shot=script.get('hook_shot', 'wide'), fx=script.get('hook_fx', 'none'))
+        out[-2].update(roman=script.get('lesson_roman', ''), shot=script.get('lesson_shot', 'medium'), fx=script.get('lesson_fx', 'none'))
+        out[-1].update(roman=script.get('ask_roman', ''))
     out[0]['start'] = 0.0
     out[-1]['end'] = round(speech_end + LEAD + TAIL, 3)
     return out
@@ -91,6 +100,20 @@ def build(script, out, public, narrate=True, music=True, prefix=''):
             props['ink'] = 'plum'  # the plum ink A/B test
         engine = os.getenv('REEL_ENGINE', '').strip().lower()
         props['engine'] = engine if engine in ('svg', 'three') else 'svg'  # three: the 2.5D three.js rooms
+    if script.get('style') == 'storybook':
+        from . import depth, images, storybook
+        # living paintings: a WebGL camera floats through each painting using its depth map (engine three)
+        props.update(style='storybook', series_title=storybook.SERIES.get(script.get('series'), 'Zindagi ki seekh'),
+                     cover_text=script.get('cover_text', ''), engine='three')
+        names, seconds, painted = images.paint(script, public)  # the hook, every scene, the moral; the question reuses the moral's
+        maps = depth.add_depth(public, [*names, *seconds])
+        for segment, name, second in zip(props['segments'], names, seconds):
+            if name:
+                segment.update(image=f'{prefix}{name}', **({'depth': f'{prefix}{maps[name]}'} if name in maps else {}))
+            if second:
+                segment.update(image_b=f'{prefix}{second}', **({'depth_b': f'{prefix}{maps[second]}'} if second in maps else {}))
+        painted['depth_maps'] = len(maps)
+        record['pictures'] = painted
     props['duration'] = props['segments'][-1]['end']
     if audio:
         props['visemes'] = voice.visemes(props['segments'], props['duration'])

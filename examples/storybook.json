@@ -1,0 +1,28 @@
+{
+  "style": "storybook",
+  "topic": "A father's dignity is worth more than any money",
+  "title": "आखिरी कुर्सी वाले पापा",
+  "series": "rishte",
+  "setting": "A small north Indian town in winter, warm ochre, marigold and maroon colours, soft golden afternoon light",
+  "characters": [
+    {"id": "munni", "name": "मुन्नी", "look": "a cheerful 10-year-old Indian girl, two neat plaits tied with red ribbons, big brown eyes, navy blue school pinafore over a white shirt, red cardigan, black school shoes"},
+    {"id": "papa", "name": "पापा", "look": "a thin cycle-rickshaw puller in his 40s, sun-browned skin, short black hair, a few days of stubble, faded green half-sleeve shirt, grey checked towel over one shoulder, brown trousers, worn rubber chappals"},
+    {"id": "madam", "name": "प्रिंसिपल मैडम", "look": "a kind school principal in her 50s, silver hair in a low bun, round gold-rimmed glasses, maroon cotton sari with a cream border, a small bindi"}
+  ],
+  "hook": {"line": "उस दिन स्कूल में सबसे पीछे एक रिक्शा खड़ा था।", "roman": "Us din school mein sabse peeche ek rickshaw khada tha.", "image": "the school ground on annual day, shiny cars parked at the front, one old cycle rickshaw parked alone at the very back near the gate, golden afternoon light", "image_b": "a close view of the old rickshaw's worn seat with a grey checked towel left on it", "fx": "dust", "cast": [], "shot": "wide"},
+  "beats": [
+    {"line": "पसीने में भीगे पापा चुपचाप आखिरी कुर्सी पर बैठ गए।", "roman": "Paseene mein bheege papa chupchaap aakhiri kursi par baith gaye.", "image": "the last row of plastic chairs at the back of the school ground, papa sits down alone wiping his sweaty face with his towel", "image_b": "papa pushes his worn chappals under the chair, looking down shyly", "fx": "dust", "cast": ["papa"], "shot": "medium"},
+    {"line": "आगे बैठे लोग उन्हें देखकर मुँह फेरने लगे।", "roman": "Aage baithe log unhe dekhkar munh pherne lage.", "image": "the row in front of papa, two well-dressed parents turn away from him with raised eyebrows", "image_b": "papa lowers his eyes and holds his towel tight", "fx": "none", "cast": ["papa"], "shot": "close"},
+    {"line": "तभी मंच से आवाज़ आई, सबसे होनहार छात्रा, मुन्नी!", "roman": "Tabhi manch se awaaz aayi, sabse honhaar chhatra, Munni!", "image": "the marigold-decorated stage, madam at the microphone holding up a gold trophy, the crowd clapping", "image_b": "munni gasps with joy in the front row, hands on her cheeks", "fx": "sparkles", "cast": ["madam", "munni"], "shot": "medium"},
+    {"line": "मुन्नी ने माइक पकड़ा और कहा, पापा को ऊपर बुलाइए।", "roman": "Munni ne mic pakda aur kaha, papa ko upar bulaiye.", "image": "on the stage munni holds the microphone with both hands and points towards the last row", "image_b": "every head in the crowd turns around towards the back", "fx": "none", "cast": ["munni"], "shot": "medium"},
+    {"line": "पापा काँपते पैरों से मंच तक पहुँचे।", "roman": "Papa kaanpte pairon se manch tak pahunche.", "image": "the stage steps, papa climbs up slowly holding his towel, surprised and shy, munni waiting with open arms", "image_b": "munni hugs papa tightly on the stage", "fx": "petals", "cast": ["papa", "munni"], "shot": "medium"},
+    {"line": "मुन्नी ने ट्रॉफी उनके हाथों में रख दी।", "roman": "Munni ne trophy unke haathon mein rakh di.", "image": "a close detail on the stage, munni's small hands placing the gold trophy into papa's rough hands", "image_b": "papa's eyes fill with tears as he looks at munni", "fx": "sparkles", "cast": ["munni", "papa"], "shot": "detail"},
+    {"line": "उस दिन सबसे ज़्यादा तालियाँ आखिरी कुर्सी वाले को मिलीं।", "roman": "Us din sabse zyaada taaliyan aakhiri kursi wale ko milin.", "image": "the whole school ground standing and clapping for papa and munni on the stage, golden evening light", "image_b": "madam smiles and joins her hands in respect to papa", "fx": "petals", "cast": ["papa", "munni", "madam"], "shot": "wide"}
+  ],
+  "moral": {"line": "याद रखना, इज़्ज़त कपड़ों से नहीं, मेहनत से मिलती है।", "roman": "Yaad rakhna, izzat kapdon se nahi, mehnat se milti hai.", "image": "a town road at sunset, papa pedals his rickshaw home with munni in the back holding the trophy high", "image_b": "", "fx": "embers", "cast": ["papa", "munni"], "shot": "wide"},
+  "ask": "आपको अपने पापा की कौन सी मेहनत याद है?",
+  "ask_roman": "Aapko apne papa ki kaun si mehnat yaad hai?",
+  "cover_text": "Aakhiri kursi wale papa",
+  "instagram_caption": "आखिरी कुर्सी पर बैठे पापा, और मंच पर खड़ी बेटी ❤️\nइसे अपने पापा को भेजिए।",
+  "hashtags": ["#hindikahani", "#papa", "#emotionalstory", "#बेटी", "#moralstory", "#seekhsketch"]
+}

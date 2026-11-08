@@ -52,11 +52,11 @@ def loudness(video):
     return float(found.group(1)) if found else None
 
 
-def hard_checks(video, narrated=True, shortest=20):
+def hard_checks(video, narrated=True, shortest=20, longest=60):
     info = probe(video)
     issues = []
-    if not shortest <= info['duration'] <= 60:
-        issues.append(f"length is {info['duration']:.0f}s (best {shortest}-60s)")
+    if not shortest <= info['duration'] <= longest:
+        issues.append(f"length is {info['duration']:.0f}s (best {shortest}-{longest}s)")
     if (info['width'], info['height']) != (1080, 1920):
         issues.append(f"size is {info['width']}x{info['height']} (expected 1080x1920)")
     if not info['audio']:
@@ -88,7 +88,9 @@ def check(folder, video):
     folder, video = Path(folder), Path(video)
     props = json.loads((folder / 'props.json').read_text(encoding='utf-8'))
     # a comic rant is meant to be short (15-25 seconds)
-    info, issues = hard_checks(video, narrated=bool(props.get('audio')), shortest=12 if props.get('style') == 'comic' else 20)
+    # a storybook Reel is a full story: 75-95 seconds, well within Reels' and Shorts' limits
+    info, issues = hard_checks(video, narrated=bool(props.get('audio')), shortest=12 if props.get('style') == 'comic' else 20,
+                               longest=120 if props.get('style') == 'storybook' else 60)
     try:
         from . import scan
         issues += scan.problems(scan.frames(video), planned=scan.planned_cuts(props))

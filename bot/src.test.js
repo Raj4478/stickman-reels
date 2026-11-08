@@ -168,5 +168,7 @@ test('comic style: quick button, switch, inputs, /comic and the usual-style sett
   assert.deepEqual(route('/comic@StickBot gym membership').inputs, { options: 'style=comic', topic: 'gym membership' });
   assert.ok(isOn('REEL_STYLE', 'comic') && !isOn('REEL_STYLE', 'story') && !isOn('REEL_STYLE', ''));
   assert.equal(flipped('REEL_STYLE', ''), 'comic');
-  assert.equal(flipped('REEL_STYLE', 'comic'), 'story');
+  assert.equal(flipped('REEL_STYLE', 'comic'), 'storybook');
+  assert.equal(flipped('REEL_STYLE', 'storybook'), 'story');
+  assert.match(settingsKeys({ REEL_STYLE: 'storybook' }).find((row) => row[0].text.includes('Usual style'))[0].text, /Kahani/);
 });
