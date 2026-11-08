@@ -3,7 +3,7 @@ import { AbsoluteFill, Audio, Img, Sequence, interpolate, staticFile, useCurrent
 import { duckCurve } from "../duck";
 import { FONT } from "../engine/fx";
 import { SafeZones } from "../SafeZones";
-import { Follow, ReelProps, Segment, useFonts } from "../StickReel";
+import { Follow, ReelProps, SEND_SECONDS, Segment, SendLine, useFonts } from "../StickReel";
 import { Atmosphere, glowOf } from "./Atmosphere";
 import { LivingPicture, MOVES } from "./Living";
 
@@ -173,6 +173,12 @@ export const StoryBook: React.FC<ReelProps> = (p) => {
         </div>
       )}
       <div style={{ position: "absolute", left: 0, top: 0, height: 10, width: `${(frame / durationInFrames) * 100}%`, background: YELLOW }} />
+      {p.end_line && (
+        // who to send it to, between the series strip and the question card, for the last seconds
+        <Sequence from={durationInFrames - at(SEND_SECONDS)} layout="none">
+          <SendLine text={p.end_line} f={frame - (durationInFrames - at(SEND_SECONDS))} top={840} />
+        </Sequence>
+      )}
       {p.audio && (
         <Sequence from={at(p.lead)}>
           <Audio src={staticFile(p.audio)} />
@@ -191,7 +197,17 @@ export const StoryBook: React.FC<ReelProps> = (p) => {
   );
 };
 
-// The grid cover: the opening picture with 2-4 teaser words inside the band that survives the 4:5 and 3:4 crops
+// "Part 1/2" on a two-part story's cover
+export const PartBadge: React.FC<{ part?: string; top: number }> = ({ part, top }) =>
+  part ? (
+    <div style={{ position: "absolute", top, left: 0, right: 0, display: "flex", justifyContent: "center" }}>
+      <div style={{ background: YELLOW, color: "#1b1b1f", fontFamily: FONT.hindi, fontWeight: 800, fontSize: 56, padding: "6px 30px", borderRadius: 16,
+        boxShadow: "0 8px 24px rgba(0,0,0,.5)" }}>Part {part}</div>
+    </div>
+  ) : null;
+
+// The grid cover: the opening picture with the series strip, 2-4 teaser words and "Part N", all inside the band that
+// survives the 4:5 feed crop and the 3:4 profile-grid crop (y 240..1680, GRID in SafeZones.tsx)
 export const StoryCover: React.FC<ReelProps> = (p) => {
   useFonts();
   const src = pictureOf(p, 0)?.src;
@@ -199,7 +215,9 @@ export const StoryCover: React.FC<ReelProps> = (p) => {
   return (
     <AbsoluteFill style={{ background: "#000" }}>
       {src && <Img src={staticFile(src)} style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scale(1.06)" }} />}
-      <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,.7) 80%)" }} />
+      <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(0,0,0,.45) 0%, rgba(0,0,0,0) 28%, rgba(0,0,0,0) 45%, rgba(0,0,0,.7) 80%)" }} />
+      {p.series_title && p.cover_text && <SeriesStrip text={p.series_title} />}
+      <PartBadge part={p.part} top={1130} />
       <div style={{ position: "absolute", top: 1240, left: 50, right: 50, textAlign: "center", fontFamily: FONT.hindi, fontWeight: 800, fontSize: 104,
         lineHeight: 1.1, color: "#fff", WebkitTextStroke: "4px rgba(0,0,0,.85)", paintOrder: "stroke", textShadow: "0 8px 24px rgba(0,0,0,.8)" }}>
         {text.split(" ").map((w, i) => <span key={i} style={{ color: i === 0 ? YELLOW : "#fff" }}>{w} </span>)}

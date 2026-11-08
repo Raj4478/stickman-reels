@@ -6,7 +6,7 @@ import { SafeZones } from "../SafeZones";
 import { billboard, billboardCss, camAt3 } from "../three/camera";
 import { lookOf } from "../three/lights";
 import { World, blurOf } from "../three/World";
-import { Follow, ReelProps, Segment, Subtitle, useFonts } from "../StickReel";
+import { Follow, ReelProps, SEND_SECONDS, Segment, SendLine, Subtitle, useFonts } from "../StickReel";
 import { Emoji } from "./Emoji";
 import { CUTAWAY_SOUND, Cutaway } from "./cutaways";
 import { inkUp } from "./ink";
@@ -347,6 +347,13 @@ export const ComicReel: React.FC<ReelProps> = (p) => {
           </Freeze>
         </AbsoluteFill>
       </Sequence>
+      {p.end_line && (
+        // who to send it to, over the kid's table and above the follow card; it fades with the loop
+        <Sequence from={durationInFrames - at(SEND_SECONDS)} layout="none">
+          <SendLine text={p.end_line} f={frame - (durationInFrames - at(SEND_SECONDS))} top={1100}
+            fade={interpolate(frame, [durationInFrames - LOOP, durationInFrames - 1], [1, 0], clamp)} />
+        </Sequence>
+      )}
       {p.handle && (
         // just under the title strip: the top ~270 px sit under Instagram's top bar
         <div style={{ position: "absolute", top: 400, width: "100%", textAlign: "center", fontFamily: FONT.hindi, fontWeight: 700, fontSize: 30, color: "rgba(0,0,0,.4)" }}>

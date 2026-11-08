@@ -93,6 +93,10 @@ def build(script, out, public, narrate=True, music=True, prefix=''):
     words = voice.word_times(lines, starts, speech_end, heard)
     props = {'audio': audio, 'music': None, 'lead': LEAD, 'handle': os.getenv('REEL_HANDLE', '').strip(),
              'mouth': mouth, 'hero': script.get('hero', 'boy'), 'segments': segments(script, starts, speech_end, words)}
+    if script.get('end_line'):
+        props['end_line'] = script['end_line']  # "Ye video apni Maa ko bhejo", drawn in the last seconds (reel/reach.py)
+    if script.get('part'):
+        props['part'] = script['part']  # "Part 1/2" on the cover
     if script.get('style') == 'comic':
         props.update(style='comic', place=script.get('place', 'bedroom'), emoji=script.get('emoji', 'sob'),
                      cover_text=script.get('cover_text', ''), audience=script.get('audience', 'adult'))

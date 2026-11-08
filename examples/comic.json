@@ -80,5 +80,9 @@
     "#desihumour",
     "#computercourse",
     "#हिंदीकॉमेडी"
-  ]
+  ],
+  "send_target": "dost",
+  "end_line": "Apne us dost ko bhejo jisne ye course kiya",
+  "keyword_roman": "Computer course comedy",
+  "keyword_hindi": "कंप्यूटर कोर्स कॉमेडी"
 }

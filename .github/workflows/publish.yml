@@ -80,6 +80,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CAROUSEL: ${{ vars.CAROUSEL }}
           HOOK_TEST: ${{ vars.HOOK_TEST }}
+          AI_LABEL: ${{ vars.AI_LABEL }}
           POST_AT_PEAK: ${{ vars.POST_AT_PEAK }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

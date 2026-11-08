@@ -146,14 +146,6 @@ jobs:
             python -m reel make --count "$COUNT" --topic "$TOPIC" --options "$OPTIONS"
           fi
           for n in $(cat out/reels.txt); do echo "::group::Reel $n script"; cat "out/$n/script.json"; echo "::endgroup::"; done
-      - name: Save the topic history
-        if: always() && hashFiles('history.json') != ''
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            history.json
-            ideas.json
-          key: reel-history-${{ github.run_id }}
       - name: Render with Remotion
         working-directory: remotion
         run: |
@@ -197,6 +189,15 @@ jobs:
           GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
         run: |
           for n in $(cat out/reels.txt); do python -m reel check "out/$n" "remotion/out/reel-$n.mp4" || true; done
+      # after the quality check: it adds each Reel's perceptual hash, so a later re-upload is caught
+      - name: Save the topic history
+        if: always() && hashFiles('history.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            history.json
+            ideas.json
+          key: reel-history-${{ github.run_id }}
       - name: Send them to Telegram
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -222,6 +223,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CAROUSEL: ${{ vars.CAROUSEL }}
           HOOK_TEST: ${{ vars.HOOK_TEST }}
+          AI_LABEL: ${{ vars.AI_LABEL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |

@@ -278,14 +278,21 @@ def history():
         return []
 
 
-def remember(script):
+def remember(script, duration=None):
+    """Add a made Reel to the topic history, with what the growth loop (reel/growth.py) compares Reels by: the style,
+    the series, the hook, who it is sent to, the part and the length."""
     import datetime as dt
     entry = {'topic': script['topic'], 'title': script['title'], 'name': script.get('name', ''),
              'made': dt.date.today().isoformat()}
     if script.get('occasion'):
         entry['occasion'] = script['occasion']
-    if script.get('style') == 'comic':
-        entry['style'] = 'comic'
+    if script.get('style') in ('comic', 'storybook'):
+        entry['style'] = script['style']
+    for key in ('series', 'part', 'send_target', 'hook', 'title_b'):
+        if script.get(key):
+            entry[key] = script[key]
+    if duration:
+        entry['duration'] = round(float(duration), 1)
     items = history() + [entry]
     history_path().write_text(json.dumps(items[-200:], ensure_ascii=False, indent=1), encoding='utf-8')
 

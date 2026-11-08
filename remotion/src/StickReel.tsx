@@ -63,6 +63,8 @@ export type ReelProps = {
   engine?: "svg" | "three"; // comic: the 2.5D three.js rooms
   ink?: "plum"; // comic: the plum ink A/B test (REEL_INK)
   guides?: boolean; // draw the Instagram safe zones (Studio and look-book stills only)
+  end_line?: string; // storybook and comic: who to send it to ("Ye video apni Maa ko bhejo"), in the last seconds
+  part?: string; // a two-part story: "1/2" or "2/2" (on the cover)
 };
 
 // The mouth curve and where the voice starts, for the talking figures
@@ -276,6 +278,29 @@ export const Follow: React.FC<{ f: number; handle: string; part?: string; line?:
       <div style={{ opacity: ease(f, 40, 48), fontFamily: FONT.hindi, fontWeight: 800, fontSize: 40, color: COL.ink, background: "rgba(255,255,255,.88)",
         padding: "6px 22px", borderRadius: 16 }}>
         {part === "1/2" ? "भाग 2 जल्द आ रहा है · फ़ॉलो करें" : line ?? "रोज़ एक नई सीख"}{handle ? ` · ${handle}` : ""}
+      </div>
+    </div>
+  );
+};
+
+// The send line: in the last seconds, who the viewer should send the Reel to ("Ye video apni Maa ko bhejo"), next to
+// Instagram's paper-plane send icon. Shares (sends) per reach are one of the strongest Reels signals. Never
+// "comment X" bait. SEND_SECONDS matches reel/reach.py.
+export const SEND_SECONDS = 2.8;
+export const SendLine: React.FC<{ text: string; f: number; top: number; fade?: number }> = ({ text, f, top, fade = 1 }) => {
+  const s = interpolate(f, [0, 6, 10], [0.6, 1.06, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const fly = interpolate(f % 30, [0, 12, 30], [0, -8, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return (
+    <div style={{ position: "absolute", left: 60, right: 60, top, display: "flex", justifyContent: "center",
+      opacity: ease(f, 0, 6) * fade, transform: `translateY(${(1 - ease(f, 0, 8)) * 40}px) scale(${s})` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 18, background: "#fff", color: COL.ink, borderRadius: 60, padding: "16px 36px 16px 22px",
+        border: `6px solid ${COL.ink}`, boxShadow: `8px 8px 0 ${COL.ink}`, fontFamily: FONT.hindi, fontWeight: 800,
+        fontSize: text.length > 32 ? 44 : 52, lineHeight: 1.15, maxWidth: 940 }}>
+        <svg width={64} height={64} viewBox="0 0 24 24" style={{ flex: "none", transform: `translateY(${fly}px) rotate(-12deg)` }} fill="#2fa84f"
+          stroke={COL.ink} strokeWidth={1.6} strokeLinejoin="round">
+          <path d="M22 2 L11 13 M22 2 L15 22 L11 13 L2 9 Z" />
+        </svg>
+        <span>{text}</span>
       </div>
     </div>
   );

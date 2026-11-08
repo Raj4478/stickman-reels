@@ -23,7 +23,7 @@ jobs:
           cache-dependency-path: remotion/package-lock.json
       - name: Python tests
         run: |
-          pip install -q numpy
+          pip install -q numpy pillow  # pillow: the storybook tests make tiny pictures
           python -m unittest discover -s tests -t . -v
       - name: Type-check the template
         working-directory: remotion

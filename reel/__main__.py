@@ -5,6 +5,7 @@
     python -m reel publish out/1 remotion/out/reel-1.mp4 [--platforms instagram,youtube]
     python -m reel publish-queued out/1   (posts Instagram uploads waiting for the best time)
     python -m reel report        (weekly numbers to Telegram)
+    python -m reel insights      (daily: Instagram insights 24 h / 72 h / 7 days after each Reel)
     python -m reel ideas         (next lessons from comments and trends, with Make buttons)
     python -m reel slides out/1 remotion/out/reel-1.mp4   (carousel slides)
     python -m reel compile reels.json out/week.mp4        (the weekly compilation)
@@ -30,9 +31,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def caption(story, record, folder=None):
-    part = f" (भाग {story['part']})" if story.get('part') else ''
     special = [f"🎉 {story['occasion_name']} special"] if story.get('occasion_name') else []
-    lines = special + [story['title'] + part, '', story.get('instagram_caption') or story['lesson'], '', ' '.join(story.get('hashtags', []))]
+    lines = special + [publish.opening(story), '', story.get('instagram_caption') or story['lesson'], '', publish.hashtags(story)]
     check = quality.note(folder) if folder else ''
     if check:
         lines += ['', check]
@@ -50,8 +50,14 @@ def stories(args):
         from . import storybook
         yield {'comic': comic.clean, 'storybook': storybook.clean}.get(raw.get('style'), script.clean)(raw)
         return
-    if args.style == 'storybook' and not args.series:
+    if args.style == 'storybook':
         from . import storybook
+        if args.series:
+            # a two-part Kahani: part 1 ends on a cliffhanger, part 2 keeps the same people and looks
+            first = storybook.write(args.topic, theme=args.theme, source=args.source, part='1/2')
+            yield first
+            yield storybook.write(first['topic'], part='2/2', previous=storybook.summary(first))
+            return
         for _ in range(args.count):
             yield storybook.write(args.topic, theme=args.theme, source=args.source)
         return
@@ -107,7 +113,7 @@ def make(args):
         props, record = build.build(story, out, args.public, narrate=not args.silent, music=not args.no_music,
                                     prefix=f'reels/{n}/')
         if not args.sample:
-            script.remember(story)
+            script.remember(story, duration=props['duration'])
         made.append(str(n))
         print(f"Reel {n}: {story['title']} ({story['topic']}): {len(props['segments'])} segments, "
               f"{props['duration']:.1f}s, narration: {record.get('voice', record.get('narration'))}, "
@@ -206,6 +212,7 @@ def main(argv=None):
     commands.add_parser('refresh-token', help='renew the Instagram token')
     commands.add_parser('youtube-check', help='check the YouTube sign-in; save a renewed token; warn before it ends')
     commands.add_parser('report', help='send the weekly numbers to Telegram')
+    commands.add_parser('insights', help='store Instagram insights 24 h, 72 h and 7 days after each Reel; a note to Telegram')
     posted_cmd = commands.add_parser('posted', help='exit 0 when a receipt (publish.json) shows the Reel went out')
     posted_cmd.add_argument('receipt', type=Path)
     qc = commands.add_parser('check', help='quality-check a rendered Reel (length, sound, text and framing)')
@@ -226,7 +233,7 @@ def main(argv=None):
         if chosen.get('engine'):
             os.environ['REEL_ENGINE'] = chosen['engine']  # this run only: the 3D rooms (or the flat ones)
         if args.style == 'comic' and args.series:
-            print('Two-part stories are story Reels; making a story series')
+            print('Two-part stories are story or Kahani Reels; making a story series')
         if args.music == 'off':
             args.no_music = True
         if chosen.get('voice'):
@@ -282,6 +289,14 @@ def main(argv=None):
         quality.check(args.folder, args.video)
     elif args.command == 'report':
         telegram.send_message(report.weekly())
+    elif args.command == 'insights':
+        if 'instagram' not in publish.configured():
+            print('Instagram is not connected yet.')
+            return 0
+        taken = growth.snapshot()
+        print(f'{len(taken)} new snapshot(s)')
+        if taken:
+            telegram.send_message(growth.snapshot_message(taken))
     elif args.command == 'topic':
         story = json.loads((args.folder / 'script.json').read_text(encoding='utf-8'))
         if args.style:

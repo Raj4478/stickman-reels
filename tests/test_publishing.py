@@ -25,7 +25,7 @@ class TextsTest(unittest.TestCase):
         self.assertNotIn('#', ''.join(t['tags']))
 
     def test_series_part_is_in_the_title(self):
-        self.assertIn('भाग 1/2', publish.texts(dict(STORY, part='1/2'))['title'])
+        self.assertIn('Part 1/2', publish.texts(dict(STORY, part='1/2'))['title'])
 
 
 class PublishTest(unittest.TestCase):

@@ -18,7 +18,7 @@ import os
 import random
 import re
 
-from . import gemini
+from . import gemini, reach
 from . import script as stories
 
 # Expressions of the kid (remotion/src/comic/Kid.tsx draws each one)
@@ -139,9 +139,14 @@ SCHEMA = {
         'ask': {'type': 'string', 'description': 'A short Hindi question for the comments, in character, at most 10 words'},
         'instagram_caption': {'type': 'string', 'description': 'Hindi Instagram caption, 1-2 short funny lines'},
         'hashtags': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 8},
+        'send_target': {'type': 'string', 'enum': list(reach.SEND_TARGETS),
+                        'description': 'Who a viewer would send this Reel to ("this is so you")'},
+        'end_line': {'type': 'string', 'description': 'Roman Hinglish, at most 7 words: "Apne us dost ko bhejo jo aisa hai"'},
+        'keyword_roman': {'type': 'string', 'description': 'The 2-4 word search phrase in Roman Hinglish ("Exam wali comedy")'},
+        'keyword_hindi': {'type': 'string', 'description': 'The same search phrase in Devanagari'},
     },
     'required': ['topic', 'name', 'title', 'emoji', 'place', 'other', 'hooks', 'hook', 'lines', 'punchline', 'ask',
-                 'instagram_caption', 'hashtags'],
+                 'instagram_caption', 'hashtags', 'send_target', 'end_line', 'keyword_roman', 'keyword_hindi'],
 }
 
 COMEDY_RULES = """Comedy rules (this is what makes cartoon-meme Reels go viral in India):
@@ -248,6 +253,7 @@ picture and reaction, keep the Reel moving.
 - instagram_caption: 1-2 short funny Hindi lines; hashtags: up to 8, Hindi and English (comedy, relatable, desi).
 - Keep it clean and kind: no vulgarity, no insults to groups, no real people or brands, no politics or religion,
   no medical, legal or money promises.
+{send}
 {avoid}"""
 
 EDITOR = """You are the comedy editor of a Hindi cartoon-meme Reels channel. Make this rant funnier and tighter,
@@ -273,7 +279,9 @@ Do all of this:
    off-screen lines (never two in a row).
 6. Keep the title short (1-3 words) and give title_b a clearly different angle.
 8. Read it as a viewer scrolling at speed: if the hook needs the second line to make sense, rewrite it; if any line
-   is only there to explain, cut it; the punchline's last 2-4 words must be the surprise and nothing may follow them."""
+   is only there to explain, cut it; the punchline's last 2-4 words must be the surprise and nothing may follow them.
+9. send_target and end_line: the person a viewer would send this to ("this is so you"); end_line asks them to send
+   it in at most 7 Roman words, never to comment, like or follow."""
 
 
 def short(text, limit):
@@ -366,6 +374,9 @@ def clean(raw):
         'ask': short(raw.get('ask'), LIMITS['ask']), 'music': 'kids' if audience != 'adult' else 'comic', 'other_voice': other if spoken else 'friend',
         'part': '', 'instagram_caption': str(raw.get('instagram_caption') or '').strip()[:1500],
     })
+    # who the viewer sends it to: a friend for adult rants, a brother or sister for kid-world jokes
+    script['send_target'], script['end_line'] = reach.clean_send(raw, fallback='dost' if audience == 'adult' else 'bhai')
+    script['keyword_roman'], script['keyword_hindi'] = reach.clean_keyword(raw, script['send_target'], kind='comedy')
     if not stories.DEVANAGARI.search(script['ask']):
         script['ask'] = 'आपके साथ भी ऐसा हुआ है? कमेंट में बताओ।'
     tags = [re.sub(r'[^\wऀ-ॿ]', '', str(t)) for t in raw.get('hashtags') or []]
@@ -490,7 +501,7 @@ def write(topic=None, theme='', source='', audience='adult'):
         name_hint=name_hint, topic=topic, n=random.choice((5, 6)), rules=rules, hero=person, forms=forms,
         faces=', '.join(FACES), gestures=', '.join(GESTURES), looks=', '.join(LOOKS), face_list=stories.catalog(FACES),
         gesture_list=stories.catalog(GESTURES), others=', '.join(k for k in OTHERS if k != 'none'),
-        rooms=stories.catalog(ROOMS), emoji=', '.join(EMOJI), visuals=stories.catalog(VISUALS),
+        rooms=stories.catalog(ROOMS), emoji=', '.join(EMOJI), visuals=stories.catalog(VISUALS), send=reach.rules(),
         avoid='\n'.join(x for x in (f'- Do not repeat these recent titles or their angle: {", ".join(recent)}' if recent else '',
                                     growth.lessons_learned(), occasions.note(occasion) if occasion else '') if x))
     # no first-person check here: a rant often drops the "मैं" ("दो साल का कोर्स किया...") and is still the kid's own

@@ -95,10 +95,10 @@ export function screen(stage, st = {}) {
     const counts = st.src === 'l' ? ['1', 's'] : ['1', '2', '3', '5', 's'];
     return { text: `${summary(st)}\n\n🔢 How many?`, keys: [...rowsOf(counts.map((k) => button(COUNTS[k], encode('k', { ...st, count: k }))), 3), [back('m'), cancel]] };
   }
-  // a two-part series is always a story; anything else can switch between story and comic here
+  // a two-part series is a story or a painted Kahani (never comic); anything else can switch between all three here
   const others = [['s', '📖 Make it a story instead'], ['c', '😂 Make it comic instead'], ['b', '🎨 Make it a painted Kahani']]
-    .filter(([k]) => k !== (st.style || 's'));
-  const flip = st.count === 's' ? [] : others.map(([k, label]) => [button(label, encode('k', { ...st, style: k }))]);
+    .filter(([k]) => k !== (st.style || 's') && !(st.count === 's' && k === 'c'));
+  const flip = others.map(([k, label]) => [button(label, encode('k', { ...st, style: k }))]);
   return { text: `Ready:\n${summary(st)}`, keys: [[button('✅ Make it', encode('k', st).replace('w:k:', 'w:g:'))], ...flip, [back('c'), cancel]] };
 }
 

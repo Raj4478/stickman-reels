@@ -134,6 +134,10 @@ Every story, character and picture is the channel's own.
   image from the opening picture and 2–4 teaser words.
 - **Make one:** 🎬 New Reel → … → **🎨 Make it a painted Kahani**, the **🎨 Kahani Reel now** button, or
   `style=storybook` in the options.
+- **Two-part Kahani:** 🎬 New Reel → … → **📖 2-part story** → **🎨 Make it a painted Kahani** (or `/series` with
+  `REEL_STYLE=storybook`). Part 1 stops on a cliffhanger; part 2 keeps the same people, looks and setting. Both covers
+  and captions say "Part 1/2" / "Part 2/2". Instagram has no API for **Link a Reel**, so when a part goes live
+  Telegram reminds you to link them in the app (open Part 2 → ⋯ → Edit → Link a Reel → Part 1).
 - **Free budget:** about 125 of Cloudflare's 10,000 free daily neurons a picture; a Reel paints about 20 (two moments
   per line plus a portrait per character), so about three Kahani Reels a day.
 - **Setup:** `CLOUDFLARE_API_TOKEN` needs **Workers AI: Read** and **Workers AI: Edit** added (Cloudflare → My Profile →
@@ -141,11 +145,21 @@ Every story, character and picture is the channel's own.
 
 ## Growth features
 
+**Cadence:** post **3–5 Reels a week** (a steady rhythm beats bursts), in the evening. Instagram ranks Reels mainly on
+watch time, likes and **sends** per person reached, and rewards original content, so every feature below works on
+one of those.
+
 | Feature | What it does | Switch |
 | --- | --- | --- |
-| **Best time to post** | The weekly report learns which slot (08:00, 13:00, 19:00 or 21:00 IST) gets the most reach. ✅ Post then schedules the Reel for that slot: YouTube and Facebook schedule it themselves, and Instagram is uploaded at once and published by **Post queued Reels** at that time. | `POST_AT_PEAK=true` |
+| **Send-worthy endings** | Kahani and comic scripts name who a viewer would send the Reel to (`send_target`: maa, papa, bhai, behen, dost...) and a short `end_line` ("Ye video apni Maa ko bhejo"). It is drawn next to a paper-plane icon in the last ~3 seconds and is the caption's second line. Never "comment X" bait, which Instagram demotes ([`reel/reach.py`](reel/reach.py)). | always on |
+| **Keyword captions** | The caption opens with the hook and a search phrase in Roman Hinglish, English and Hindi ("आखिरी कुर्सी वाले पापा \| Papa ki kahani \| emotional Hindi story \| पापा की कहानी"), because Instagram search reads captions. At most 5 hashtags. | always on |
+| **Custom covers** | The rendered cover (`StoryCover` / `ComicCover`, with the title, series and "Part N" inside the middle 3:4 that the profile grid shows) is sent to Instagram as `cover_url`, with `share_to_feed`. It is hosted for 2 days like carousel images; without `CLOUDFLARE_` secrets the hook frame is the cover. | needs the `CLOUDFLARE_` secrets |
+| **AI label** | Kahani Reels (AI-painted pictures) are posted with Instagram's AI info label (`is_ai_generated`). If Instagram refuses the field, the Reel is posted without it. | `AI_LABEL`: on for Kahani by default; `false` turns it off, `all` labels every Reel |
+| **Instagram lint** | Before review: a full 1080×1920 frame with no black bars, under 3 minutes, captions a small share of the frame, and a perceptual hash that must not match an earlier Reel (a re-upload counts as unoriginal; the hashes are kept in the topic history). Problems are listed in the Telegram caption. | always on |
+| **Insights loop** | Every night, **Instagram insights** reads each Reel's reach, shares, likes, saves, average watch time and skip rate 24 hours, 72 hours and 7 days after posting (metrics Instagram has not opened yet are skipped) and sends a short note. The weekly report compares shares, likes and saves per person reached, watch time ÷ length and skip rate by style, series, who it is sent to and hook; the writers are told which Reels were sent most, watched longest and skipped least. | needs `INSTAGRAM_ACCESS_TOKEN` |
+| **Best time to post** | The weekly report learns which slot (08:00, 13:00, 19:00 or 21:00 IST) gets the most reach. ✅ Post then schedules the Reel for that slot: YouTube and Facebook schedule it themselves, and Instagram is uploaded at once and published by **Post queued Reels** at that time. Until there is enough data the evening window, 19:00–21:00 IST, is used: a Reel posted in it goes out at once, otherwise it waits for 19:00. | `POST_AT_PEAK=true` |
 | **Learning** | Each Reel's score (shares and saves count most) is saved in the topic history. The writer is told which recent Reels did best and worst, and leans toward what worked. | always on |
-| **Hook test** | The director writes a second on-screen hook (`title_b`). That version is rendered too and posted as an Instagram **trial Reel**, which is shown to non-followers first and shared with followers if it does well. | `HOOK_TEST=true` |
+| **Hook test** | The director writes a second on-screen hook (`title_b`). That version is rendered too and posted as an Instagram **trial Reel** (`graduation_strategy` SS_PERFORMANCE), which is shown to non-followers first and shared with followers if it does well. Instagram offers trial Reels from 1,000 followers, so the follower count is checked first and the trial is skipped below that. | `HOOK_TEST=true` |
 | **Carousel** | 5 portrait slides from every Reel (the hook, three beats and the lesson) are posted as an Instagram carousel, which earns the most saves. The images are hosted for 2 days by the bot's Worker (Workers KV, free). | `CAROUSEL=true` |
 | **Weekly compilation** | Every Sunday at 19:00 IST, the week's posted Reels are joined into "इस हफ्ते की N सीख" with an intro, an outro and YouTube chapters. It arrives in Telegram with a ✅ Post to YouTube button. | needs 3+ posted Reels |
 | **Facebook Reels** | Each Reel is also posted to your Facebook Page. | `FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_TOKEN` |
@@ -226,8 +240,9 @@ A Reel takes about 6–8 minutes, including installing everything.
 | `REEL_HANDLE` | The channel handle shown on the Reel, e.g. `@stick.seekh` |
 | `DAILY_REEL` | `true` makes a Reel every day at 09:00 IST |
 | `AUTO_POST` | `true` posts every Reel without waiting for ✅ Post |
-| `POST_AT_PEAK` | `true` posts at the learned best time instead of at once |
-| `HOOK_TEST` | `true` also posts a second-hook version as an Instagram trial Reel |
+| `POST_AT_PEAK` | `true` posts at the learned best time instead of at once (19:00–21:00 IST until it has learned one) |
+| `HOOK_TEST` | `true` also posts a second-hook version as an Instagram trial Reel (from 1,000 followers) |
+| `AI_LABEL` | Instagram's AI info label: on for Kahani Reels by default; `false` turns it off, `all` labels every Reel |
 | `CAROUSEL` | `true` also posts a 5-slide carousel of every Reel |
 | `YOUTUBE_PRIVACY` | `public` (default), `unlisted` or `private` |
 | `REEL_AUDIENCE` | `family` writes comic Reels for families (a recurring kid, kid-world jokes); `kids` also marks YouTube uploads "made for kids"; empty or `adult` keeps adult rants. The bot's ⚙️ Settings switch sets `family` or `adult` |
@@ -268,7 +283,9 @@ python -m unittest discover -s tests -t .
 | `reel/build.py` | Writes each Reel's `props.json`: segments, word times, music |
 | `reel/publish.py` | Instagram (resumable upload) and YouTube Shorts posting, with a receipt so nothing is posted twice |
 | `reel/report.py` | The weekly numbers |
-| `reel/growth.py` | Best posting time, learning from scores, ideas from comments and trends, Instagram token renewal |
+| `reel/growth.py` | Best posting time, learning from scores and Instagram insights (24 h / 72 h / 7 d), ideas from comments and trends, Instagram token renewal |
+| `reel/reach.py` | Send-worthy endings (who to send it to), keyword captions and the "Part N" label |
+| `reel/quality.py` | The quality check and the Instagram lint (size, bars, length, caption share, re-upload hash) |
 | `reel/occasions.py` | Festivals, special days and seasons, and which one is due |
 | `reel/carousel.py` | Carousel slides and the weekly compilation |
 | `reel/media.py` | 2-day public links for carousel images (Workers KV, served by the bot) |
