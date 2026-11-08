@@ -36,8 +36,8 @@ class ReachTextsTest(unittest.TestCase):
 
     def test_hashtags_are_few_and_unique(self):
         tags = publish.hashtag_list(dict(STORY, hashtags=['#LifeLessons', '#life_lessons', '#a', '#b', '#c', '#d', '#e']))
-        self.assertEqual(len(tags), 6)
-        self.assertEqual(len({t.lower().replace('_', '') for t in tags}), 6)
+        self.assertEqual(len(tags), 5)
+        self.assertEqual(len({t.lower().replace('_', '') for t in tags}), 5)
 
     def test_upload_is_not_for_kids_and_not_synthetic(self):
         sent = {}
