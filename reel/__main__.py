@@ -50,7 +50,7 @@ def stories(args):
         return
     if args.style == 'comic' and not args.series:
         for _ in range(args.count):
-            yield comic.write(args.topic, theme=args.theme, source=args.source)
+            yield comic.write(args.topic, theme=args.theme, source=args.source, audience=getattr(args, 'audience', 'adult'))
         return
     if args.series:
         first = script.write(args.topic, part='1/2', theme=args.theme, source=args.source)
@@ -63,8 +63,15 @@ def stories(args):
         yield script.write(args.topic, theme=args.theme, source=args.source)
 
 
+AUDIENCES = ('kids', 'family', 'adult')
 OPTIONS = {'theme': tuple(script.THEMES), 'source': script.SOURCES, 'voice': ('male', 'female'), 'music': ('auto', 'warm', 'tense', 'off'),
-           'style': script.STYLES}
+           'style': script.STYLES, 'audience': AUDIENCES, 'engine': ('svg', 'three')}
+
+
+def audience_of(chosen):
+    """Who comic jokes are for: the bot's choice, else REEL_AUDIENCE (the bot's 👨‍👩‍👧 switch), else adult."""
+    usual = os.getenv('REEL_AUDIENCE', '').strip().lower()
+    return chosen.get('audience') or (usual if usual in AUDIENCES else 'adult')
 
 
 def style_of(chosen):
@@ -164,7 +171,7 @@ def main(argv=None):
     make_cmd.add_argument('--silent', action='store_true', help='skip the narration (timing from word counts)')
     make_cmd.add_argument('--no-music', action='store_true', help='leave out the music bed')
     make_cmd.add_argument('--options', default='', help='the bot\'s choices: theme=<%s> source=<random|ideas|occasion> '
-                          'voice=<male|female> music=<auto|warm|tense|off> style=<story|comic>' % '|'.join(script.THEMES))
+                          'voice=<male|female> music=<auto|warm|tense|off> style=<story|comic> audience=<kids|family|adult> engine=<svg|three>' % '|'.join(script.THEMES))
     make_cmd.add_argument('--out', type=Path, default=ROOT / 'out')
     make_cmd.add_argument('--public', type=Path, default=ROOT / 'remotion' / 'public')
     send = commands.add_parser('send', help='send a rendered Reel (and its cover) to Telegram')
@@ -208,6 +215,9 @@ def main(argv=None):
         chosen = parse_options(args.options)
         args.theme, args.source, args.music = chosen.get('theme', ''), chosen.get('source', ''), chosen.get('music', 'auto')
         args.style = style_of(chosen)
+        args.audience = audience_of(chosen)
+        if chosen.get('engine'):
+            os.environ['REEL_ENGINE'] = chosen['engine']  # this run only: the 3D rooms (or the flat ones)
         if args.style == 'comic' and args.series:
             print('Two-part stories are story Reels; making a story series')
         if args.music == 'off':
@@ -267,7 +277,11 @@ def main(argv=None):
         telegram.send_message(report.weekly())
     elif args.command == 'topic':
         story = json.loads((args.folder / 'script.json').read_text(encoding='utf-8'))
-        print(story.get('style', 'story') if args.style else story['topic'])
+        if args.style:
+            audience = story.get('audience')
+            print(story.get('style', 'story') + (f' audience={audience}' if story.get('style') == 'comic' and audience else ''))
+        else:
+            print(story['topic'])
     else:
         story = json.loads((args.folder / 'script.json').read_text(encoding='utf-8'))
         record_path = args.folder / 'voice-record.json'

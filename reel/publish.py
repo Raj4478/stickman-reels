@@ -201,9 +201,11 @@ def youtube_upload(video, story, ctx=None, title=None, description=None, shorts=
     at = ctx.get('publish_at') if privacy == 'public' else None
     body = {'snippet': {'title': title or meta['title'], 'description': description or meta['description'], 'tags': meta['tags'],
                         'categoryId': '22', 'defaultLanguage': 'hi', 'defaultAudioLanguage': 'hi'},
-            # Not for kids (comments, notifications and full reach stay on); clearly animated with a clearly synthetic
-            # voice, so not "altered or synthetic" realistic content under YouTube's disclosure rule.
-            'status': {'privacyStatus': 'private' if at else privacy, 'selfDeclaredMadeForKids': False, 'embeddable': True,
+            # Made for kids only when the Reel was written for the kids audience (COPPA: comments and personalised ads
+            # turn off). Family and adult Reels are general-audience. Clearly animated with a clearly synthetic voice,
+            # so not "altered or synthetic" realistic content under YouTube's disclosure rule.
+            'status': {'privacyStatus': 'private' if at else privacy,
+                       'selfDeclaredMadeForKids': story.get('audience') == 'kids', 'embeddable': True,
                        'containsSyntheticMedia': False,
                        **({'publishAt': at.strftime('%Y-%m-%dT%H:%M:%SZ')} if at else {})}}
     size = video.stat().st_size

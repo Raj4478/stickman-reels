@@ -14,3 +14,13 @@ The camera, acting, audio and QA rules in `remotion/src/comic/ComicReel.tsx`, `r
 [mromidev/claude-animated-shorts](https://github.com/mromidev/claude-animated-shorts) (MIT, Copyright (c) 2026 Mr omi).
 No code or images were copied; the formulas (smootherstep glide, sign-flipping impact kick, word-keyed ducking) are
 re-implemented here.
+
+## three.js, React Three Fiber and @remotion/three (the 3D engine, REEL_ENGINE=three)
+
+- [three.js](https://github.com/mrdoob/three.js) 0.169, MIT.
+- [React Three Fiber](https://github.com/pmndrs/react-three-fiber) 8, MIT.
+- [@remotion/three](https://www.remotion.dev/docs/three), under the same Remotion licence as the rest of the template.
+
+The 2.5D design in `remotion/src/three/` (flat characters in a toon-shaded 3D room, smootherstep camera glides, a
+dolly zoom, unlit signs, the plum ink) follows Mr Omi's notes in claude-animated-shorts (MIT, see above); the code
+is new.

@@ -83,6 +83,20 @@ the channel's own character, not any TV cartoon, so nothing is copied.
 - **The voice:** Gemini reads it like a real, cheeky person talking to a friend: lively and playful, mock-dramatic where it's funny, dry on the deadpan lines, and a grin in the voice on the punchline. It uses its casual voices (`Zubenelgenubi`, or `Callirrhoe` for a girl; `REEL_VOICE` overrides). The Edge backup keeps its natural pitch, only a little faster.
 - **The ending:** the question for the comments, then Like, Subscribe, Follow and Share.
 
+### 👨‍👩‍👧 Who the jokes are for: `audience`
+
+| Audience | What changes |
+| --- | --- |
+| `adult` (the default) | today's rants about adult life: salary, the boss, the gym, the WiFi |
+| `family` (recommended) | a recurring kid (गोलू, or पिंकी with the female voice) with a catchphrase, kid-world situations from [`kids_topics.txt`](kids_topics.txt) that kids *and* parents enjoy, the rule of three, a callback twist, big readable faces, sound words, a brighter voice and music, and a kid-safety check |
+| `kids` | the same, made **for** children: YouTube marks it "made for kids" (comments, the bell and personalised ads turn off), so the closing question becomes the catchphrase with a wink |
+
+- Pick it per Reel with `audience=family` in the options, or switch **👨‍👩‍👧 Family comedy** on in the bot's ⚙️ Settings (the `REEL_AUDIENCE` variable). `kids` is a legal declaration, so it's only set by hand (`REEL_AUDIENCE=kids`).
+- **Best of two:** every comic Reel (any audience) is now written twice; a Gemini "test audience" (an 8-year-old, a parent and a kids' comedy writer) scores both on laughs, surprise, clarity, picture and safety, the funnier one goes to the editor with the judges' one suggested fix, and for kids and family a draft that isn't safe to show a child is never picked. `COMIC_DRAFTS=1` switches it off (2 text calls a Reel instead of 4).
+- **Safety nets:** a list of things a child could copy and get hurt by (matches, gas, sockets, medicines, heights, knives, roads, locking someone in), the judge's safety score, and the visual check, which also looks for anything mean or scary in family Reels.
+- **New on screen:** faces *giggle*, *sneaky*, *proud* and *dizzy* (spiral eyes); gestures *hide* (peeking through the fingers), *jump*, *eat* and *sneak*; दादी and दीदी join मम्मी, पापा and सर; and the *oops* cutaway, a full-screen sound word ("धड़ाम!") on a starburst. Cartoon sounds (slide whistle, squeaky toy, tiptoes, sparkle) and a bouncier kids music bed.
+- **Funnier for every audience:** the comedy rules now ask for the rule of three, a callback to the setup, one picture per joke and a hook whose first three words say the situation; story Reels get a "wait, why?" mystery beat and a lesson that calls back to the hook.
+
 **Make one:**
 - **From Telegram:** tap **😂 Comic Reel now**, use **😂 Make it comic instead** on the last step of the menu, or send `/comic` (or `/comic gym membership`).
 - **Always:** switch on **😂 Comic style by default** in ⚙️ Settings, which sets `REEL_STYLE=comic`. The daily Reel and plain `/reel` are then comic too.
@@ -180,6 +194,10 @@ A Reel takes about 6–8 minutes, including installing everything.
 | `HOOK_TEST` | `true` also posts a second-hook version as an Instagram trial Reel |
 | `CAROUSEL` | `true` also posts a 5-slide carousel of every Reel |
 | `YOUTUBE_PRIVACY` | `public` (default), `unlisted` or `private` |
+| `REEL_AUDIENCE` | `family` writes comic Reels for families (a recurring kid, kid-world jokes); `kids` also marks YouTube uploads "made for kids"; empty or `adult` keeps adult rants. The bot's ⚙️ Settings switch sets `family` or `adult` |
+| `COMIC_DRAFTS` | How many comic drafts the test-audience judge picks from, `1`-`3` (default `2`; `1` switches the judge off) |
+| `KID_NAME`, `KID_NAME_GIRL`, `KID_CATCHPHRASE` | The recurring kid of family and kids Reels (default गोलू, पिंकी and "प्लान तो मेरा फुल-प्रूफ था!") |
+| `REEL_ENGINE` | `three` draws comic Reels' rooms in 3D (three.js): a toon-shaded room with real perspective, light, shadows and depth of field, real 3/4, low and high angles and a dolly zoom on a shock, with the same SVG kid placed by the same camera. Rendered on the CPU on GitHub Actions (slower: the run's notice shows the time); empty or `svg` keeps the flat rooms |
 | `REEL_INK` | `plum` tries Mr Omi's softer plum ink (#241726) on comic Reels instead of near-black, as an A/B test |
 | `LOVE_SHARE` | The share of Reels without a chosen topic that are love stories, from `0` to `1` (default `0.4`) |
 | `REEL_STYLE` | `comic` makes comic Reels by default (the bot's 😂 switch); `story` or empty for stick-figure stories |

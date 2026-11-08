@@ -60,7 +60,7 @@ def build(script, out, public, narrate=True, music=True, prefix=''):
     if narrate:
         try:
             record = voice.synthesize(scripts.spoken_turns(script), out, script.get('other_voice', 'friend'),
-                                      style=script.get('style', 'story'))
+                                      style=script.get('style', 'story'), audience=script.get('audience', 'adult'))
             if record.get('starts'):  # the Edge backup knows exactly where each line starts
                 starts, speech_end = record.pop('starts'), record.pop('speech_end')
             else:
@@ -89,6 +89,8 @@ def build(script, out, public, narrate=True, music=True, prefix=''):
                      cover_text=script.get('cover_text', ''), audience=script.get('audience', 'adult'))
         if os.getenv('REEL_INK', '').strip().lower() == 'plum':
             props['ink'] = 'plum'  # the plum ink A/B test
+        engine = os.getenv('REEL_ENGINE', '').strip().lower()
+        props['engine'] = engine if engine in ('svg', 'three') else 'svg'  # three: the 2.5D three.js rooms
     props['duration'] = props['segments'][-1]['end']
     if audio:
         props['visemes'] = voice.visemes(props['segments'], props['duration'])

@@ -53,7 +53,7 @@ jobs:
   reel:
     if: github.event_name != 'schedule' || vars.DAILY_REEL == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 75  # a cap: a flat Reel takes ~8 minutes; the 3D engine renders WebGL on the CPU and takes longer
     steps:
       - uses: actions/checkout@v7
         with:
@@ -106,6 +106,12 @@ jobs:
           LOVE_SHARE: ${{ vars.LOVE_SHARE }}
           REEL_STYLE: ${{ vars.REEL_STYLE }}
           REEL_INK: ${{ vars.REEL_INK }}
+          REEL_ENGINE: ${{ vars.REEL_ENGINE }}
+          REEL_AUDIENCE: ${{ vars.REEL_AUDIENCE }}
+          COMIC_DRAFTS: ${{ vars.COMIC_DRAFTS }}
+          KID_NAME: ${{ vars.KID_NAME }}
+          KID_NAME_GIRL: ${{ vars.KID_NAME_GIRL }}
+          KID_CATCHPHRASE: ${{ vars.KID_CATCHPHRASE }}
           OPTIONS: ${{ inputs.options }}
           HOOK_TEST: ${{ vars.HOOK_TEST }}
           GH_TOKEN: ${{ github.token }}
@@ -154,18 +160,21 @@ jobs:
           }
           for n in $(cat ../out/reels.txt); do
             t0=$(date +%s)
+            # the 3D engine (props "engine": "three") needs WebGL; the runner has no GPU, so Chrome renders it on the CPU
+            GL=""; ENGINE=svg
+            if grep -q '"engine": "three"' "public/reels/$n/props.json"; then GL="--gl=swangle"; ENGINE=three; fi
             # CRF 14: a near-lossless intermediate, so the video is compressed only once at a lossy setting
-            npx remotion render src/index.ts StickReel "out/reel-$n.mp4" --props="public/reels/$n/props.json" --crf=14
+            npx remotion render src/index.ts StickReel "out/reel-$n.mp4" --props="public/reels/$n/props.json" --crf=14 $GL
             master "out/reel-$n.mp4"
-            echo "::notice::Reel $n rendered and mastered in $(( $(date +%s) - t0 ))s"
+            echo "::notice::Reel $n rendered and mastered in $(( $(date +%s) - t0 ))s (engine $ENGINE)"
             if grep -q '"style": "comic"' "public/reels/$n/props.json"; then
-              npx remotion still src/index.ts ComicCover "../out/$n/cover.jpg" --props="public/reels/$n/props.json" --image-format=jpeg --jpeg-quality=92
+              npx remotion still src/index.ts ComicCover "../out/$n/cover.jpg" --props="public/reels/$n/props.json" --image-format=jpeg --jpeg-quality=92 $GL
             else
               npx remotion still src/index.ts StickReel "../out/$n/cover.jpg" --props="public/reels/$n/props.json" --frame=20 --image-format=jpeg
             fi
             # HOOK_TEST: the same Reel with the second on-screen hook, posted as an Instagram trial Reel
             if [ -f "public/reels/$n/props-b.json" ]; then
-              npx remotion render src/index.ts StickReel "out/reel-$n-b.mp4" --props="public/reels/$n/props-b.json" --crf=14
+              npx remotion render src/index.ts StickReel "out/reel-$n-b.mp4" --props="public/reels/$n/props-b.json" --crf=14 $GL
               master "out/reel-$n-b.mp4"
             fi
           done

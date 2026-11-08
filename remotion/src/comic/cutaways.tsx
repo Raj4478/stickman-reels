@@ -280,6 +280,26 @@ const Result: React.FC<{ text: string; f: number }> = ({ text, f }) => {
   );
 };
 
+// A comic sound word ("धड़ाम!") on a yellow starburst, slammed in and wobbling
+const Oops: React.FC<{ text: string; f: number }> = ({ text, f }) => {
+  const s = interpolate(f, [0, 4, 8], [0.3, 1.15, 1], clamp);
+  const n = 18;
+  const d = Array.from({ length: n * 2 }, (_, k) => {
+    const a = (k / (n * 2)) * Math.PI * 2;
+    const r = k % 2 ? 300 : 430;
+    return `${k ? "L" : "M"}${540 + Math.cos(a) * r},${800 + Math.sin(a) * r * 1.1}`;
+  }).join(" ") + " Z";
+  return (
+    <g>
+      <rect x={-100} y={-100} width={1280} height={2120} fill="#ffd43b" />
+      <g transform={`translate(540 800) scale(${s}) rotate(${Math.sin(f * 0.5) * 3}) translate(-540 -800)`}>
+        <path d={d} fill="#fff" {...O} strokeWidth={12} />
+        <T x={540} y={850} size={text.length > 6 ? 130 : 170} color="#e03131">{text}</T>
+      </g>
+    </g>
+  );
+};
+
 export const Cutaway: React.FC<{ name: string; text: string; screen?: string; f: number; dur: number }> = ({ name, text, screen = "music", f, dur }) => {
   switch (name) {
     case "screen":
@@ -296,6 +316,8 @@ export const Cutaway: React.FC<{ name: string; text: string; screen?: string; f:
       return <Chat text={text} f={f} />;
     case "result":
       return <Result text={text} f={f} />;
+    case "oops":
+      return <Oops text={text} f={f} />;
     default:
       return null;
   }
@@ -310,4 +332,5 @@ export const CUTAWAY_SOUND: Record<string, [number, string, number][]> = {
   clock: [[0, "tick", 0.4], [8, "tick", 0.4]],
   chat: [[4, "pop", 0.45], [26, "pop", 0.55]],
   result: [[8, "thud", 0.5]],
+  oops: [[0, "thud", 0.6], [3, "boing", 0.3]],
 };

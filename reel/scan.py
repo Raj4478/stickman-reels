@@ -45,7 +45,7 @@ def planned_cuts(props, fps=30):
             words = seg.get('words') or []
             out.append(round(words[max(0, len(words) - 3)] * fps) if words else start + round((round(seg['end'] * fps) - start) * 0.6))
             continue
-        if seg['kind'] == 'ask':
+        if seg['kind'] == 'ask' or seg.get('visual') == 'dream':
             continue
         dur, every = round(seg['end'] * fps) - start, 2 * fps
         marks = [round((t - seg['start']) * fps) for t in seg.get('words') or []] or [(k + 1) * every for k in range(dur // every)]

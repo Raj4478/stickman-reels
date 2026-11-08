@@ -223,6 +223,10 @@ bus, a phone call). Many short beats, each with its own action and place or shot
   flash (a shock or a sudden memory).
 - hook_action: the most dramatic action of the story; it is shown while the hook is spoken.
 - lesson: the takeaway in one short memorable line (it closes the Reel on screen).
+- Mystery beat: one beat just before the turning point makes the viewer ask "wait, why?" (a strange detail, an
+  unexpected reaction); the next beat answers it.
+- Callback: the lesson reuses a word or image from the hook, so the ending clicks with the beginning (the last
+  line turns the first one around).
 - ask: one question that viewers can answer in the comments.
 - music: warm (most stories) or tense (anger, fear, conflict-heavy stories).
 - instagram_caption: 2-3 short Hindi lines; hashtags: up to 8, mixing Hindi and English tags.
@@ -258,7 +262,9 @@ Do all of this:
 6. Keep the lesson, ask, caption and hashtags unless they are weak; never add Roman script to spoken lines.
 7. First person: the hero ({hero}) tells their own story. Rewrite any narration or hook that talks about the hero
    in the third person ("उसने", "वह", the hero's name) into first person (मैंने, मैं, मेरा), with {forms} verb
-   forms."""
+   forms.
+8. Check the ending: the lesson must call back to the hook (a word, a number, an object). If it doesn't, rewrite
+   the lesson so it does, keeping it at most 12 words."""
 
 
 def history_path():
