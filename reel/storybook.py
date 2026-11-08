@@ -18,7 +18,7 @@ import json
 import random
 import re
 
-from . import gemini
+from . import gemini, reach
 from .hinglish import aligned
 from . import script as stories
 
@@ -31,6 +31,8 @@ SERIES = {
     'dil': 'Dil ki baat',
     'insaniyat': 'Insaniyat zinda hai',
 }
+# Who a story of each series is usually sent to, when the writer did not say (reel/reach.py)
+SERIES_SEND = {'samaaj': 'dost', 'rishte': 'behen', 'zindagi': 'dost', 'maa_baap': 'maa', 'dil': 'best_friend', 'insaniyat': 'dost'}
 SHOTS = {
     'wide': 'a wide establishing view of the whole place, people small in the scene',
     'medium': 'a medium shot, people from the knees up, the place around them',
@@ -95,9 +97,14 @@ SCHEMA = {
                                                         'story without giving the twist away'},
         'instagram_caption': {'type': 'string', 'description': 'Hindi Instagram caption, 2-3 short lines'},
         'hashtags': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 8},
+        'send_target': {'type': 'string', 'enum': list(reach.SEND_TARGETS),
+                        'description': 'Who a viewer would send this Reel to'},
+        'end_line': {'type': 'string', 'description': 'Roman Hinglish, at most 7 words: "Ye video apni Maa ko bhejo"'},
+        'keyword_roman': {'type': 'string', 'description': 'The 2-4 word search phrase in Roman Hinglish ("Maa ki kahani")'},
+        'keyword_hindi': {'type': 'string', 'description': 'The same search phrase in Devanagari ("माँ की कहानी")'},
     },
     'required': ['topic', 'title', 'series', 'setting', 'characters', 'hook', 'beats', 'moral', 'ask', 'ask_roman',
-                 'cover_text', 'instagram_caption', 'hashtags'],
+                 'cover_text', 'instagram_caption', 'hashtags', 'send_target', 'end_line', 'keyword_roman', 'keyword_hindi'],
 }
 
 STORY_RULES = """Story rules (what makes illustrated moral-story Reels get watched to the end and shared in India):
@@ -143,7 +150,8 @@ long). Each line is 5-10 words, and every word must count.
 - series: the series strip ({series}); cover_text: 2-4 Roman words that tease the story.
 - ask: a short question for the comments; ask_roman: the same in Roman Hinglish.
 - instagram_caption: 2-3 short Hindi lines; hashtags: up to 8, Hindi and English.
-{avoid}"""
+{send}
+{series_note}{avoid}"""
 
 EDITOR = """You are the story editor of a Hindi illustrated-story Reels channel. Make this story more moving and
 more watchable to the end, then return the full script in the same JSON shape.
@@ -160,7 +168,29 @@ Do all of this:
 4. roman must be exactly one Roman word for each Hindi word of line, same order, same count.
 5. Every image prompt starts with its specific spot, names the people by id, says what they do, the light and
    the feeling, and fits the line before it. Each character keeps exactly the look in the bible.
-6. Never copy a known story, film or viral video."""
+6. Never copy a known story, film or viral video.
+7. The story must make the viewer think of one person they would send it to (send_target); end_line asks them
+   to send it to that person in at most 7 Roman words, never to comment, like or follow.{series_note}"""
+
+# A two-part Kahani: part 1 stops on a cliffhanger, part 2 continues with the same people (and the same looks)
+PART_ONE = """
+- This is PART 1 of a 2-part story. Tell only the first half: the last beat leaves the viewer desperate to know
+  what happens, and the "moral" line is the cliffhanger itself, not a lesson ("पर उस रात दरवाज़े पर कौन था?").
+  ask: tease part 2 ("भाग 2 में देखिए आगे क्या हुआ।"); end_line still asks to send it to the person.
+"""
+PART_TWO = """
+- This is PART 2 of a 2-part story. Part 1 was: {previous}
+  Use EXACTLY the same characters (same ids, names and looks) and the same setting. The hook reminds viewers of the
+  cliffhanger in a few words, then the story turns and ends warmly, and the moral line closes both parts.
+"""
+
+
+def series_note(part, previous=None):
+    if part == '1/2':
+        return PART_ONE
+    if part == '2/2':
+        return PART_TWO.format(previous=json.dumps(previous or {}, ensure_ascii=False))
+    return ''
 
 
 def short(text, limit):
@@ -217,9 +247,12 @@ def clean(raw):
         'lesson': moral['line'], **{f'lesson_{k}': moral[k] for k in ('roman', 'image', 'image_b', 'fx', 'cast', 'shot')},
         'ask': short(raw.get('ask'), 110), 'ask_roman': aligned(short(raw.get('ask'), 110), roman_of(raw.get('ask_roman'))),
         'cover_text': roman_of(raw.get('cover_text'), 30),
-        'music': 'warm', 'other_voice': 'friend', 'part': '', 'title_b': '',
+        'music': 'warm', 'other_voice': 'friend', 'part': str(raw.get('part') or '') if raw.get('part') in ('1/2', '2/2') else '',
+        'title_b': '',
         'instagram_caption': str(raw.get('instagram_caption') or '').strip()[:1500],
     }
+    script['send_target'], script['end_line'] = reach.clean_send(raw, fallback=SERIES_SEND.get(script['series'], 'dost'))
+    script['keyword_roman'], script['keyword_hindi'] = reach.clean_keyword(raw, script['send_target'])
     if not stories.DEVANAGARI.search(script['title']):
         script['title'] = short(hook['line'], LIMITS['title'])
     if not stories.DEVANAGARI.search(script['ask']):
@@ -229,33 +262,57 @@ def clean(raw):
     return script
 
 
-def write(topic=None, theme='', source=''):
+def summary(script):
+    """What part 2's writer needs to know about part 1: the people (with their looks), the world and the story so far."""
+    return {'title': script['title'], 'topic': script['topic'], 'series': script['series'], 'setting': script.get('setting', ''),
+            'characters': script.get('characters', []), 'hook': script['hook'],
+            'beats': [s['line'] for s in script['scenes']], 'cliffhanger': script['lesson']}
+
+
+def same_people(script, previous):
+    """Part 2 keeps part 1's looks (and setting), so every picture of both parts shows the same people."""
+    looks = {c['id']: c for c in (previous or {}).get('characters', [])}
+    script['characters'] = [{**c, 'look': looks[c['id']]['look']} if c['id'] in looks else c for c in script['characters']]
+    if previous and previous.get('setting'):
+        script['setting'] = previous['setting']
+    if previous and previous.get('series') in SERIES:
+        script['series'] = previous['series']
+    return script
+
+
+def write(topic=None, theme='', source='', part='', previous=None):
     from . import growth
-    topic, _ = stories.choose_topic(topic, theme, source)
+    topic, _ = stories.choose_topic(topic, theme, source, part)
+    topic = topic or (previous or {}).get('topic', '')
     recent = [h.get('title') for h in stories.history()[-15:] if h.get('title')]
     n = random.choice((6, 7, 8))
+    note = series_note(part, previous)
     prompt = WRITER.format(topic=topic, beats=n, rules=STORY_RULES, fx=', '.join(f'{k} ({v})' for k, v in FX.items()), shots=', '.join(f'{k} ({v})' for k, v in SHOTS.items()),
-                           series=', '.join(f'{k} = "{v}"' for k, v in SERIES.items()),
+                           series=', '.join(f'{k} = "{v}"' for k, v in SERIES.items()), send=reach.rules(), series_note=note,
                            avoid='\n'.join(x for x in (f'- Do not repeat these recent titles or their story: {", ".join(recent)}'
-                                                       if recent else '', growth.lessons_learned()) if x))
+                                                       if recent and part != '2/2' else '', growth.lessons_learned()) if x))
     last = None
     for _ in range(2):
         draft, model = gemini.json_call(prompt, SCHEMA, temperature=1.0)
         try:
-            drafted = clean(draft)
+            drafted = clean(dict(draft, part=part))
         except ValueError as exc:
             last = exc
             print(f'Draft rejected ({exc}); asking again')
             continue
         try:
             edited, _ = gemini.json_call(EDITOR.format(draft=json.dumps(draft, ensure_ascii=False, indent=1), rules=STORY_RULES,
-                                                       beats_min=5, beats_max=10), SCHEMA, temperature=0.6)
-            script = clean(edited)
+                                                       beats_min=5, beats_max=10, series_note=note), SCHEMA, temperature=0.6)
+            script = clean(dict(edited, part=part))
             script['directed'] = True
         except (ValueError, gemini.GeminiError) as exc:
             print(f'Story edit skipped ({exc}); using the draft')
             script, script['directed'] = drafted, False
         script.update(model=model, hero='boy')
         script['topic'] = script['topic'] or topic
+        if part == '2/2':
+            same_people(script, previous)
+            if previous and previous.get('title'):
+                script['title'] = previous['title']  # both parts carry one title; "Part 1/2" and "Part 2/2" tell them apart
         return script
     raise ValueError(f'Gemini could not write a usable storybook script: {last}')

@@ -1,5 +1,6 @@
 """Weekly numbers for the stickman channel: views, likes, saves, shares and comments of the last 7 days on
-Instagram and YouTube, the best Reels, and which topics did best, sent to Telegram.
+Instagram and YouTube, the best Reels, and which topics did best, sent to Telegram. The Instagram section adds
+shares, likes and saves per person reached, watch time and skip rate by style, series and hook (reel/growth.py).
 
 Each platform is skipped (with a note) when its secrets are not set or the token cannot read statistics.
 """
@@ -34,7 +35,7 @@ def instagram(start):
             stats.update({i['name']: (i.get('values') or [{}])[0].get('value', i.get('total_value', {}).get('value', 0)) for i in insights})
         except publish.PublishError:
             pass  # insights need a professional account and a day or two of data
-        items.append({'title': (m.get('caption') or '').split('\n')[0][:60], 'url': m.get('permalink', ''), 'posted_at': when(m['timestamp']),
+        items.append({'title': (m.get('caption') or '').split('\n')[0][:90], 'url': m.get('permalink', ''), 'posted_at': when(m['timestamp']),
                       'views': stats.get('views', 0), 'likes': stats['likes'], 'comments': stats['comments'],
                       'saves': stats.get('saved', 0), 'shares': stats.get('shares', 0)})
     return items
@@ -72,7 +73,7 @@ def score(item):
     return int(item['views']) + 10 * int(item['likes']) + 20 * int(item['comments']) + 40 * (int(item['saves']) + int(item['shares']))
 
 
-def message(platforms, notes, now=None):
+def message(platforms, notes, now=None, extra=''):
     end = (now or dt.datetime.now(dt.timezone.utc)) + dt.timedelta(minutes=330)
     lines = [f"📊 Stickman Reels: last {DAYS} days (to {end:%d %b})"]
     best = []
@@ -87,6 +88,8 @@ def message(platforms, notes, now=None):
         for _, name, item in best[:3]:
             lines.append(f"• {item['title']} ({name}, 👁 {int(item['views']):,}, ❤️ {item['likes']})\n  {item['url']}")
         lines.append('\nTip: make more Reels like the top one (same kind of lesson and hook). Shares and saves matter most.')
+    if extra:
+        lines.append(extra)
     lines += [f'\nℹ️ {n}' for n in notes]
     return '\n'.join(lines)
 
@@ -95,7 +98,12 @@ def weekly():
     start = since()
     platforms, notes = {}, []
     names = publish.configured()
+    from . import growth
     if 'instagram' in names:
+        try:
+            growth.snapshot()  # catch up on any 24 h / 72 h / 7 d insights the daily run missed
+        except (publish.PublishError, urllib.error.URLError, KeyError, ValueError) as exc:
+            notes.append(f'Instagram insights unavailable: {exc}')
         try:
             platforms['Instagram'] = (instagram(start), '')
         except (publish.PublishError, urllib.error.URLError, KeyError) as exc:
@@ -113,9 +121,10 @@ def weekly():
             notes.append(f'YouTube numbers unavailable: {exc}')
     else:
         notes.append('YouTube is not connected yet (YOUTUBE_ secrets).')
-    from . import growth
     scored = [{**i, 'score': score(i)} for items, _ in platforms.values() for i in items]
     if scored:
         growth.record_scores(scored)  # teaches the writer and the best-time picker (saved in the topic history)
-        notes.append(f'Best posting time so far: {growth.best_slot()}:00 IST')
-    return message(platforms, notes)
+        learned = growth.learned_slot()
+        notes.append(f'Best posting time so far: {learned}:00 IST' if learned is not None else
+                     'Best posting time: not learned yet, so Reels go out 7-9 pm IST. Aim for 3-5 Reels a week.')
+    return message(platforms, notes, extra=growth.insights_message())

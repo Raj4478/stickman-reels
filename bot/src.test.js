@@ -162,7 +162,8 @@ test('comic style: quick button, switch, inputs, /comic and the usual-style sett
   const back = route('', flip.callback_data);
   assert.deepEqual([back.menu, back.st.style], ['k', 'c']);
   assert.ok(screen('k', back.st).keys.flat().some((b) => b.text.includes('story')));
-  assert.ok(!screen('k', { src: 'r', count: 's' }).keys.flat().some((b) => b.text.includes('comic')), 'a series is always a story');
+  assert.ok(!screen('k', { src: 'r', count: 's' }).keys.flat().some((b) => b.text.includes('comic')), 'a series is never comic');
+  assert.ok(screen('k', { src: 'r', count: 's' }).keys.flat().some((b) => b.text.includes('Kahani')), 'a series may be a painted Kahani');
   assert.match(summary(back.st), /Comic/);
   assert.deepEqual(route('/comic').inputs, { options: 'style=comic' });
   assert.deepEqual(route('/comic@StickBot gym membership').inputs, { options: 'style=comic', topic: 'gym membership' });

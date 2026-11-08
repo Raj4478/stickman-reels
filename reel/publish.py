@@ -2,7 +2,9 @@
 each only when its secrets are set.
 
 Instagram: INSTAGRAM_ACCESS_TOKEN (long-lived, 60 days) and optionally INSTAGRAM_USER_ID. The video is sent
-with Instagram's resumable upload, so it needs no public hosting; the cover is the hook frame (thumb_offset).
+with Instagram's resumable upload, so it needs no public hosting. The cover is the rendered cover image
+(out/<n>/cover.jpg, hosted like carousel images, reel/media.py) when image hosting is set up, else the hook frame
+(thumb_offset). Kahani Reels (AI-painted pictures) carry Instagram's AI label (is_ai_generated; AI_LABEL).
 YouTube: YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET and YOUTUBE_REFRESH_TOKEN from tools/youtube_auth.py.
 
 Adapted from the infographic repo's publisher. A receipt (publish.json) records what went where, so a Reel is
@@ -16,6 +18,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
+
+from . import reach
 
 GRAPH = 'https://graph.instagram.com/v23.0'
 RUPLOAD = 'https://rupload.facebook.com/ig-api-upload/v23.0'
@@ -113,10 +117,15 @@ def hashtags(story):
     return ' '.join(hashtag_list(story))
 
 
+def opening(story):
+    """The caption's first lines: the hook with the search phrase (Roman Hinglish, English, Hindi), then who to send
+    it to ("👉 Ye video apni Maa ko bhejo"); both show above Instagram's "more"."""
+    return '\n'.join(x for x in (reach.first_line(story), reach.send_line(story)) if x)
+
+
 def copy_texts(story):
-    """What you paste when posting by hand: the caption (title, text, question) and the hashtags, separately."""
-    part = f" (भाग {story['part']})" if story.get('part') else ''
-    caption = '\n\n'.join(x for x in (story['title'] + part, story.get('instagram_caption') or story['lesson'], story.get('ask', '')) if x)
+    """What you paste when posting by hand: the caption (opening, text, question) and the hashtags, separately."""
+    caption = '\n\n'.join(x for x in (opening(story), story.get('instagram_caption') or story['lesson'], story.get('ask', '')) if x)
     return {'caption': caption, 'hashtags': hashtags(story)}
 
 
@@ -129,16 +138,16 @@ def texts(story):
     - tags: the story's tags plus the channel's keywords.
     """
     tags = hashtag_list(story)
-    part = f" (भाग {story['part']})" if story.get('part') else ''
+    part = reach.part_label(story)
     handle = os.getenv('REEL_HANDLE', '').strip()
-    caption = '\n\n'.join(x for x in (story['title'] + part, story.get('instagram_caption') or story['lesson'],
+    caption = '\n\n'.join(x for x in (opening(story), story.get('instagram_caption') or story['lesson'],
                                       story.get('ask', ''), ' '.join(tags)) if x)
     title = f"{story['title']}{part} | {COMIC_PHRASE if comic(story) else SEARCH_PHRASE}"
     title = (title if len(title) <= 80 else (story['title'] + part)[:80]) + ' #shorts'
     subscribe = ('🔔 रोज़ हँसी के लिए Subscribe करें' if comic(story) else '🔔 रोज़ एक नई सीख के लिए Subscribe करें') + (f' {handle}' if handle else '')
     ending = story['lesson'] if comic(story) else 'सीख: ' + story['lesson']  # a comic Reel ends on its punchline
-    description = '\n\n'.join(x for x in (story.get('hook', ''), story.get('instagram_caption') or '', ending,
-                                          story.get('ask', ''), subscribe, ' '.join(tags + ['#shorts'])) if x)
+    description = '\n\n'.join(x for x in (story.get('hook', ''), reach.send_line(story), story.get('instagram_caption') or '',
+                                          ending, story.get('ask', ''), subscribe, ' '.join(tags + ['#shorts'])) if x)
     keywords = [t.lstrip('#') for t in tags] + (['hindi comedy', 'cartoon comedy', 'desi comedy', 'funny cartoon', 'हिंदी कॉमेडी']
                                                 if comic(story) else ['stickman animation', 'hindi stories', 'life lessons', 'हिंदी कहानी', 'moral stories'])
     return {'caption': caption[:2200], 'title': title[:100], 'description': description[:4900],
@@ -305,15 +314,64 @@ def hold_until(ctx):
     return at
 
 
-def instagram_reel(video, story, ctx, trial=False):
-    """Upload a Reel (or a trial Reel, shown to non-followers first). Queued when ctx['publish_at'] is set."""
-    user = instagram_user()
-    fields = {'media_type': 'REELS', 'upload_type': 'resumable', 'caption': texts(story)['caption'], 'thumb_offset': str(COVER_MS)}
+def ai_label(story):
+    """Instagram's "AI info" label: on for Kahani Reels (AI-painted pictures) unless AI_LABEL=false; AI_LABEL=all
+    labels every Reel."""
+    setting = os.getenv('AI_LABEL', '').strip().lower()
+    if setting in ('false', 'off', 'no', '0'):
+        return False
+    return setting == 'all' or story.get('style') == 'storybook'
+
+
+def cover_url(ctx):
+    """A public link to the rendered cover (out/<n>/cover.jpg) for Instagram's cover_url, or '' (then the hook frame
+    is the cover). Hosted for 2 days like carousel images (reel/media.py)."""
+    from . import media
+    cover = Path(ctx.get('folder') or '.') / 'cover.jpg'
+    if not cover.exists() or not media.configured():
+        return ''
+    try:
+        return media.host([cover])[0]
+    except (media.MediaError, OSError, urllib.error.URLError) as exc:
+        print(f'Cover not hosted ({exc}); Instagram uses the hook frame')
+        return ''
+
+
+def reel_fields(story, ctx, trial=False):
+    """The container fields of a Reel: the caption, the cover, the AI label, feed sharing or the trial settings."""
+    fields = {'media_type': 'REELS', 'upload_type': 'resumable', 'caption': texts(story)['caption']}
+    cover = '' if trial else ctx.get('cover_url', '')  # the trial Reel shows hook B: its own hook frame is its cover
+    if cover:
+        fields['cover_url'] = cover
+    else:
+        fields['thumb_offset'] = str(COVER_MS)
+    if ai_label(story):
+        fields['is_ai_generated'] = 'true'
     if trial:
         fields['trial_params'] = json.dumps({'graduation_strategy': 'SS_PERFORMANCE'})
     else:
         fields['share_to_feed'] = 'true'
-    container = instagram_call(f'{user}/media', fields)['id']
+    return fields
+
+
+def instagram_reel(video, story, ctx, trial=False):
+    """Upload a Reel (or a trial Reel, shown to non-followers first). Queued when ctx['publish_at'] is set."""
+    user = instagram_user()
+    fields = reel_fields(story, ctx, trial)
+    container = None
+    while container is None:
+        try:
+            container = instagram_call(f'{user}/media', fields)['id']
+        except PublishError as exc:
+            # an invalid-parameter answer: drop the newer optional fields one by one (the AI label, then the cover
+            # image, which falls back to the hook frame) rather than not posting at all
+            optional = [k for k in ('is_ai_generated', 'cover_url') if k in fields]
+            if not optional or not ('(100/' in str(exc) or any(k in str(exc) for k in optional)):
+                raise
+            print(f'Instagram refused ({exc}); trying again without {optional[0]}')
+            fields.pop(optional[0])
+            if optional[0] == 'cover_url':
+                fields['thumb_offset'] = str(COVER_MS)
     data = video.read_bytes()
     try:
         request(f'{RUPLOAD}/{container}', data, {'Authorization': 'OAuth ' + os.environ['INSTAGRAM_ACCESS_TOKEN'].strip(),
@@ -329,7 +387,21 @@ def instagram_reel(video, story, ctx, trial=False):
 
 
 def instagram_upload(video, story, ctx=None):
-    return instagram_reel(video, story, ctx or {})
+    ctx = dict(ctx or {})
+    ctx.setdefault('cover_url', cover_url(ctx))
+    return instagram_reel(video, story, ctx)
+
+
+TRIAL_FOLLOWERS = 1000  # Instagram offers trial Reels from about 1,000 followers
+
+
+def followers():
+    """The account's follower count, or None when Instagram does not say."""
+    try:
+        count = instagram_call(instagram_user(), {'fields': 'followers_count'}, 'GET').get('followers_count')
+    except (PublishError, urllib.error.URLError, TimeoutError, OSError):
+        return None
+    return int(count) if str(count).isdigit() else None
 
 
 def instagram_trial_upload(video, story, ctx=None):
@@ -339,6 +411,9 @@ def instagram_trial_upload(video, story, ctx=None):
     video_b = ctx.get('video_b')
     if not video_b or not Path(video_b).exists():
         return {'status': 'skipped', 'note': 'no second hook version was rendered (set HOOK_TEST=true)'}
+    count = followers()
+    if count is not None and count < TRIAL_FOLLOWERS:
+        return {'status': 'skipped', 'note': f'trial Reels start at {TRIAL_FOLLOWERS:,} followers (the account has {count:,})'}
     try:
         return {**instagram_reel(Path(video_b), story, ctx, trial=True), 'hook': story.get('title_b', '')}
     except PublishError as exc:
@@ -479,4 +554,19 @@ def summary(story, receipt):
             lines.append(f"⏭ {NAMES[name]}: {result.get('note', 'skipped')}")
         else:
             lines.append(f"❌ {NAMES[name]}: {result.get('error', 'failed')}")
+    link = link_reminder(story, receipt)
+    if link:
+        lines += ['', link]
     return '\n'.join(lines)
+
+
+def link_reminder(story, receipt):
+    """Instagram has no API for "Link a Reel": a two-part story is linked by hand in the app."""
+    ig = receipt.get('platforms', {}).get('instagram', {})
+    if not story.get('part') or ig.get('status') != 'published':
+        return ''
+    if story['part'] == '1/2':
+        return ('🔗 Part 1 is live. When Part 2 is live too, link them in the Instagram app: open Part 2 → ⋯ → Edit → '
+                'Link a Reel → choose Part 1 (Instagram has no API for this).')
+    return ('🔗 Part 2 is live: link the parts now in the Instagram app. Open this Reel → ⋯ → Edit → Link a Reel → '
+            'choose Part 1, so viewers of either part find the other (Instagram has no API for this).')

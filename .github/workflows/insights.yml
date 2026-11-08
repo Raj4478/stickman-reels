@@ -1,0 +1,47 @@
+# Every evening: read each Instagram Reel's insights 24 hours, 72 hours and 7 days after it was posted (reach,
+# shares, likes, saves, average watch time, skip rate) into the topic history, and send a short note to Telegram.
+# The weekly report compares them by style, series and hook, and the writers are told what people sent and watched.
+name: Instagram insights
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 18 * * *'   # 00:00 IST, after the evening posts and away from the 9 am daily Reel
+permissions:
+  contents: read
+concurrency:
+  group: reel-history
+  cancel-in-progress: false
+jobs:
+  insights:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Restore the topic history
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            history.json
+            ideas.json
+          key: reel-history-${{ github.run_id }}
+          restore-keys: reel-history-
+      - name: Read the insights
+        env:
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m reel insights
+      - name: Save the topic history
+        if: always() && hashFiles('history.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            history.json
+            ideas.json
+          key: reel-history-${{ github.run_id }}
